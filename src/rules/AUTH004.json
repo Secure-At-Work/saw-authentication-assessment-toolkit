@@ -1,0 +1,8 @@
+{
+    "RuleID": "AUTH004",
+    "Category": "Authentication Methods",
+    "Setting": "FIDO2",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Enable FIDO2 security keys to support phishing-resistant authentication for privileged and high-risk users."
+}

@@ -1,0 +1,8 @@
+{
+    "RuleID": "AUTH005",
+    "Category": "Authentication Methods",
+    "Setting": "Temporary Access Pass",
+    "Expected": "Enabled",
+    "Severity": "Low",
+    "Recommendation": "Keep Temporary Access Pass enabled for secure onboarding and passwordless recovery scenarios."
+}

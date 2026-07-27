@@ -1,0 +1,8 @@
+{
+    "RuleID": "AUTH003",
+    "Category": "Authentication Methods",
+    "Setting": "Voice",
+    "Expected": "Disabled",
+    "Severity": "Medium",
+    "Recommendation": "Disable Voice call as an authentication method; it is a weak factor and should be replaced by Microsoft Authenticator or FIDO2."
+}

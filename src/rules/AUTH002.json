@@ -1,0 +1,8 @@
+{
+    "RuleID": "AUTH002",
+    "Category": "Authentication Methods",
+    "Setting": "SMS",
+    "Expected": "Disabled",
+    "Severity": "High",
+    "Recommendation": "Disable SMS as an authentication method; it is phishable and should be replaced by Microsoft Authenticator or FIDO2."
+}

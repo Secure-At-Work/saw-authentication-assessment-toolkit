@@ -1,12 +1,11 @@
-# Generated report output
+# Generated report output (may contain customer-identifying findings)
 reports/*
 !reports/.gitkeep
 
-# Raw/normalized tenant data (may contain customer-identifying data)
-sampledata/raw/*
-sampledata/normalized/*
-!sampledata/raw/.gitkeep
-!sampledata/normalized/.gitkeep
+# sampledata/ holds committed synthetic fixtures used for offline dev/testing -
+# it is intentionally NOT gitignored. Real per-tenant collector output has no
+# committed home yet; when that lands, gitignore its actual output path here
+# (not sampledata/, which must stay fixture-only).
 
 # Local, tenant-specific configuration (never commit tenant/group/policy IDs)
 config/config.json
