@@ -20,6 +20,7 @@ throw `Cannot convert value ... Only core types are supported in this language m
 | `[System.Net.WebUtility]::HtmlEncode(...)` / other static calls to non-core types | Hand-rolled string `-replace` chains, or stick to methods on core types (`System.String`, `System.Int32`, ...) — e.g. `[string]::IsNullOrEmpty(...)`, `"x".Substring(...)`, `"x".ToUpper()` all work. |
 | `$obj | Select-Object -Property A,B` on a hashtable | Works on real PSObjects (e.g. cmdlet output), but fails converting a raw hashtable. Filter/select with `Where-Object` instead, or just read keys directly. |
 | `$rows | Format-Table -Property ...` on an array of hashtables | Unreliable (prints headers, blank rows) — build the summary with a manual loop and `Write-Host`/string formatting instead. |
+| `[math]::Round(...)` / other static calls on `System.Math` | Not needed for threshold comparisons — compare the unrounded value directly (`$percent -ge 90`). For display, use the `-f` format operator (`"{0:N1}" -f $percent`), which works fine since it's an operator, not a method call. |
 
 Net effect for this codebase: collector/normalizer/rules-engine functions return **arrays
 of hashtables**, not `[PSCustomObject]`. Property access (`$_.Category`), `Where-Object`,
