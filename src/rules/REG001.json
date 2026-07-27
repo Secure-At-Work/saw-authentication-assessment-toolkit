@@ -1,0 +1,8 @@
+{
+    "RuleID": "REG001",
+    "Category": "Registration",
+    "Setting": "All Privileged Admins MFA Registered",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Every account with an administrative role must be MFA registered. Identify and remediate any admin account with no registered authentication method before it can be targeted for account takeover."
+}
