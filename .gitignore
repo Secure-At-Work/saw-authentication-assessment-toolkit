@@ -1,0 +1,17 @@
+# Generated report output
+reports/*
+!reports/.gitkeep
+
+# Raw/normalized tenant data (may contain customer-identifying data)
+sampledata/raw/*
+sampledata/normalized/*
+!sampledata/raw/.gitkeep
+!sampledata/normalized/.gitkeep
+
+# Local, tenant-specific configuration (never commit tenant/group/policy IDs)
+config/config.json
+
+# PowerShell / editor
+*.ps1xml.bak
+.vscode/
+*.log

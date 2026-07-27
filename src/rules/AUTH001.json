@@ -1,0 +1,8 @@
+{
+    "RuleID": "AUTH001",
+    "Category": "Authentication Methods",
+    "Setting": "Microsoft Authenticator",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Enable Microsoft Authenticator"
+}

@@ -1,0 +1,12 @@
+{
+  "TenantId": "<tenant-guid-or-domain>",
+  "ClientId": "<app-registration-client-id>",
+  "AuthMethod": "DeviceCode",
+  "BreakGlassGroupId": "<group-guid>",
+  "ConditionalAccessBaselineRepo": "<path-or-url-to-CA-baseline>",
+  "OutputPaths": {
+    "Raw": "sampledata/raw",
+    "Normalized": "sampledata/normalized",
+    "Reports": "reports"
+  }
+}
