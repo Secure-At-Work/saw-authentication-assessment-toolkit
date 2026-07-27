@@ -1,0 +1,8 @@
+{
+    "RuleID": "CA002",
+    "Category": "Conditional Access",
+    "Setting": "Require MFA For All Users",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Move the Conditional Access policy requiring MFA for all users out of report-only mode ('enabledForReportingButNotEnforced') and enable enforcement."
+}

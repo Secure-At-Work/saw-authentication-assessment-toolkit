@@ -1,0 +1,8 @@
+{
+    "RuleID": "CA003",
+    "Category": "Conditional Access",
+    "Setting": "Require Compliant Device For Admins",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Enable the Conditional Access policy requiring a compliant device for directory role administrators; it is currently configured but disabled."
+}

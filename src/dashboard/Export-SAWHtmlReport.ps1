@@ -57,6 +57,14 @@ function Export-SAWHtmlReport {
 "@
     }
 
+    $categories = @()
+    foreach ($r in $RuleResults) {
+        if ($r.Category -and ($categories -notcontains $r.Category)) {
+            $categories += $r.Category
+        }
+    }
+    $categoriesText = ConvertTo-SAWHtmlEncoded ($categories -join ', ')
+
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $rowsHtml = $rows -join "`n"
 
@@ -78,7 +86,7 @@ function Export-SAWHtmlReport {
 </head>
 <body>
   <h1>Secure At Work Authentication Assessment Report</h1>
-  <p class="meta">Generated $generated &middot; Category: Authentication Methods &middot; Read-only assessment, no tenant changes made.</p>
+  <p class="meta">Generated $generated &middot; Categories: $categoriesText &middot; Read-only assessment, no tenant changes made.</p>
   <table>
     <thead>
       <tr>

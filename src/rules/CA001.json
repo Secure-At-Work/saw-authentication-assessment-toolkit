@@ -1,0 +1,8 @@
+{
+    "RuleID": "CA001",
+    "Category": "Conditional Access",
+    "Setting": "Block Legacy Authentication",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Ensure an enabled (not report-only) Conditional Access policy blocks legacy authentication (Exchange ActiveSync and other legacy clients) for all users and applications."
+}
