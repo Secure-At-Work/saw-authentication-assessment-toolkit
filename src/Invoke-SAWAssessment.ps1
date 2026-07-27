@@ -5,9 +5,9 @@
     across every wired-up collector category.
 .DESCRIPTION
     Wires together each collector/normalizer pair (currently Authentication Methods,
-    Conditional Access, Authentication Strengths, Registration, and Temporary Access Pass)
-    with the shared Invoke-SAWRulesEngine and Export-SAWHtmlReport. Read-only end to end;
-    never modifies tenant configuration.
+    Conditional Access, Authentication Strengths, Registration, Temporary Access Pass, and
+    Passkeys) with the shared Invoke-SAWRulesEngine and Export-SAWHtmlReport. Read-only end
+    to end; never modifies tenant configuration.
 .PARAMETER UseSampleData
     Run against the bundled sample data instead of a live tenant. Requires no Graph connection.
 .PARAMETER RulesPath
@@ -38,6 +38,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedRegistration.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedTemporaryAccessPass.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeys.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedPasskeys.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Invoke-SAWRulesEngine.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 
@@ -62,6 +64,10 @@ $normalized += $registrationRaw | ConvertTo-SAWNormalizedRegistration -Verbose:$
 Write-Verbose 'Invoke-SAWAssessment: collecting temporary access pass configuration'
 $tapRaw = Get-SAWTemporaryAccessPass -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $tapRaw | ConvertTo-SAWNormalizedTemporaryAccessPass -Verbose:$VerbosePreference
+
+Write-Verbose 'Invoke-SAWAssessment: collecting FIDO2 (passkey) configuration'
+$passkeysRaw = Get-SAWPasskeys -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
+$normalized += $passkeysRaw | ConvertTo-SAWNormalizedPasskeys -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: evaluating Secure At Work rules'
 $results = Invoke-SAWRulesEngine -RulesPath $RulesPath -NormalizedData $normalized -Verbose:$VerbosePreference

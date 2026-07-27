@@ -1,0 +1,13 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#policies/authenticationMethodsPolicy/authenticationMethodConfigurations/$entity",
+  "@odata.type": "#microsoft.graph.fido2AuthenticationMethodConfiguration",
+  "id": "Fido2",
+  "state": "disabled",
+  "isAttestationEnforced": true,
+  "isSelfServiceRegistrationAllowed": false,
+  "keyRestrictions": {
+    "isEnforced": false,
+    "enforcementType": "block",
+    "aaGuids": []
+  }
+}
