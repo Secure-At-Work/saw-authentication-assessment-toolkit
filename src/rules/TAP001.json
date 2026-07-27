@@ -1,0 +1,8 @@
+{
+    "RuleID": "TAP001",
+    "Category": "Temporary Access Pass",
+    "Setting": "One-Time Use Enforced",
+    "Expected": "Enabled",
+    "Severity": "Medium",
+    "Recommendation": "Set Temporary Access Pass to one-time use (isUsableOnce = true) rather than reusable, to limit its window of exposure to a single onboarding or recovery event."
+}

@@ -1,0 +1,8 @@
+{
+    "RuleID": "TAP002",
+    "Category": "Temporary Access Pass",
+    "Setting": "Maximum Lifetime Within 8 Hours",
+    "Expected": "Enabled",
+    "Severity": "Medium",
+    "Recommendation": "Reduce the maximum Temporary Access Pass lifetime to 8 hours (480 minutes) or less to limit the exposure window if a pass is intercepted or leaked."
+}

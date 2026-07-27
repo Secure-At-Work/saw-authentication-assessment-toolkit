@@ -1,0 +1,11 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#policies/authenticationMethodsPolicy/authenticationMethodConfigurations/$entity",
+  "@odata.type": "#microsoft.graph.temporaryAccessPassAuthenticationMethodConfiguration",
+  "id": "TemporaryAccessPass",
+  "state": "enabled",
+  "defaultLength": 8,
+  "defaultLifetimeInMinutes": 480,
+  "minimumLifetimeInMinutes": 60,
+  "maximumLifetimeInMinutes": 1440,
+  "isUsableOnce": false
+}
