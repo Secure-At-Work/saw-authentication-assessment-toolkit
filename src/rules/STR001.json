@@ -1,0 +1,8 @@
+{
+    "RuleID": "STR001",
+    "Category": "Authentication Strengths",
+    "Setting": "Phishing-Resistant MFA Strength Available",
+    "Expected": "Enabled",
+    "Severity": "Medium",
+    "Recommendation": "Define (or keep) an authentication strength restricted to phishing-resistant methods only (FIDO2, Windows Hello for Business, certificate-based MFA) so it can be required for admins and other high-risk users via Conditional Access."
+}

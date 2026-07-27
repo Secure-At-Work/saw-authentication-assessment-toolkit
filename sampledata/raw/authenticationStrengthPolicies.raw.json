@@ -1,0 +1,74 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#policies/authenticationStrengthPolicies",
+  "value": [
+    {
+      "id": "00000000-0000-0000-0000-000000000004",
+      "displayName": "Multifactor authentication",
+      "description": "Combinations of methods that satisfy strong authentication, such as a password + SMS.",
+      "policyType": "builtIn",
+      "requirementsSatisfied": "mfa",
+      "allowedCombinations": [
+        "password,sms",
+        "password,voice",
+        "password,softwareOath",
+        "password,hardwareOath",
+        "federatedMultiFactor",
+        "windowsHelloForBusiness",
+        "fido2",
+        "x509CertificateMultiFactor",
+        "microsoftAuthenticatorPush",
+        "softwareOath",
+        "hardwareOath",
+        "temporaryAccessPassOneTime",
+        "temporaryAccessPassMultiUse",
+        "sms,federatedSingleFactor",
+        "voice,federatedSingleFactor"
+      ],
+      "createdDateTime": null,
+      "modifiedDateTime": null
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "displayName": "Passwordless MFA",
+      "description": "Passwordless methods that satisfy strong authentication, such as Passwordless sign-in with the Authenticator app.",
+      "policyType": "builtIn",
+      "requirementsSatisfied": "mfa",
+      "allowedCombinations": [
+        "fido2",
+        "windowsHelloForBusiness",
+        "x509CertificateMultiFactor",
+        "microsoftAuthenticatorPush",
+        "temporaryAccessPassOneTime"
+      ],
+      "createdDateTime": null,
+      "modifiedDateTime": null
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000003",
+      "displayName": "Phishing-resistant MFA",
+      "description": "Phishing-resistant, Passwordless methods for strong authentication, such as FIDO2 or Windows Hello for Business.",
+      "policyType": "builtIn",
+      "requirementsSatisfied": "mfa",
+      "allowedCombinations": [
+        "fido2",
+        "windowsHelloForBusiness",
+        "x509CertificateMultiFactor"
+      ],
+      "createdDateTime": null,
+      "modifiedDateTime": null
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444444",
+      "displayName": "SAW Baseline - Admin Phishing Resistant",
+      "description": "Secure At Work custom authentication strength scoped to privileged role Conditional Access policies.",
+      "policyType": "custom",
+      "requirementsSatisfied": "mfa",
+      "allowedCombinations": [
+        "fido2",
+        "x509CertificateMultiFactor"
+      ],
+      "createdDateTime": "2025-11-10T09:00:00Z",
+      "modifiedDateTime": "2025-11-10T09:00:00Z"
+    }
+  ]
+}

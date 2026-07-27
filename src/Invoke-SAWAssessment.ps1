@@ -4,9 +4,9 @@
     Runs the assessment vertical slice: collect -> normalize -> evaluate -> report,
     across every wired-up collector category.
 .DESCRIPTION
-    Wires together each collector/normalizer pair (currently Authentication Methods and
-    Conditional Access) with the shared Invoke-SAWRulesEngine and Export-SAWHtmlReport.
-    Read-only end to end; never modifies tenant configuration.
+    Wires together each collector/normalizer pair (currently Authentication Methods,
+    Conditional Access, and Authentication Strengths) with the shared Invoke-SAWRulesEngine
+    and Export-SAWHtmlReport. Read-only end to end; never modifies tenant configuration.
 .PARAMETER UseSampleData
     Run against the bundled sample data instead of a live tenant. Requires no Graph connection.
 .PARAMETER RulesPath
@@ -31,6 +31,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWConditionalAccess.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedConditionalAccess.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuthenticationStrengths.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationStrengths.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Invoke-SAWRulesEngine.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 
@@ -43,6 +45,10 @@ $normalized += $authRaw | ConvertTo-SAWNormalizedAuthenticationMethods -Verbose:
 Write-Verbose 'Invoke-SAWAssessment: collecting conditional access policies'
 $caRaw = Get-SAWConditionalAccess -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $caRaw | ConvertTo-SAWNormalizedConditionalAccess -Verbose:$VerbosePreference
+
+Write-Verbose 'Invoke-SAWAssessment: collecting authentication strength policies'
+$strengthsRaw = Get-SAWAuthenticationStrengths -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
+$normalized += $strengthsRaw | ConvertTo-SAWNormalizedAuthenticationStrengths -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: evaluating Secure At Work rules'
 $results = Invoke-SAWRulesEngine -RulesPath $RulesPath -NormalizedData $normalized -Verbose:$VerbosePreference
