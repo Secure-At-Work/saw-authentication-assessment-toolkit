@@ -6,14 +6,18 @@
 .DESCRIPTION
     Wires together every collector/normalizer pair from spec section 6 - Authentication
     Methods, Conditional Access, Authentication Strengths, Registration, Temporary Access
-    Pass, Passkeys, Sign-In Logs, and Audit Logs - with the shared Invoke-SAWRulesEngine and
-    Export-SAWHtmlReport. Read-only end to end; never modifies tenant configuration.
+    Pass, Passkeys, Sign-In Logs, and Audit Logs - with the shared Invoke-SAWRulesEngine,
+    Export-SAWHtmlReport (flat table), and Export-SAWDashboard (multi-section Bootstrap/
+    Chart.js dashboard). Read-only end to end; never modifies tenant configuration.
 .PARAMETER UseSampleData
     Run against the bundled sample data instead of a live tenant. Requires no Graph connection.
 .PARAMETER RulesPath
     Directory containing rule *.json files. Defaults to src/rules.
 .PARAMETER ReportPath
-    Output path for the generated HTML report. Defaults to reports/assessment-report.html.
+    Output path for the generated flat HTML report. Defaults to reports/assessment-report.html.
+.PARAMETER DashboardPath
+    Output path for the generated dashboard's index.html. Defaults to
+    reports/dashboard/index.html (a vendor/ subfolder is created alongside it).
 .EXAMPLE
     pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
 #>
@@ -23,7 +27,9 @@ param(
 
     [string]$RulesPath = (Join-Path $PSScriptRoot 'rules'),
 
-    [string]$ReportPath = (Join-Path $PSScriptRoot '..' 'reports' 'assessment-report.html')
+    [string]$ReportPath = (Join-Path $PSScriptRoot '..' 'reports' 'assessment-report.html'),
+
+    [string]$DashboardPath = (Join-Path $PSScriptRoot '..' 'reports' 'dashboard' 'index.html')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -46,6 +52,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuditLogs.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Invoke-SAWRulesEngine.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
+. (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
 
 $normalized = @()
 
@@ -87,9 +94,13 @@ $results = Invoke-SAWRulesEngine -RulesPath $RulesPath -NormalizedData $normaliz
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -OutputPath $ReportPath -Verbose:$VerbosePreference
 
+Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
+$dashboard = Export-SAWDashboard -RuleResults $results -OutputPath $DashboardPath -Verbose:$VerbosePreference
+
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `
         $result.RuleID, $result.Category, $result.Setting, $result.Expected, $result.Actual, $result.Severity, $result.Status)
 }
 Write-Host ''
 Write-Host "Report written to: $($report.FullName)"
+Write-Host "Dashboard written to: $($dashboard.FullName)"

@@ -21,11 +21,15 @@ throw `Cannot convert value ... Only core types are supported in this language m
 | `$obj | Select-Object -Property A,B` on a hashtable | Works on real PSObjects (e.g. cmdlet output), but fails converting a raw hashtable. Filter/select with `Where-Object` instead, or just read keys directly. |
 | `$rows | Format-Table -Property ...` on an array of hashtables | Unreliable (prints headers, blank rows) — build the summary with a manual loop and `Write-Host`/string formatting instead. |
 | `[math]::Round(...)` / other static calls on `System.Math` | Not needed for threshold comparisons — compare the unrounded value directly (`$percent -ge 90`). For display, use the `-f` format operator (`"{0:N1}" -f $percent`), which works fine since it's an operator, not a method call. |
+| `$rows | Sort-Object -Property SomeKey` on an array of hashtables | Same PSObject-conversion failure as `Select-Object -Property`. Use a scriptblock instead: `Sort-Object -Property { $_.SomeKey }` — that works fine, including multiple comma-separated scriptblocks for a multi-key sort. |
 
 Net effect for this codebase: collector/normalizer/rules-engine functions return **arrays
 of hashtables**, not `[PSCustomObject]`. Property access (`$_.Category`), `Where-Object`,
-and `Select-Object -First N` all work fine on hashtables — just avoid `-Property` projection
-and any `[PSCustomObject]`/`New-Object` construction.
+`Select-Object -First N`, and `Sort-Object -Property { $_.Key }` (scriptblock form) all work
+fine on hashtables — just avoid plain `-Property <name>` projection/sort and any
+`[PSCustomObject]`/`New-Object` construction. `ConvertTo-Json` also works fine (it's a
+cmdlet) and is the safest way to embed PowerShell arrays/hashtables as JS data literals in
+generated HTML — safer than hand-building strings with manual quote escaping.
 
 Objects returned directly by built-in cmdlets (`ConvertFrom-Json`, `Get-Content`,
 `Get-ChildItem`, `Invoke-MgGraphRequest`, ...) are unrestricted regardless of language mode —
