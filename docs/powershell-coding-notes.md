@@ -58,3 +58,30 @@ Get-MgContext -ErrorAction SilentlyContinue` and check none are missing. See
 logic did not reproduce — that was a shell-quoting artifact from the inline command string,
 not a real finding. Prefer a `.ps1` file over a complex inline `-Command` string when
 diagnosing anything CLM-related; the extra quoting layer can lie to you.)
+
+## Bound every Graph log/audit endpoint with a date filter
+
+Not a CLM issue - a real-tenant finding. `Get-SAWSignInLogs` and `Get-SAWAuditLogs` originally
+queried `/auditLogs/signIns` and `/auditLogs/directoryAudits` with no `$filter`, on the
+(wrong) assumption that "keep it simple for the vertical slice" was an acceptable shortcut.
+Against a real tenant this timed out:
+
+```
+Invoke-MgGraphRequest: The request was canceled due to the configured HttpClient.Timeout of 300 seconds elapsing.
+```
+
+Both endpoints are effectively unbounded time-series data - without a filter, Graph tries to
+enumerate everything still in the retention window, which for an active tenant can be far
+more than a single 300-second request can return. Fixed by:
+
+- Always adding `$filter=createdDateTime ge <N days ago>` (sign-ins) / `activityDateTime ge
+  <N days ago>` (audits), built via `Get-Date -Format 'yyyy-MM-ddTHH:mm:ssZ'` + `-replace ' ',
+  '%20'` for the query string. `-DaysBack` (default 7) makes the window a param, not a
+  constant - both checks these collectors run only need recent activity, not full history.
+- A `-MaxPages` safety cap (default 50) as a second line of defense, in case even the
+  date-bounded query is still large for a busy tenant - collection stops early and returns
+  whatever was gathered rather than hanging again.
+
+Lesson for any *new* Graph collector added later: if the endpoint is a log/report/audit
+resource rather than a small, mostly-static policy object, assume it's unbounded and filter
+it from the start - don't wait to find out against a real tenant.

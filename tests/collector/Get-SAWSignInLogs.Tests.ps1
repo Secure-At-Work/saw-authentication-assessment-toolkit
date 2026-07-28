@@ -37,15 +37,36 @@ Describe 'Get-SAWSignInLogs' {
             { Get-SAWSignInLogs } | Should -Throw
         }
 
-        It 'calls the sign-ins endpoint' {
+        It 'calls the sign-ins endpoint scoped to a createdDateTime filter' {
             Mock Get-MgContext { @{ Account = 'assessor@contoso.com' } }
             Mock Invoke-MgGraphRequest { @{ value = @() } }
 
             Get-SAWSignInLogs | Out-Null
 
+            # Not an exact URI match - the filter's date value is computed at call time
+            # (see Get-SAWAuditLogs.Tests.ps1 for why this endpoint must be date-bounded:
+            # unfiltered, it timed out against a live tenant per
+            # docs/powershell-coding-notes.md).
             Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
-                $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/v1.0/auditLogs/signIns'
+                $Method -eq 'GET' -and
+                $Uri -like 'https://graph.microsoft.com/v1.0/auditLogs/signIns?*' -and
+                $Uri -match '\$filter=createdDateTime%20ge%20'
             }
+        }
+
+        It 'stops paginating once -MaxPages is reached' {
+            Mock Get-MgContext { @{ Account = 'assessor@contoso.com' } }
+            Mock Invoke-MgGraphRequest {
+                @{
+                    value             = @(@{ id = 'signin' })
+                    '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/auditLogs/signIns?$skiptoken=nextpage'
+                }
+            }
+
+            $result = Get-SAWSignInLogs -MaxPages 3
+
+            $result.value.Count | Should -Be 3
+            Should -Invoke Invoke-MgGraphRequest -Times 3
         }
 
         It 'follows @odata.nextLink to collect every page' {

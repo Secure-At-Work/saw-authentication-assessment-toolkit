@@ -28,14 +28,20 @@ Describe 'Get-SAWAuditLogs' {
             { Get-SAWAuditLogs } | Should -Throw
         }
 
-        It 'calls the directory audits endpoint' {
+        It 'calls the directory audits endpoint scoped to an activityDateTime filter' {
             Mock Get-MgContext { @{ Account = 'assessor@contoso.com' } }
             Mock Invoke-MgGraphRequest { @{ value = @() } }
 
             Get-SAWAuditLogs | Out-Null
 
+            # Not an exact URI match - the filter's date value is computed at call time.
+            # This endpoint must be date-bounded: unfiltered, the sibling Get-SAWSignInLogs
+            # collector timed out against a live tenant (see
+            # docs/powershell-coding-notes.md), and this collector has the same shape.
             Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
-                $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/v1.0/auditLogs/directoryAudits'
+                $Method -eq 'GET' -and
+                $Uri -like 'https://graph.microsoft.com/v1.0/auditLogs/directoryAudits?*' -and
+                $Uri -match '\$filter=activityDateTime%20ge%20'
             }
         }
 
@@ -57,6 +63,21 @@ Describe 'Get-SAWAuditLogs' {
 
             $result.value.Count | Should -Be 2
             Should -Invoke Invoke-MgGraphRequest -Times 2
+        }
+
+        It 'stops paginating once -MaxPages is reached' {
+            Mock Get-MgContext { @{ Account = 'assessor@contoso.com' } }
+            Mock Invoke-MgGraphRequest {
+                @{
+                    value             = @(@{ id = 'audit-entry' })
+                    '@odata.nextLink' = 'https://graph.microsoft.com/v1.0/auditLogs/directoryAudits?$skiptoken=nextpage'
+                }
+            }
+
+            $result = Get-SAWAuditLogs -MaxPages 3
+
+            $result.value.Count | Should -Be 3
+            Should -Invoke Invoke-MgGraphRequest -Times 3
         }
     }
 }
