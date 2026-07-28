@@ -1,0 +1,8 @@
+{
+    "RuleID": "SIGNIN001",
+    "Category": "Sign-In Analysis",
+    "Setting": "No Successful Legacy Authentication Sign-ins",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Investigate successful legacy authentication sign-ins (IMAP4/POP3/SMTP/Exchange ActiveSync). If Conditional Access is meant to block legacy auth (see CA001), this indicates a gap such as an unintended exclusion or scoping that lets some accounts through."
+}

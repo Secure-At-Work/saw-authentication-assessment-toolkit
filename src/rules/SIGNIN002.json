@@ -1,0 +1,8 @@
+{
+    "RuleID": "SIGNIN002",
+    "Category": "Sign-In Analysis",
+    "Setting": "No Successful Device Code Flow Sign-ins",
+    "Expected": "Enabled",
+    "Severity": "Medium",
+    "Recommendation": "Review successful device code flow sign-ins. This flow is a known phishing vector (device code phishing) and should be restricted via Conditional Access to trusted scenarios only."
+}
