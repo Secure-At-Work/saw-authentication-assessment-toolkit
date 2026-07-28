@@ -1,0 +1,8 @@
+{
+    "RuleID": "AUDIT001",
+    "Category": "Audit Logs",
+    "Setting": "No Unexpected Break Glass Credential Changes",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Investigate any password or credential change on break-glass accounts outside a planned, documented rotation. Unexpected changes may indicate compromise or informal handling of emergency-access credentials that should be tightly controlled."
+}

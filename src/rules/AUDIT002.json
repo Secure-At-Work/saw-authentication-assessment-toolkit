@@ -1,0 +1,8 @@
+{
+    "RuleID": "AUDIT002",
+    "Category": "Audit Logs",
+    "Setting": "Conditional Access Changes Not Made By Applications",
+    "Expected": "Enabled",
+    "Severity": "Medium",
+    "Recommendation": "Review Conditional Access policy changes initiated by an application or service principal rather than a named administrator. Confirm the automation is expected and appropriately scoped, since unattributed changes to security policy are a governance risk."
+}
