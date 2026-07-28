@@ -11,28 +11,71 @@ This toolkit is **read-only**. It must never create, modify, enable/disable, or 
 ## Repository structure
 
 ```
-docs/               Project documentation
+docs/               Project documentation (see docs/powershell-coding-notes.md)
 specs/              Specifications driving development
 src/
-  collector/         PowerShell modules that read data from Microsoft Graph
-  rules/             Secure At Work rule definitions (JSON, no logic)
-  dashboard/         HTML/JS/CSS dashboard
-tests/              Pester tests + mock Graph responses
-sampledata/         Sample raw/normalized JSON for offline dashboard development
-schemas/            JSON schemas for normalized data and rules
+  Invoke-SAWAssessment.ps1   Orchestrator: connect -> collect -> normalize -> evaluate -> report
+  Connect-SAWGraph.ps1       Module check + Microsoft Graph connection helper
+  collector/         One Get-SAW*.ps1 (Graph read) + ConvertTo-SAWNormalized*.ps1 (derive
+                      Category/Setting/State facts) pair per assessed category
+  rules/             Secure At Work rule definitions (JSON, no logic) + the rules engine
+  dashboard/          Export-SAWHtmlReport.ps1 (flat table) and Export-SAWDashboard.ps1
+                      (Bootstrap/Chart.js dashboard, vendored locally under vendor/)
+tests/              Pester tests, mirroring src/ (see tests/README.md - can't run locally
+                    on this machine, see docs/powershell-coding-notes.md)
+sampledata/raw/     Committed synthetic Graph response fixtures, used by -UseSampleData
+                    and by the tests
+schemas/            JSON schemas for normalized data and rules (not yet written)
 reports/            Generated report output (gitignored)
+.github/workflows/  CI: runs Pester + PSScriptAnalyzer on push/PR
 ```
 
 ## Status
 
-Scaffold only — no collector logic implemented yet. See the spec for module list and acceptance criteria.
+All 8 collectors from spec section 6 are implemented (Authentication Methods, Conditional
+Access, Authentication Strengths, Registration, Temporary Access Pass, Passkeys, Sign-In
+Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section 9) and flat
+HTML report both work. Not yet built: Markdown/Excel/JSON report exports (spec section 14).
+
+## Usage
+
+Offline, against the bundled sample tenant fixtures (no Graph connection needed):
+
+```powershell
+pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
+```
+
+Against a real tenant - `Invoke-SAWAssessment.ps1` connects for you (see
+[Connect-SAWGraph.ps1](src/Connect-SAWGraph.ps1)): it checks that
+`Microsoft.Graph.Authentication` is installed, imports it, and calls `Connect-MgGraph` with
+the read-only scopes every collector needs, if there's no active connection with those scopes
+already:
+
+```powershell
+pwsh -File src/Invoke-SAWAssessment.ps1 -Verbose
+# or, to have it install the one required module for you if missing:
+pwsh -File src/Invoke-SAWAssessment.ps1 -InstallMissingModules -Verbose
+```
+
+`Connect-MgGraph` opens its normal interactive/device-code sign-in - that part is yours to
+complete, the script doesn't handle credentials itself. Start against a
+[Microsoft 365 Developer Program](https://developer.microsoft.com/microsoft-365/dev-program)
+sandbox tenant rather than production the first time, since the live-Graph code path (as
+opposed to `-UseSampleData`) hasn't been exercised against a real tenant yet.
+
+Output lands in `reports/assessment-report.html` (flat table) and
+`reports/dashboard/index.html` (full dashboard - self-contained with its own `vendor/`
+subfolder, so the whole `reports/dashboard/` directory can be zipped up and handed to a
+client without needing internet access to render).
 
 ## Requirements
 
 - PowerShell 7.4+
-- Microsoft Graph PowerShell SDK modules:
-  - Microsoft.Graph.Authentication
-  - Microsoft.Graph.Identity.SignIns
-  - Microsoft.Graph.Users
-  - Microsoft.Graph.Identity.DirectoryManagement
-- Delegated or app-only Graph permissions with **read-only** scopes (e.g. `Policy.Read.All`, `UserAuthenticationMethod.Read.All`, `AuditLog.Read.All`) — no write scopes should ever be requested.
+- `Microsoft.Graph.Authentication` - the only Graph SDK module this toolkit depends on. Every
+  collector calls Graph via generic `Invoke-MgGraphRequest`/`Get-MgContext` rather than the
+  typed per-resource cmdlets, so the heavier modules listed in spec section 5 (e.g.
+  `Microsoft.Graph.Identity.SignIns`, `Microsoft.Graph.Users`) aren't actually needed.
+- Delegated Graph permissions with **read-only** scopes: `Policy.Read.All`,
+  `UserAuthenticationMethod.Read.All`, `Reports.Read.All`, `AuditLog.Read.All`,
+  `Directory.Read.All` (the default set `Connect-SAWGraph.ps1` requests) — no write scopes
+  should ever be requested.

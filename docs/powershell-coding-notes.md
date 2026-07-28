@@ -34,3 +34,27 @@ generated HTML — safer than hand-building strings with manual quote escaping.
 Objects returned directly by built-in cmdlets (`ConvertFrom-Json`, `Get-Content`,
 `Get-ChildItem`, `Invoke-MgGraphRequest`, ...) are unrestricted regardless of language mode —
 the restriction is specifically about *script code constructing new typed instances*.
+
+## Importing Microsoft.Graph.Authentication under ConstrainedLanguage
+
+`Import-Module Microsoft.Graph.Authentication` prints alarming-looking errors on this kind
+of machine — `Cannot convert value ... [PSCustomObject]` from an internal helper script
+(`custom/common/Permissions.ps1`) that the module ships and auto-loads. **This is cosmetic
+noise, not a real failure** — the actual cmdlets the toolkit needs (`Connect-MgGraph`,
+`Invoke-MgGraphRequest`, `Get-MgContext`) are compiled .NET cmdlets, unaffected by CLM, and
+work completely normally once loaded (confirmed: `Get-MgContext` correctly returns `$null`
+when unauthenticated, calls succeed after connecting, etc.).
+
+The practical consequence: **never call `Import-Module Microsoft.Graph.Authentication` with
+`-ErrorAction Stop`** (or under an ambient `$ErrorActionPreference = 'Stop'` without an
+explicit per-call override) — that promotes the harmless internal noise into a real
+terminating failure. Use `-ErrorAction SilentlyContinue` on the `Import-Module` call itself,
+then verify success the *real* way: `Get-Command -Name Connect-MgGraph, Invoke-MgGraphRequest,
+Get-MgContext -ErrorAction SilentlyContinue` and check none are missing. See
+`src/Connect-SAWGraph.ps1` for the pattern.
+
+(A quick inline `pwsh -Command "..."` test of this same sequence produced a spurious
+`Get-MgContext ... module could not be loaded` error that a clean `-File` run of the identical
+logic did not reproduce — that was a shell-quoting artifact from the inline command string,
+not a real finding. Prefer a `.ps1` file over a complex inline `-Command` string when
+diagnosing anything CLM-related; the extra quoting layer can lie to you.)

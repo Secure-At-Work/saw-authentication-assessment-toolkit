@@ -10,7 +10,14 @@
     Export-SAWHtmlReport (flat table), and Export-SAWDashboard (multi-section Bootstrap/
     Chart.js dashboard). Read-only end to end; never modifies tenant configuration.
 .PARAMETER UseSampleData
-    Run against the bundled sample data instead of a live tenant. Requires no Graph connection.
+    Run against the bundled sample data instead of a live tenant. Requires no Graph connection
+    and skips Connect-SAWGraph entirely.
+.PARAMETER Scopes
+    Graph delegated scopes to request when connecting to a live tenant. Defaults to the
+    read-only scopes every collector needs. Ignored when -UseSampleData is set.
+.PARAMETER InstallMissingModules
+    Install Microsoft.Graph.Authentication for the current user if it isn't already
+    installed. Ignored when -UseSampleData is set.
 .PARAMETER RulesPath
     Directory containing rule *.json files. Defaults to src/rules.
 .PARAMETER ReportPath
@@ -20,10 +27,22 @@
     reports/dashboard/index.html (a vendor/ subfolder is created alongside it).
 .EXAMPLE
     pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
+.EXAMPLE
+    pwsh -File src/Invoke-SAWAssessment.ps1 -InstallMissingModules -Verbose
 #>
 [CmdletBinding()]
 param(
     [switch]$UseSampleData,
+
+    [string[]]$Scopes = @(
+        'Policy.Read.All',
+        'UserAuthenticationMethod.Read.All',
+        'Reports.Read.All',
+        'AuditLog.Read.All',
+        'Directory.Read.All'
+    ),
+
+    [switch]$InstallMissingModules,
 
     [string]$RulesPath = (Join-Path $PSScriptRoot 'rules'),
 
@@ -33,6 +52,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+. (Join-Path $PSScriptRoot 'Connect-SAWGraph.ps1')
 
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationMethods.ps1')
@@ -53,6 +74,11 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'rules' 'Invoke-SAWRulesEngine.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
+
+if (-not $UseSampleData) {
+    Write-Verbose 'Invoke-SAWAssessment: establishing Microsoft Graph connection'
+    Connect-SAWGraph -Scopes $Scopes -InstallMissingModules:$InstallMissingModules -Verbose:$VerbosePreference | Out-Null
+}
 
 $normalized = @()
 
