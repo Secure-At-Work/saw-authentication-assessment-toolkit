@@ -109,6 +109,17 @@ if ($Baseline) {
 
 $baselineOverrides = Get-SAWBaselineOverrides -BaselinePath $baselinePath -OverridePath $BaselineOverridePath -Verbose:$VerbosePreference
 
+$baselineDisplayName = 'Toolkit default (no customer-specific baseline applied)'
+if ($baselinePath) {
+    $baselineDisplayName = (Get-Content -Path $baselinePath -Raw | ConvertFrom-Json).name
+    if ($BaselineOverridePath) {
+        $baselineDisplayName += ' + engagement override'
+    }
+}
+elseif ($BaselineOverridePath) {
+    $baselineDisplayName = 'Engagement override only (no named preset)'
+}
+
 $normalized = @()
 
 Write-Verbose 'Invoke-SAWAssessment: collecting authentication methods policy'
@@ -149,10 +160,10 @@ Write-Verbose 'Invoke-SAWAssessment: evaluating Secure At Work rules'
 $results = Invoke-SAWRulesEngine -RulesPath $RulesPath -NormalizedData $normalized -BaselineOverrides $baselineOverrides -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
-$report = Export-SAWHtmlReport -RuleResults $results -OutputPath $ReportPath -Verbose:$VerbosePreference
+$report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisplayName -OutputPath $ReportPath -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
-$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -BaselineName $baselineDisplayName -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

@@ -32,6 +32,10 @@ function Export-SAWDashboard {
         listing every policy's name, state, targets, and grant controls - independent of the
         handful of synthetic pass/fail CA checks in the rules engine. Omitted entirely if
         empty/absent.
+    .PARAMETER BaselineName
+        Display name of the customer SOLL baseline that produced these results (typically a
+        baseline preset's "name" field), shown in the navbar and Overview for traceability.
+        Defaults to a label indicating no customer-specific baseline was applied.
     .PARAMETER OutputPath
         File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
         subfolder is created alongside it. Parent directory is created if missing.
@@ -49,6 +53,8 @@ function Export-SAWDashboard {
 
         [AllowEmptyCollection()]
         [object[]]$CaPolicyInventory = @(),
+
+        [string]$BaselineName = 'Toolkit default (no customer-specific baseline applied)',
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -158,7 +164,7 @@ function Export-SAWDashboard {
         <div class="table-responsive">
           <table class="table table-striped table-hover align-middle">
             <thead>
-              <tr><th>Rule</th><th>Setting</th><th>Expected</th><th>Actual</th><th>Severity</th><th>Status</th><th>Recommendation</th></tr>
+              <tr><th>Rule</th><th>Setting</th><th>SOLL (Target)</th><th>IST (Current)</th><th>Severity</th><th>Status</th><th>Recommendation</th></tr>
             </thead>
             <tbody>
 $($bodyRows -join "`n")
@@ -337,6 +343,11 @@ $($caInventoryRowsHtml -join "`n")
   </div>
 </nav>
 <div class="container-fluid">
+
+  <div class="alert alert-secondary d-flex flex-wrap gap-3 align-items-center mb-4" role="alert">
+    <div><strong>SOLL baseline:</strong> $(ConvertTo-SAWHtmlEncoded $BaselineName)</div>
+    <div class="text-body-secondary">SOLL = target state for this customer &middot; IST = what was actually observed in the tenant</div>
+  </div>
 
   <h2 class="h4 mb-3">Overview</h2>
   <div class="row g-3 mb-4">

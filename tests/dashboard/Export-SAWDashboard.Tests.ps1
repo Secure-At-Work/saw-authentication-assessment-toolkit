@@ -105,6 +105,19 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match 'Hunt for registration \(0 admin\)'
     }
 
+    It 'defaults the baseline label to "no customer-specific baseline" when -BaselineName is not supplied' {
+        $script:DashboardContent | Should -Match 'no customer-specific baseline applied'
+    }
+
+    It 'shows the supplied baseline name' {
+        $path = Join-Path $TestDrive 'namedbaseline\index.html'
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -BaselineName 'Cloud-Native, Passwordless-First' -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Cloud-Native, Passwordless-First'
+    }
+
     It 'omits the CA policy inventory section entirely when none is supplied' {
         $script:DashboardContent | Should -Not -Match 'Conditional Access Policy Inventory'
     }

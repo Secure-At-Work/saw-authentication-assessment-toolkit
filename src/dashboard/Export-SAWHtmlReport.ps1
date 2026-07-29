@@ -8,6 +8,10 @@ function Export-SAWHtmlReport {
         convention in spec section 10.
     .PARAMETER RuleResults
         Output of Invoke-SAWRulesEngine.
+    .PARAMETER BaselineName
+        Display name of the customer SOLL baseline that produced these results (typically a
+        baseline preset's "name" field), shown in the report header for traceability. Defaults
+        to a label indicating no customer-specific baseline was applied.
     .PARAMETER OutputPath
         File path to write the HTML report to. Parent directory is created if missing.
     .OUTPUTS
@@ -18,6 +22,8 @@ function Export-SAWHtmlReport {
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
         [object[]]$RuleResults,
+
+        [string]$BaselineName = 'Toolkit default (no customer-specific baseline applied)',
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -86,15 +92,15 @@ function Export-SAWHtmlReport {
 </head>
 <body>
   <h1>Secure At Work Authentication Assessment Report</h1>
-  <p class="meta">Generated $generated &middot; Categories: $categoriesText &middot; Read-only assessment, no tenant changes made.</p>
+  <p class="meta">Generated $generated &middot; Categories: $categoriesText &middot; Read-only assessment, no tenant changes made.<br>SOLL baseline: $(ConvertTo-SAWHtmlEncoded $BaselineName)<br>SOLL = target state for this customer. IST = what was actually observed in the tenant.</p>
   <table>
     <thead>
       <tr>
         <th>Rule ID</th>
         <th>Category</th>
         <th>Setting</th>
-        <th>Expected</th>
-        <th>Actual</th>
+        <th>SOLL (Target)</th>
+        <th>IST (Current)</th>
         <th>Severity</th>
         <th>Status</th>
         <th>Recommendation</th>

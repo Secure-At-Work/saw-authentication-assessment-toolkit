@@ -68,6 +68,24 @@ Describe 'Export-SAWHtmlReport' {
         $content | Should -Match '&lt;script&gt;'
     }
 
+    It 'defaults the baseline label to "no customer-specific baseline" when -BaselineName is not supplied' {
+        $outputPath = Join-Path $TestDrive 'defaultbaseline.html'
+
+        Export-SAWHtmlReport -RuleResults @() -OutputPath $outputPath | Out-Null
+
+        $content = Get-Content -Path $outputPath -Raw
+        $content | Should -Match 'no customer-specific baseline applied'
+    }
+
+    It 'shows the supplied baseline name' {
+        $outputPath = Join-Path $TestDrive 'namedbaseline.html'
+
+        Export-SAWHtmlReport -RuleResults @() -BaselineName 'Hybrid AD, Passwords Still Required' -OutputPath $outputPath | Out-Null
+
+        $content = Get-Content -Path $outputPath -Raw
+        $content | Should -Match 'Hybrid AD, Passwords Still Required'
+    }
+
     It 'applies the correct color per status' {
         $outputPath = Join-Path $TestDrive 'colors.html'
         $results = @(
