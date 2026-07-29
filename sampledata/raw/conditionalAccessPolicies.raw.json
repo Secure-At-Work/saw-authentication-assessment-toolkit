@@ -96,6 +96,47 @@
         "termsOfUse": []
       },
       "sessionControls": null
+    },
+    {
+      "id": "44444444-4444-4444-4444-444444444444",
+      "displayName": "SAW - Require Phishing-Resistant MFA for Directory Role Admins",
+      "state": "enabled",
+      "createdDateTime": "2025-11-06T09:00:00Z",
+      "modifiedDateTime": "2025-11-06T09:00:00Z",
+      "conditions": {
+        "applications": {
+          "includeApplications": ["All"],
+          "excludeApplications": []
+        },
+        "users": {
+          "includeUsers": [],
+          "excludeUsers": ["99999999-9999-9999-9999-999999999999"],
+          "includeGroups": [],
+          "excludeGroups": [],
+          "includeRoles": [
+            "62e90394-69f5-4237-9190-012177145e10",
+            "194ae4cb-b126-40b2-bd5b-6091b380977d"
+          ],
+          "excludeRoles": []
+        },
+        "clientAppTypes": ["all"],
+        "platforms": null,
+        "locations": null
+      },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": [],
+        "customAuthenticationFactors": [],
+        "termsOfUse": [],
+        "authenticationStrength": {
+          "id": "00000000-0000-0000-0000-000000000003",
+          "displayName": "Phishing-resistant MFA",
+          "policyType": "builtIn",
+          "requirementsSatisfied": "mfa",
+          "allowedCombinations": ["fido2", "windowsHelloForBusiness", "x509CertificateMultiFactor"]
+        }
+      },
+      "sessionControls": null
     }
   ]
 }

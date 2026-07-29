@@ -12,7 +12,8 @@ BeforeAll {
             [string[]]$IncludeApplications = @('All'),
             [string[]]$IncludeRoles = @(),
             [string[]]$ClientAppTypes = @('all'),
-            [string[]]$BuiltInControls = @()
+            [string[]]$BuiltInControls = @(),
+            [object]$AuthenticationStrength = $null
         )
         return @{
             state      = $State
@@ -21,7 +22,7 @@ BeforeAll {
                 applications = @{ includeApplications = $IncludeApplications }
                 clientAppTypes = $ClientAppTypes
             }
-            grantControls = @{ builtInControls = $BuiltInControls }
+            grantControls = @{ builtInControls = $BuiltInControls; authenticationStrength = $AuthenticationStrength }
         }
     }
 }
@@ -126,12 +127,99 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
         ($result | Where-Object { $_.Setting -eq 'Require Compliant Device For Admins' }).State | Should -Be 'Enabled'
     }
 
-    It 'returns Disabled for all three capabilities when there are no policies at all' {
+    It 'returns Disabled for every capability when there are no policies at all' {
         $raw = @{ value = @() }
 
         $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
 
-        $result.Count | Should -Be 3
+        $result.Count | Should -Be 5
         ($result | Where-Object { $_.State -eq 'Enabled' }).Count | Should -Be 0
+    }
+
+    Context 'admin protection composite' {
+        It 'reports phishing-resistant strength for admins Enabled when an enabled policy targets admin roles with a pure phishing-resistant strength' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2', 'windowsHelloForBusiness', 'x509CertificateMultiFactor') }
+            $raw = @{
+                value = @(
+                    (New-SAWTestCaPolicy -IncludeUsers @() -IncludeRoles @('role-1') -AuthenticationStrength $strength)
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq 'Require Phishing-Resistant Auth Strength For Admins' }).State | Should -Be 'Enabled'
+        }
+
+        It 'does not count an authentication strength that also allows weaker combinations' {
+            $strength = @{ displayName = 'Multifactor authentication'; allowedCombinations = @('password,sms', 'fido2') }
+            $raw = @{
+                value = @(
+                    (New-SAWTestCaPolicy -IncludeUsers @() -IncludeRoles @('role-1') -AuthenticationStrength $strength)
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq 'Require Phishing-Resistant Auth Strength For Admins' }).State | Should -Be 'Disabled'
+        }
+
+        It 'falls back to matching the displayName when allowedCombinations is not present' {
+            $strength = @{ displayName = 'Phishing-Resistant MFA' }
+            $raw = @{
+                value = @(
+                    (New-SAWTestCaPolicy -IncludeUsers @() -IncludeRoles @('role-1') -AuthenticationStrength $strength)
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq 'Require Phishing-Resistant Auth Strength For Admins' }).State | Should -Be 'Enabled'
+        }
+
+        It 'does not count a phishing-resistant strength policy that does not target admin roles' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2') }
+            $raw = @{
+                value = @(
+                    (New-SAWTestCaPolicy -IncludeRoles @() -AuthenticationStrength $strength)
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq 'Require Phishing-Resistant Auth Strength For Admins' }).State | Should -Be 'Disabled'
+        }
+
+        It 'reports the composite Enabled when compliant device is in place, even without a phishing-resistant strength' {
+            $raw = @{
+                value = @(
+                    (New-SAWTestCaPolicy -IncludeUsers @() -IncludeRoles @('role-1') -BuiltInControls @('compliantDevice'))
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -like 'Privileged Access Protection In Place*' }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports the composite Enabled when a phishing-resistant strength is in place, even without compliant device' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2', 'windowsHelloForBusiness', 'x509CertificateMultiFactor') }
+            $raw = @{
+                value = @(
+                    (New-SAWTestCaPolicy -IncludeUsers @() -IncludeRoles @('role-1') -AuthenticationStrength $strength)
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -like 'Privileged Access Protection In Place*' }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports the composite Disabled when neither alternative is in place' {
+            $raw = @{ value = @() }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -like 'Privileged Access Protection In Place*' }).State | Should -Be 'Disabled'
+        }
     }
 }

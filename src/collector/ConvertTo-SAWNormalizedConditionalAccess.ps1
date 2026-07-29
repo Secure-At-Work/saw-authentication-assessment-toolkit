@@ -14,6 +14,14 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         A policy only counts toward a capability if its state is exactly 'enabled' -
         'enabledForReportingButNotEnforced' (report-only) does not count, since it enforces
         nothing.
+
+        Admin protection is intentionally modeled as a composite, not a single hard-coded
+        control: requiring a compliant device is only one way to harden privileged accounts -
+        a phishing-resistant authentication strength required for admin roles achieves the
+        same intent, and so (outside what Graph can observe) does a PAW-based access model.
+        This normalizer reports both underlying facts plus the composite so the rules engine
+        only needs to evaluate "is at least one admin-protection control in place", not force
+        a single specific implementation.
     .PARAMETER RawResponse
         The object returned by Get-SAWConditionalAccess (has a .value array of policies).
     .OUTPUTS
@@ -26,10 +34,32 @@ function ConvertTo-SAWNormalizedConditionalAccess {
     )
 
     begin {
+        $phishingResistantMethods = @('fido2', 'windowsHelloForBusiness', 'x509CertificateMultiFactor')
+
         function ConvertTo-SAWStateLabel {
             param([bool]$Value)
             if ($Value) { return 'Enabled' }
             return 'Disabled'
+        }
+
+        function Test-SAWPhishingResistantStrength {
+            param([object]$AuthenticationStrength)
+
+            if (-not $AuthenticationStrength) { return $false }
+
+            $combinations = $AuthenticationStrength.allowedCombinations
+            if ($combinations -and (@($combinations)).Count -gt 0) {
+                foreach ($combination in $combinations) {
+                    if ($phishingResistantMethods -notcontains $combination) { return $false }
+                }
+                return $true
+            }
+
+            # Fall back to name matching if allowedCombinations wasn't expanded inline -
+            # covers Graph responses that only include an authenticationStrength reference.
+            if ($AuthenticationStrength.displayName -match 'phishing.?resistant') { return $true }
+
+            return $false
         }
     }
 
@@ -40,6 +70,7 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         $legacyAuthBlocked = $false
         $mfaForAllUsers = $false
         $compliantDeviceForAdmins = $false
+        $phishingResistantStrengthForAdmins = $false
 
         foreach ($policy in $policies) {
             if ($policy.state -ne 'enabled') {
@@ -66,7 +97,14 @@ function ConvertTo-SAWNormalizedConditionalAccess {
             if (-not $compliantDeviceForAdmins -and $targetsAdminRoles -and ($controls -contains 'compliantDevice')) {
                 $compliantDeviceForAdmins = $true
             }
+
+            if (-not $phishingResistantStrengthForAdmins -and $targetsAdminRoles -and
+                (Test-SAWPhishingResistantStrength $policy.grantControls.authenticationStrength)) {
+                $phishingResistantStrengthForAdmins = $true
+            }
         }
+
+        $adminProtectionInPlace = $compliantDeviceForAdmins -or $phishingResistantStrengthForAdmins
 
         @{
             Category = 'Conditional Access'
@@ -82,6 +120,16 @@ function ConvertTo-SAWNormalizedConditionalAccess {
             Category = 'Conditional Access'
             Setting  = 'Require Compliant Device For Admins'
             State    = ConvertTo-SAWStateLabel $compliantDeviceForAdmins
+        }
+        @{
+            Category = 'Conditional Access'
+            Setting  = 'Require Phishing-Resistant Auth Strength For Admins'
+            State    = ConvertTo-SAWStateLabel $phishingResistantStrengthForAdmins
+        }
+        @{
+            Category = 'Conditional Access'
+            Setting  = 'Privileged Access Protection In Place (Compliant Device Or Phishing-Resistant Auth Strength For Admins)'
+            State    = ConvertTo-SAWStateLabel $adminProtectionInPlace
         }
     }
 }
