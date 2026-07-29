@@ -20,6 +20,12 @@ function Export-SAWDashboard {
         within the Authentication Methods tab, since that's where they're actually collected.
     .PARAMETER RuleResults
         Output of Invoke-SAWRulesEngine.
+    .PARAMETER UserRoster
+        Optional output of ConvertTo-SAWUserRegistrationRoster (one hashtable per user, with
+        Bucket = OK/Hunt/Remove). When supplied, renders a "Security Info Registration - User
+        Triage" section: who's fine, who needs hunting down to register a phishing-resistant
+        method, and who has a downgrade-risk fallback method to remove - already sorted
+        Remove > Hunt > OK, admins first within each bucket. Omitted entirely if empty/absent.
     .PARAMETER OutputPath
         File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
         subfolder is created alongside it. Parent directory is created if missing.
@@ -31,6 +37,9 @@ function Export-SAWDashboard {
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
         [object[]]$RuleResults,
+
+        [AllowEmptyCollection()]
+        [object[]]$UserRoster = @(),
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -177,6 +186,76 @@ $($bodyRows -join "`n")
         $findingsHtml = '<div class="list-group-item text-body-secondary">No open findings - every evaluated setting matches the Secure At Work baseline.</div>'
     }
 
+    # --- User registration triage (OK / Hunt / Remove) ---
+    $rosterBadgeClass = @{
+        Remove = 'bg-danger'
+        Hunt   = 'bg-warning text-dark'
+        OK     = 'bg-success'
+    }
+    $rosterCounts = @{ Remove = 0; Hunt = 0; OK = 0 }
+    $rosterAdminCounts = @{ Remove = 0; Hunt = 0; OK = 0 }
+    foreach ($u in $UserRoster) {
+        if ($rosterCounts.ContainsKey($u.Bucket)) {
+            $rosterCounts[$u.Bucket]++
+            if ($u.IsAdmin) { $rosterAdminCounts[$u.Bucket]++ }
+        }
+    }
+
+    $rosterRowsHtml = foreach ($u in $UserRoster) {
+        $badgeClass = $rosterBadgeClass[$u.Bucket]
+        if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
+        $adminBadge = ''
+        if ($u.IsAdmin) { $adminBadge = ' <span class="badge bg-dark">Admin</span>' }
+        @"
+      <tr>
+        <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $u.Bucket)</span></td>
+        <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)</td>
+      </tr>
+"@
+    }
+
+    $rosterSectionHtml = ''
+    if ($UserRoster.Count -gt 0) {
+        $rosterSectionHtml = @"
+  <h2 class="h4 mb-3">Security Info Registration - User Triage</h2>
+  <div class="row g-3 mb-3">
+    <div class="col-sm-4">
+      <div class="card stat-card red h-100"><div class="card-body">
+        <div class="text-uppercase text-body-secondary small">Remove weak fallback ($($rosterAdminCounts.Remove) admin)</div>
+        <div class="fs-2 fw-bold">$($rosterCounts.Remove)</div>
+        <div class="text-body-secondary small">Has a phishing-resistant method AND a phone-based fallback still registered - the fallback enables a downgrade attack. Start with admins.</div>
+      </div></div>
+    </div>
+    <div class="col-sm-4">
+      <div class="card stat-card yellow h-100"><div class="card-body">
+        <div class="text-uppercase text-body-secondary small">Hunt for registration ($($rosterAdminCounts.Hunt) admin)</div>
+        <div class="fs-2 fw-bold">$($rosterCounts.Hunt)</div>
+        <div class="text-body-secondary small">No phishing-resistant method registered yet - target these users with the registration campaign. Start with admins.</div>
+      </div></div>
+    </div>
+    <div class="col-sm-4">
+      <div class="card stat-card green h-100"><div class="card-body">
+        <div class="text-uppercase text-body-secondary small">OK ($($rosterAdminCounts.OK) admin)</div>
+        <div class="fs-2 fw-bold">$($rosterCounts.OK)</div>
+        <div class="text-body-secondary small">Phishing-resistant method registered, no weak fallback in place. No action needed.</div>
+      </div></div>
+    </div>
+  </div>
+  <div class="table-responsive mb-4">
+    <table class="table table-striped table-hover align-middle">
+      <thead>
+        <tr><th>Bucket</th><th>User</th><th>UPN</th><th>Methods Registered</th></tr>
+      </thead>
+      <tbody>
+$($rosterRowsHtml -join "`n")
+      </tbody>
+    </table>
+  </div>
+"@
+    }
+
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $totalRules = $RuleResults.Count
 
@@ -255,6 +334,7 @@ $($bodyRows -join "`n")
 $($findingsHtml -join "`n")
   </div>
 
+$rosterSectionHtml
   <h2 class="h4 mb-3">Detail by Category</h2>
   <ul class="nav nav-pills mb-3" role="tablist">
 $($navItems -join "`n")

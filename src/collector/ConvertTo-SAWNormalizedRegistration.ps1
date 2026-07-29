@@ -3,11 +3,19 @@ function ConvertTo-SAWNormalizedRegistration {
     .SYNOPSIS
         Normalizes raw per-user registration details into Secure At Work capability checks.
     .DESCRIPTION
-        Scans every user's registration record and derives two aggregate facts:
-        whether every admin account is MFA registered, and whether overall MFA
-        registration coverage across all users meets an 90% target. Both thresholds
-        are evaluated here (not in a rule JSON) per spec section 8 - rules stay
-        pure Category/Setting/Expected comparisons.
+        Scans every user's registration record and derives three aggregate facts: whether
+        every admin account is MFA registered, whether overall MFA registration coverage
+        across all users meets a 90% target, and - among users the tenant actually allows to
+        use self-service password reset (isSsprEnabled) - whether SSPR registration coverage
+        meets a 90% target. All thresholds are evaluated here (not in a rule JSON) per spec
+        section 8 - rules stay pure Category/Setting/Expected comparisons.
+
+        Whether SSPR should be enabled at all is a customer-baseline question (a fully
+        cloud-native, passwordless-only tenant may not need SSPR - there's no password to
+        reset), not something this normalizer decides; it only reports observed coverage
+        among users the tenant has SSPR turned on for. There is no supported Microsoft Graph
+        endpoint for tenant-wide SSPR scope/policy (which users/groups) - only the per-user
+        effective state collected here.
     .PARAMETER RawResponse
         The object returned by Get-SAWRegistration (has a .value array of user records).
     .OUTPUTS
@@ -35,6 +43,8 @@ function ConvertTo-SAWNormalizedRegistration {
         $mfaRegisteredUsers = 0
         $adminUsers = 0
         $adminUsersMissingMfa = 0
+        $ssprEnabledUsers = 0
+        $ssprRegisteredUsers = 0
 
         foreach ($user in $users) {
             $totalUsers++
@@ -45,6 +55,10 @@ function ConvertTo-SAWNormalizedRegistration {
                     $adminUsersMissingMfa++
                     Write-Verbose "ConvertTo-SAWNormalizedRegistration: admin '$($user.userPrincipalName)' is not MFA registered"
                 }
+            }
+            if ($user.isSsprEnabled) {
+                $ssprEnabledUsers++
+                if ($user.isSsprRegistered) { $ssprRegisteredUsers++ }
             }
         }
 
@@ -69,6 +83,23 @@ function ConvertTo-SAWNormalizedRegistration {
             Category = 'Registration'
             Setting  = 'Overall MFA Registration Coverage At Least 90 Percent'
             State    = ConvertTo-SAWStateLabel $coverageMeetsTarget
+        }
+
+        if ($ssprEnabledUsers -gt 0) {
+            $ssprCoveragePercent = $ssprRegisteredUsers / $ssprEnabledUsers * 100
+            $ssprCoverageMeetsTarget = $ssprCoveragePercent -ge 90
+
+            Write-Verbose ("ConvertTo-SAWNormalizedRegistration: {0}/{1} SSPR-enabled users are SSPR registered ({2:N1}%)" -f `
+                $ssprRegisteredUsers, $ssprEnabledUsers, $ssprCoveragePercent)
+
+            @{
+                Category = 'Registration'
+                Setting  = 'SSPR Registration Coverage At Least 90 Percent (Among SSPR-Enabled Users)'
+                State    = ConvertTo-SAWStateLabel $ssprCoverageMeetsTarget
+            }
+        }
+        else {
+            Write-Verbose 'ConvertTo-SAWNormalizedRegistration: no users are SSPR-enabled - SSPR coverage check not applicable'
         }
     }
 }

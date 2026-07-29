@@ -81,4 +81,27 @@ Describe 'Export-SAWDashboard' {
         { Export-SAWDashboard -RuleResults @() -OutputPath $emptyPath } | Should -Not -Throw
         Test-Path $emptyPath | Should -BeTrue
     }
+
+    It 'omits the user triage section entirely when no roster is supplied' {
+        $script:DashboardContent | Should -Not -Match 'User Triage'
+    }
+
+    It 'renders the user triage section with correct bucket counts and admin badges when a roster is supplied' {
+        $rosterPath = Join-Path $TestDrive 'roster\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'remove.admin@contoso.com'; DisplayName = 'Remove Admin'; IsAdmin = $true; Bucket = 'Remove'; MethodsRegistered = 'fido2, mobilePhone' }
+            @{ UserPrincipalName = 'hunt.user@contoso.com'; DisplayName = 'Hunt User'; IsAdmin = $false; Bucket = 'Hunt'; MethodsRegistered = '' }
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Match 'User Triage'
+        $content | Should -Match 'remove\.admin@contoso\.com'
+        $content | Should -Match '<span class="badge bg-dark">Admin</span>'
+        # 1 Remove (1 admin), 1 Hunt (0 admin), 1 OK (0 admin)
+        $content | Should -Match 'Remove weak fallback \(1 admin\)'
+        $content | Should -Match 'Hunt for registration \(0 admin\)'
+    }
 }

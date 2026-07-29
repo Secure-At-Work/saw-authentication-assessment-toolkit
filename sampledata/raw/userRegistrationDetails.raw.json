@@ -58,8 +58,23 @@
       "isMfaRegistered": true,
       "isMfaCapable": true,
       "isPasswordlessCapable": false,
-      "methodsRegistered": ["sms"],
+      "methodsRegistered": ["mobilePhone"],
       "systemPreferredAuthenticationMethod": "sms"
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000007",
+      "userPrincipalName": "grace.admin@contoso.com",
+      "userDisplayName": "Grace Admin",
+      "userType": "member",
+      "isAdmin": true,
+      "isSsprRegistered": true,
+      "isSsprEnabled": true,
+      "isSsprCapable": true,
+      "isMfaRegistered": true,
+      "isMfaCapable": true,
+      "isPasswordlessCapable": true,
+      "methodsRegistered": ["fido2", "mobilePhone"],
+      "systemPreferredAuthenticationMethod": null
     },
     {
       "id": "10000000-0000-0000-0000-000000000005",

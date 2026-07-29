@@ -1,6 +1,7 @@
 BeforeAll {
     . "$PSScriptRoot/../../src/collector/Get-SAWRegistration.ps1"
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNormalizedRegistration.ps1"
+    . "$PSScriptRoot/../../src/collector/ConvertTo-SAWUserRegistrationRoster.ps1"
 
     function Get-MgContext { }
     function Invoke-MgGraphRequest { param($Method, $Uri) }
@@ -8,9 +9,22 @@ BeforeAll {
     function New-SAWTestUser {
         param(
             [bool]$IsAdmin = $false,
-            [bool]$IsMfaRegistered = $true
+            [bool]$IsMfaRegistered = $true,
+            [bool]$IsSsprEnabled = $false,
+            [bool]$IsSsprRegistered = $false,
+            [string]$UserPrincipalName = 'user@contoso.com',
+            [string]$DisplayName = 'Test User',
+            [string[]]$MethodsRegistered = @()
         )
-        return @{ isAdmin = $IsAdmin; isMfaRegistered = $IsMfaRegistered }
+        return @{
+            isAdmin              = $IsAdmin
+            isMfaRegistered      = $IsMfaRegistered
+            isSsprEnabled        = $IsSsprEnabled
+            isSsprRegistered     = $IsSsprRegistered
+            userPrincipalName    = $UserPrincipalName
+            userDisplayName      = $DisplayName
+            methodsRegistered    = $MethodsRegistered
+        }
     }
 }
 
@@ -134,5 +148,127 @@ Describe 'ConvertTo-SAWNormalizedRegistration' {
         $result = $raw | ConvertTo-SAWNormalizedRegistration
 
         ($result | Where-Object { $_.Setting -like 'Overall MFA Registration Coverage*' }).State | Should -Be 'Disabled'
+    }
+
+    It 'reports SSPR coverage Enabled when at least 90 percent of SSPR-enabled users are registered' {
+        $raw = @{
+            value = @(
+                1..9 | ForEach-Object { New-SAWTestUser -IsSsprEnabled $true -IsSsprRegistered $true }
+            ) + @((New-SAWTestUser -IsSsprEnabled $true -IsSsprRegistered $false))
+        }
+
+        $result = $raw | ConvertTo-SAWNormalizedRegistration
+
+        ($result | Where-Object { $_.Setting -like 'SSPR Registration Coverage*' }).State | Should -Be 'Enabled'
+    }
+
+    It 'reports SSPR coverage Disabled when below 90 percent' {
+        $raw = @{
+            value = @(
+                1..5 | ForEach-Object { New-SAWTestUser -IsSsprEnabled $true -IsSsprRegistered $true }
+            ) + @(1..5 | ForEach-Object { New-SAWTestUser -IsSsprEnabled $true -IsSsprRegistered $false })
+        }
+
+        $result = $raw | ConvertTo-SAWNormalizedRegistration
+
+        ($result | Where-Object { $_.Setting -like 'SSPR Registration Coverage*' }).State | Should -Be 'Disabled'
+    }
+
+    It 'emits no SSPR fact at all when no users are SSPR-enabled' {
+        $raw = @{
+            value = @(
+                (New-SAWTestUser -IsSsprEnabled $false),
+                (New-SAWTestUser -IsSsprEnabled $false)
+            )
+        }
+
+        $result = @($raw | ConvertTo-SAWNormalizedRegistration)
+
+        ($result | Where-Object { $_.Setting -like 'SSPR Registration Coverage*' }) | Should -BeNullOrEmpty
+    }
+
+    It 'ignores users where SSPR is not enabled when computing SSPR coverage' {
+        # 1 of 1 SSPR-enabled user is registered (100%), even though most users have SSPR off
+        $raw = @{
+            value = @(
+                (New-SAWTestUser -IsSsprEnabled $true -IsSsprRegistered $true),
+                (New-SAWTestUser -IsSsprEnabled $false -IsSsprRegistered $false),
+                (New-SAWTestUser -IsSsprEnabled $false -IsSsprRegistered $false)
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWNormalizedRegistration
+
+        ($result | Where-Object { $_.Setting -like 'SSPR Registration Coverage*' }).State | Should -Be 'Enabled'
+    }
+}
+
+Describe 'ConvertTo-SAWUserRegistrationRoster' {
+    It 'buckets a user with a phishing-resistant method and no weak fallback as OK' {
+        $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('fido2'))) }
+
+        $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+        $result.Bucket | Should -Be 'OK'
+    }
+
+    It 'buckets a user with no phishing-resistant method as Hunt' {
+        $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('microsoftAuthenticatorPush'))) }
+
+        $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+        $result.Bucket | Should -Be 'Hunt'
+    }
+
+    It 'buckets a user with no methods registered at all as Hunt' {
+        $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @())) }
+
+        $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+        $result.Bucket | Should -Be 'Hunt'
+    }
+
+    It 'buckets a user with a phishing-resistant method AND a phone-based fallback as Remove' {
+        $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('fido2', 'mobilePhone'))) }
+
+        $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+        $result.Bucket | Should -Be 'Remove'
+    }
+
+    It 'recognizes windowsHelloForBusiness and passKeyDeviceBound variants as phishing-resistant' {
+        foreach ($method in @('windowsHelloForBusiness', 'passKeyDeviceBound', 'passKeyDeviceBoundAuthenticator', 'passKeyDeviceBoundWindowsHello')) {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @($method))) }
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+            $result.Bucket | Should -Be 'OK' -Because "method '$method' should count as phishing-resistant"
+        }
+    }
+
+    It 'does not treat a phone-based-only user as Remove (no phishing-resistant method to begin with)' {
+        $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('mobilePhone'))) }
+
+        $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+        $result.Bucket | Should -Be 'Hunt'
+    }
+
+    It 'sorts Remove before Hunt before OK, admins first within each bucket' {
+        $raw = @{
+            value = @(
+                (New-SAWTestUser -UserPrincipalName 'ok.user@contoso.com' -IsAdmin $false -MethodsRegistered @('fido2')),
+                (New-SAWTestUser -UserPrincipalName 'hunt.admin@contoso.com' -IsAdmin $true -MethodsRegistered @()),
+                (New-SAWTestUser -UserPrincipalName 'hunt.user@contoso.com' -IsAdmin $false -MethodsRegistered @()),
+                (New-SAWTestUser -UserPrincipalName 'remove.user@contoso.com' -IsAdmin $false -MethodsRegistered @('fido2', 'mobilePhone')),
+                (New-SAWTestUser -UserPrincipalName 'remove.admin@contoso.com' -IsAdmin $true -MethodsRegistered @('fido2', 'mobilePhone'))
+            )
+        }
+
+        $result = @($raw | ConvertTo-SAWUserRegistrationRoster)
+
+        $result[0].UserPrincipalName | Should -Be 'remove.admin@contoso.com'
+        $result[1].UserPrincipalName | Should -Be 'remove.user@contoso.com'
+        $result[2].UserPrincipalName | Should -Be 'hunt.admin@contoso.com'
+        $result[3].UserPrincipalName | Should -Be 'hunt.user@contoso.com'
+        $result[4].UserPrincipalName | Should -Be 'ok.user@contoso.com'
     }
 }

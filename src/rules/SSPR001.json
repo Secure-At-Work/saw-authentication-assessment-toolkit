@@ -1,0 +1,8 @@
+{
+    "RuleID": "SSPR001",
+    "Category": "Registration",
+    "Setting": "SSPR Registration Coverage At Least 90 Percent (Among SSPR-Enabled Users)",
+    "Expected": "Enabled",
+    "Severity": "Medium",
+    "Recommendation": "Drive SSPR registration coverage above 90% among users the tenant allows to use it. Note: whether SSPR should be enabled at all is customer-specific - a fully cloud-native, passwordless-only tenant with no password to reset may not need SSPR in scope; this check only reports registration hygiene among users it is currently enabled for."
+}
