@@ -1,0 +1,12 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#organization",
+  "value": [
+    {
+      "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      "displayName": "Contoso Ltd",
+      "tenantType": "AAD",
+      "onPremisesSyncEnabled": true,
+      "onPremisesLastSyncDateTime": "2026-07-28T03:15:00Z"
+    }
+  ]
+}

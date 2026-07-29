@@ -50,8 +50,9 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   FIDO2 or TAP)
 - A composite "privileged access protection in place" check (compliant device OR a
   phishing-resistant auth strength required for admins - not a single hard-coded control)
-- A **configurable customer SOLL baseline** (see below) plus explicit **SOLL (Target) / IST
-  (Current)** column labeling in both reports, with the active baseline's name shown in each
+- A **configurable, auto-detected customer SOLL baseline** (see below - hybrid vs. cloud-native
+  is detected from the tenant itself, not just a manual flag) plus explicit **SOLL (Target) /
+  IST (Current)** column labeling in both reports, with the active baseline's name shown in each
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
@@ -65,8 +66,20 @@ one customer profile without touching the rule JSON files themselves - see
 [config/baselines/](config/baselines/) for the two starter presets
 (`cloud-native-passwordless`, `hybrid-ad-passwords-required`) and their shape.
 
+**Which one applies isn't just a manual choice** - `Get-SAWTenantProfile.ps1` reads
+`organization.onPremisesSyncEnabled` via Graph (no extra permission needed, `Directory.Read.All`
+already covers it) and auto-selects the matching preset whenever `-Baseline` is omitted:
+`onPremisesSyncEnabled = true` (or `false`, meaning it *was* synced and may still have AD-era
+artifacts) -> `hybrid-ad-passwords-required`; `null` (never synced) ->
+`cloud-native-passwordless`. The detected profile is always shown
+(`Detected tenant profile: ...`), and if you pass an explicit `-Baseline` that disagrees with
+what was detected, you get a warning but your explicit choice still wins. Pass
+`-SkipBaselineAutoDetection` to go back to "no baseline unless I say so."
+
 ```powershell
-pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Baseline hybrid-ad-passwords-required -Verbose
+pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
+# auto-detects and picks a baseline; add -Baseline <name> to override, or
+# -SkipBaselineAutoDetection for the old "no baseline by default" behavior
 ```
 
 `-BaselineOverridePath <file>` layers a one-off, per-engagement override file (same shape) on

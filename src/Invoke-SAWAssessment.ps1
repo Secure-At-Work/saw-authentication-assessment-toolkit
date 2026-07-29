@@ -23,11 +23,18 @@
 .PARAMETER Baseline
     Name of a customer SOLL baseline preset under config/baselines/ (without the .json
     extension), e.g. 'hybrid-ad-passwords-required' or 'cloud-native-passwordless'. Optional -
-    omit to evaluate every rule exactly as authored, with no customer-specific overrides.
+    if omitted, the toolkit auto-detects whether the tenant is hybrid (synced with on-premises
+    AD, via organization.onPremisesSyncEnabled) and picks the matching preset itself unless
+    -SkipBaselineAutoDetection is set. If both -Baseline and detection disagree, a warning is
+    shown but your explicit -Baseline always wins.
+.PARAMETER SkipBaselineAutoDetection
+    Disable auto-selecting a baseline from the detected tenant profile. With this set, omitting
+    -Baseline means no customer-specific overrides at all (every rule exactly as authored) -
+    the old default behavior, before auto-detection existed.
 .PARAMETER BaselineOverridePath
     Path to a per-engagement override JSON file (same shape as a baseline preset), layered on
-    top of -Baseline for one-off tweaks specific to this engagement. Optional; can be used
-    with or without -Baseline.
+    top of -Baseline (explicit or auto-detected) for one-off tweaks specific to this
+    engagement. Optional; can be used with or without -Baseline.
 .PARAMETER ReportPath
     Output path for the generated flat HTML report. Defaults to reports/assessment-report.html.
 .PARAMETER DashboardPath
@@ -58,6 +65,8 @@ param(
 
     [string]$Baseline,
 
+    [switch]$SkipBaselineAutoDetection,
+
     [string]$BaselineOverridePath,
 
     [string]$ReportPath = (Join-Path $PSScriptRoot '..' 'reports' 'assessment-report.html'),
@@ -69,6 +78,8 @@ $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'Connect-SAWGraph.ps1')
 
+. (Join-Path $PSScriptRoot 'collector' 'Get-SAWTenantProfile.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWTenantProfile.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWConditionalAccess.ps1')
@@ -97,6 +108,23 @@ if (-not $UseSampleData) {
     Connect-SAWGraph -Scopes $Scopes -InstallMissingModules:$InstallMissingModules -Verbose:$VerbosePreference | Out-Null
 }
 
+Write-Verbose 'Invoke-SAWAssessment: collecting tenant profile (hybrid vs. cloud-native detection)'
+$tenantProfileRaw = Get-SAWTenantProfile -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
+$tenantProfile = $tenantProfileRaw | ConvertTo-SAWTenantProfile -Verbose:$VerbosePreference
+Write-Host "Detected tenant profile: $($tenantProfile.HybridState) (organization.onPremisesSyncEnabled = $($tenantProfile.OnPremisesSyncEnabled))"
+
+$baselineWasExplicit = [bool]$Baseline
+$autoDetectionNote = $null
+
+if (-not $Baseline -and -not $SkipBaselineAutoDetection) {
+    $Baseline = $tenantProfile.RecommendedBaseline
+    $autoDetectionNote = "auto-detected from tenant profile ($($tenantProfile.HybridState))"
+    Write-Host "No -Baseline specified - auto-selected '$Baseline' ($autoDetectionNote). Pass -SkipBaselineAutoDetection to disable this."
+}
+elseif ($baselineWasExplicit -and $Baseline -ne $tenantProfile.RecommendedBaseline -and -not $SkipBaselineAutoDetection) {
+    Write-Warning "Baseline '$Baseline' was explicitly specified, but the tenant is detected as $($tenantProfile.HybridState) (recommended baseline: '$($tenantProfile.RecommendedBaseline)'). Your explicit -Baseline is being used - verify this is intentional."
+}
+
 $baselinePath = $null
 if ($Baseline) {
     $baselinePath = Join-Path $PSScriptRoot '..' 'config' 'baselines' "$Baseline.json"
@@ -112,6 +140,9 @@ $baselineOverrides = Get-SAWBaselineOverrides -BaselinePath $baselinePath -Overr
 $baselineDisplayName = 'Toolkit default (no customer-specific baseline applied)'
 if ($baselinePath) {
     $baselineDisplayName = (Get-Content -Path $baselinePath -Raw | ConvertFrom-Json).name
+    if ($autoDetectionNote) {
+        $baselineDisplayName += " [$autoDetectionNote]"
+    }
     if ($BaselineOverridePath) {
         $baselineDisplayName += ' + engagement override'
     }
