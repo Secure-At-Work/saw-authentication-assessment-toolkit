@@ -36,12 +36,24 @@ reports/            Generated report output (gitignored)
 
 All 8 collectors from spec section 6 are implemented (Authentication Methods, Conditional
 Access, Authentication Strengths, Registration, Temporary Access Pass, Passkeys, Sign-In
-Analysis, Audit Logs), each with a Pester test file, plus a per-user registration triage view
-and a configurable customer SOLL baseline (see below). The dashboard (spec section 9) and flat
+Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section 9) and flat
 HTML report both work, and the live-Graph path has been run successfully against a real
-tenant. Not yet built: Markdown/Excel/JSON report exports (spec section 14), and a full raw
-Conditional Access policy inventory report (today's CA checks are derived pass/fail facts,
-not a full policy listing).
+tenant. Beyond the base 19 rules, the dashboard also has:
+
+- A full **Conditional Access policy inventory** (every policy's name, state, targets, and
+  grant controls in plain language - independent of the pass/fail CA checks)
+- A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
+  who needs nudging toward a phishing-resistant method, and who has a phone-based fallback
+  method that should be removed to close off a downgrade-attack path)
+- SSPR registration coverage, the authentication methods registration campaign's state/target,
+  and a composite "phishing-resistant registration bootstrap available" check (self-service
+  FIDO2 or TAP)
+- A composite "privileged access protection in place" check (compliant device OR a
+  phishing-resistant auth strength required for admins - not a single hard-coded control)
+- A **configurable customer SOLL baseline** (see below) plus explicit **SOLL (Target) / IST
+  (Current)** column labeling in both reports, with the active baseline's name shown in each
+
+Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
 ## Customer baselines (SOLL)
 
