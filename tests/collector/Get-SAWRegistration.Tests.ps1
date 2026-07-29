@@ -14,7 +14,8 @@ BeforeAll {
             [bool]$IsSsprRegistered = $false,
             [string]$UserPrincipalName = 'user@contoso.com',
             [string]$DisplayName = 'Test User',
-            [string[]]$MethodsRegistered = @()
+            [string[]]$MethodsRegistered = @(),
+            [string]$UserType = 'member'
         )
         return @{
             isAdmin              = $IsAdmin
@@ -24,6 +25,7 @@ BeforeAll {
             userPrincipalName    = $UserPrincipalName
             userDisplayName      = $DisplayName
             methodsRegistered    = $MethodsRegistered
+            userType             = $UserType
         }
     }
 }
@@ -252,10 +254,54 @@ Describe 'ConvertTo-SAWUserRegistrationRoster' {
         $result.Bucket | Should -Be 'Hunt'
     }
 
-    It 'sorts Remove before Hunt before OK, admins first within each bucket' {
+    Context 'guest users' {
+        It 'buckets a guest with no phishing-resistant method as Guest (FIDO2 Not Supported), not Hunt' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'guest' -MethodsRegistered @('microsoftAuthenticatorPush'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.Bucket | Should -Be 'Guest (FIDO2 Not Supported)'
+            $result.IsGuest | Should -BeTrue
+        }
+
+        It 'buckets a guest with no methods registered at all as Guest (FIDO2 Not Supported), not Hunt' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'guest' -MethodsRegistered @())) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.Bucket | Should -Be 'Guest (FIDO2 Not Supported)'
+        }
+
+        It 'still buckets a guest who already has a phishing-resistant method as OK' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'guest' -MethodsRegistered @('fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.Bucket | Should -Be 'OK'
+        }
+
+        It 'still buckets a guest with a phishing-resistant method AND a phone fallback as Remove' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'guest' -MethodsRegistered @('fido2', 'mobilePhone'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.Bucket | Should -Be 'Remove'
+        }
+
+        It 'sets IsGuest false for a member user' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'member' -MethodsRegistered @('fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsGuest | Should -BeFalse
+        }
+    }
+
+    It 'sorts Remove > Hunt > Guest (FIDO2 Not Supported) > OK, admins first within each bucket' {
         $raw = @{
             value = @(
                 (New-SAWTestUser -UserPrincipalName 'ok.user@contoso.com' -IsAdmin $false -MethodsRegistered @('fido2')),
+                (New-SAWTestUser -UserPrincipalName 'guest.user@contoso.com' -UserType 'guest' -MethodsRegistered @()),
                 (New-SAWTestUser -UserPrincipalName 'hunt.admin@contoso.com' -IsAdmin $true -MethodsRegistered @()),
                 (New-SAWTestUser -UserPrincipalName 'hunt.user@contoso.com' -IsAdmin $false -MethodsRegistered @()),
                 (New-SAWTestUser -UserPrincipalName 'remove.user@contoso.com' -IsAdmin $false -MethodsRegistered @('fido2', 'mobilePhone')),
@@ -269,6 +315,7 @@ Describe 'ConvertTo-SAWUserRegistrationRoster' {
         $result[1].UserPrincipalName | Should -Be 'remove.user@contoso.com'
         $result[2].UserPrincipalName | Should -Be 'hunt.admin@contoso.com'
         $result[3].UserPrincipalName | Should -Be 'hunt.user@contoso.com'
-        $result[4].UserPrincipalName | Should -Be 'ok.user@contoso.com'
+        $result[4].UserPrincipalName | Should -Be 'guest.user@contoso.com'
+        $result[5].UserPrincipalName | Should -Be 'ok.user@contoso.com'
     }
 }

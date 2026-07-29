@@ -201,14 +201,15 @@ $($bodyRows -join "`n")
         $findingsHtml = '<div class="list-group-item text-body-secondary">No open findings - every evaluated setting matches the Secure At Work baseline.</div>'
     }
 
-    # --- User registration triage (OK / Hunt / Remove) ---
+    # --- User registration triage (OK / Hunt / Remove / Guest) ---
     $rosterBadgeClass = @{
-        Remove = 'bg-danger'
-        Hunt   = 'bg-warning text-dark'
-        OK     = 'bg-success'
+        Remove                        = 'bg-danger'
+        Hunt                          = 'bg-warning text-dark'
+        'Guest (FIDO2 Not Supported)' = 'bg-secondary'
+        OK                            = 'bg-success'
     }
-    $rosterCounts = @{ Remove = 0; Hunt = 0; OK = 0 }
-    $rosterAdminCounts = @{ Remove = 0; Hunt = 0; OK = 0 }
+    $rosterCounts = @{ Remove = 0; Hunt = 0; 'Guest (FIDO2 Not Supported)' = 0; OK = 0 }
+    $rosterAdminCounts = @{ Remove = 0; Hunt = 0; 'Guest (FIDO2 Not Supported)' = 0; OK = 0 }
     foreach ($u in $UserRoster) {
         if ($rosterCounts.ContainsKey($u.Bucket)) {
             $rosterCounts[$u.Bucket]++
@@ -236,21 +237,28 @@ $($bodyRows -join "`n")
         $rosterSectionHtml = @"
   <h2 class="h4 mb-3">Security Info Registration - User Triage</h2>
   <div class="row g-3 mb-3">
-    <div class="col-sm-4">
+    <div class="col-sm-6 col-lg-3">
       <div class="card stat-card red h-100"><div class="card-body">
         <div class="text-uppercase text-body-secondary small">Remove weak fallback ($($rosterAdminCounts.Remove) admin)</div>
         <div class="fs-2 fw-bold">$($rosterCounts.Remove)</div>
         <div class="text-body-secondary small">Has a phishing-resistant method AND a phone-based fallback still registered - the fallback enables a downgrade attack. Start with admins.</div>
       </div></div>
     </div>
-    <div class="col-sm-4">
+    <div class="col-sm-6 col-lg-3">
       <div class="card stat-card yellow h-100"><div class="card-body">
         <div class="text-uppercase text-body-secondary small">Hunt for registration ($($rosterAdminCounts.Hunt) admin)</div>
         <div class="fs-2 fw-bold">$($rosterCounts.Hunt)</div>
         <div class="text-body-secondary small">No phishing-resistant method registered yet - target these users with the registration campaign. Start with admins.</div>
       </div></div>
     </div>
-    <div class="col-sm-4">
+    <div class="col-sm-6 col-lg-3">
+      <div class="card stat-card grey h-100"><div class="card-body">
+        <div class="text-uppercase text-body-secondary small">Guests (FIDO2 not supported)</div>
+        <div class="fs-2 fw-bold">$($rosterCounts.'Guest (FIDO2 Not Supported)')</div>
+        <div class="text-body-secondary small">Guest/B2B users can't register FIDO2/passkeys in Entra yet (Microsoft: planned end of 2026) - not an actionable gap, just tracked for awareness.</div>
+      </div></div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
       <div class="card stat-card green h-100"><div class="card-body">
         <div class="text-uppercase text-body-secondary small">OK ($($rosterAdminCounts.OK) admin)</div>
         <div class="fs-2 fw-bold">$($rosterCounts.OK)</div>

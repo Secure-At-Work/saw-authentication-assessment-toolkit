@@ -105,6 +105,21 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match 'Hunt for registration \(0 admin\)'
     }
 
+    It 'renders the Guest (FIDO2 Not Supported) bucket with its own count and badge' {
+        $rosterPath = Join-Path $TestDrive 'guestroster\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'guest.partner@contoso.com'; DisplayName = 'Guest Partner'; IsAdmin = $false; IsGuest = $true; Bucket = 'Guest (FIDO2 Not Supported)'; MethodsRegistered = '' }
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Match 'guest\.partner@contoso\.com'
+        $content | Should -Match 'Guests \(FIDO2 not supported\)'
+        $content | Should -Match '<span class="badge bg-secondary">Guest \(FIDO2 Not Supported\)</span>'
+    }
+
     It 'defaults the baseline label to "no customer-specific baseline" when -BaselineName is not supplied' {
         $script:DashboardContent | Should -Match 'no customer-specific baseline applied'
     }

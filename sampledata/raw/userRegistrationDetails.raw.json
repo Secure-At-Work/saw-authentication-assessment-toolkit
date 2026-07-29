@@ -105,6 +105,21 @@
       "isPasswordlessCapable": false,
       "methodsRegistered": [],
       "systemPreferredAuthenticationMethod": null
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000008",
+      "userPrincipalName": "guest.partner_fabrikam.com#EXT#@contoso.onmicrosoft.com",
+      "userDisplayName": "Guest Partner",
+      "userType": "guest",
+      "isAdmin": false,
+      "isSsprRegistered": false,
+      "isSsprEnabled": false,
+      "isSsprCapable": false,
+      "isMfaRegistered": true,
+      "isMfaCapable": true,
+      "isPasswordlessCapable": false,
+      "methodsRegistered": ["microsoftAuthenticatorPush"],
+      "systemPreferredAuthenticationMethod": "microsoftAuthenticatorPush"
     }
   ]
 }
