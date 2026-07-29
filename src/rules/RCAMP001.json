@@ -1,0 +1,8 @@
+{
+    "RuleID": "RCAMP001",
+    "Category": "Registration",
+    "Setting": "Registration Campaign Actively Enabled",
+    "Expected": "Enabled",
+    "Severity": "Low",
+    "Recommendation": "Enable the authentication methods registration campaign (Entra ID > Authentication methods > Registration campaign) with at least one include target, so users are actively nudged to register a stronger method after completing MFA. 'Default'/unset does not reliably mean this is happening."
+}

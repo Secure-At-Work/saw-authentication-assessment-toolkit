@@ -7,6 +7,24 @@ function ConvertTo-SAWNormalizedAuthenticationMethods {
         Maps each entry in authenticationMethodConfigurations to a
         { Category, Setting, State } object, using the same Category/Setting
         naming the rule JSON files key off of.
+
+        Also derives three "Registration" facts from data already present in this same raw
+        response, no extra Graph calls needed:
+          - whether the registration campaign (registrationEnforcement.
+            authenticationMethodsRegistrationCampaign) is actively enabled and targeting
+            someone. Only "enabled" with at least one includeTarget counts - "default" is
+            ambiguous (Microsoft's own resource docs say it currently means "disabled", but
+            the "Microsoft managed" UI option is rolling out different default behavior over
+            time) and isn't something an assessor should treat as an attestable control.
+          - if the campaign is active, whether it targets passkeys (fido2) specifically
+            rather than only Microsoft Authenticator - passkeys are the stronger target.
+            Omitted (not just "Disabled") when no campaign is active at all, since the
+            question doesn't apply yet.
+          - whether there's any way for a user to bootstrap a phishing-resistant method:
+            either FIDO2 self-service registration is allowed, or Temporary Access Pass is
+            enabled (a TAP lets a user with nothing register FIDO2/a passkey without needing
+            an existing strong method or their password). Without either, phishing-resistant
+            rollout has no on-ramp for users who don't already have one.
     .PARAMETER RawPolicy
         The object returned by Get-SAWAuthenticationMethods.
     .OUTPUTS
@@ -29,10 +47,19 @@ function ConvertTo-SAWNormalizedAuthenticationMethods {
             SoftwareOath           = 'Software OATH'
             X509Certificate        = 'Certificate Authentication'
         }
+
+        function ConvertTo-SAWStateLabel {
+            param([bool]$Value)
+            if ($Value) { return 'Enabled' }
+            return 'Disabled'
+        }
     }
 
     process {
-        foreach ($config in $RawPolicy.authenticationMethodConfigurations) {
+        $methodConfigs = $RawPolicy.authenticationMethodConfigurations
+        if (-not $methodConfigs) { $methodConfigs = @() }
+
+        foreach ($config in $methodConfigs) {
             $setting = $displayNameByMethodId[$config.id]
             if (-not $setting) {
                 Write-Verbose "ConvertTo-SAWNormalizedAuthenticationMethods: no display name mapping for method id '$($config.id)', using raw id"
@@ -50,6 +77,54 @@ function ConvertTo-SAWNormalizedAuthenticationMethods {
                 State    = $state
                 RawId    = $config.id
             }
+        }
+
+        # --- Registration campaign ---
+        $campaign = $RawPolicy.registrationEnforcement.authenticationMethodsRegistrationCampaign
+        $includeTargetCount = (@($campaign.includeTargets) | Where-Object { $_ }).Count
+        $campaignActive = ($campaign.state -eq 'enabled') -and ($includeTargetCount -gt 0)
+
+        Write-Verbose "ConvertTo-SAWNormalizedAuthenticationMethods: registration campaign state='$($campaign.state)', includeTargets=$includeTargetCount"
+
+        @{
+            Category = 'Registration'
+            Setting  = 'Registration Campaign Actively Enabled'
+            State    = ConvertTo-SAWStateLabel $campaignActive
+        }
+
+        if ($campaignActive) {
+            $targetsPasskey = $false
+            foreach ($target in $campaign.includeTargets) {
+                if ($target.targetedAuthenticationMethod -eq 'fido2') {
+                    $targetsPasskey = $true
+                    break
+                }
+            }
+
+            @{
+                Category = 'Registration'
+                Setting  = 'Registration Campaign Targets Passkey (FIDO2)'
+                State    = ConvertTo-SAWStateLabel $targetsPasskey
+            }
+        }
+        else {
+            Write-Verbose 'ConvertTo-SAWNormalizedAuthenticationMethods: no active registration campaign - passkey-targeting check not applicable'
+        }
+
+        # --- Phishing-resistant registration bootstrap ---
+        $fido2Config = $methodConfigs | Where-Object { $_.id -eq 'Fido2' } | Select-Object -First 1
+        $tapConfig = $methodConfigs | Where-Object { $_.id -eq 'TemporaryAccessPass' } | Select-Object -First 1
+
+        $fido2SelfServiceAvailable = ($fido2Config.state -eq 'enabled') -and [bool]$fido2Config.isSelfServiceRegistrationAllowed
+        $tapAvailable = ($tapConfig.state -eq 'enabled')
+        $bootstrapAvailable = $fido2SelfServiceAvailable -or $tapAvailable
+
+        Write-Verbose "ConvertTo-SAWNormalizedAuthenticationMethods: phishing-resistant bootstrap - FIDO2 self-service=$fido2SelfServiceAvailable, TAP=$tapAvailable"
+
+        @{
+            Category = 'Registration'
+            Setting  = 'Phishing-Resistant Registration Bootstrap Available (Self-Service FIDO2 or TAP)'
+            State    = ConvertTo-SAWStateLabel $bootstrapAvailable
         }
     }
 }

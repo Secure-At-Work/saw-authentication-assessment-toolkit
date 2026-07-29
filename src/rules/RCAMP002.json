@@ -1,0 +1,8 @@
+{
+    "RuleID": "RCAMP002",
+    "Category": "Registration",
+    "Setting": "Registration Campaign Targets Passkey (FIDO2)",
+    "Expected": "Enabled",
+    "Severity": "Low",
+    "Recommendation": "Point the registration campaign at passkey (FIDO2) rather than Microsoft Authenticator. A campaign can only target one method at a time - passkeys are phishing-resistant, push notifications to Authenticator are not."
+}

@@ -1,0 +1,8 @@
+{
+    "RuleID": "BOOT001",
+    "Category": "Registration",
+    "Setting": "Phishing-Resistant Registration Bootstrap Available (Self-Service FIDO2 or TAP)",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Recommendation": "Give users with no phishing-resistant method a way to get one: either allow self-service FIDO2/passkey registration, or enable Temporary Access Pass so they can register FIDO2/a passkey without needing an existing strong method or their password. Without either, phishing-resistant rollout has no on-ramp."
+}

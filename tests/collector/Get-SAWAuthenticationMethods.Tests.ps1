@@ -41,6 +41,10 @@ Describe 'Get-SAWAuthenticationMethods' {
 }
 
 Describe 'ConvertTo-SAWNormalizedAuthenticationMethods' {
+    # Registration campaign / bootstrap facts (Category 'Registration') are always appended
+    # after the per-method ones, so per-method assertions below filter to Category
+    # 'Authentication Methods' rather than asserting on the raw total count.
+
     It 'maps a known method id to its display name and title-cases the state' {
         $raw = @{
             authenticationMethodConfigurations = @(
@@ -48,7 +52,7 @@ Describe 'ConvertTo-SAWNormalizedAuthenticationMethods' {
             )
         }
 
-        $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+        $result = @($raw | ConvertTo-SAWNormalizedAuthenticationMethods | Where-Object { $_.Category -eq 'Authentication Methods' })
 
         $result.Count | Should -Be 1
         $result[0].Category | Should -Be 'Authentication Methods'
@@ -63,7 +67,7 @@ Describe 'ConvertTo-SAWNormalizedAuthenticationMethods' {
             )
         }
 
-        $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+        $result = @($raw | ConvertTo-SAWNormalizedAuthenticationMethods | Where-Object { $_.Category -eq 'Authentication Methods' })
 
         $result[0].Setting | Should -Be 'SomeFutureMethod'
         $result[0].State | Should -Be 'Disabled'
@@ -78,9 +82,160 @@ Describe 'ConvertTo-SAWNormalizedAuthenticationMethods' {
             )
         }
 
-        $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+        $result = @($raw | ConvertTo-SAWNormalizedAuthenticationMethods | Where-Object { $_.Category -eq 'Authentication Methods' })
 
         $result.Count | Should -Be 3
         ($result | Where-Object { $_.Setting -eq 'FIDO2' }).State | Should -Be 'Disabled'
+    }
+
+    Context 'registration campaign' {
+        It 'reports the campaign as not actively enabled when state is "default"' {
+            $raw = @{
+                authenticationMethodConfigurations = @()
+                registrationEnforcement            = @{
+                    authenticationMethodsRegistrationCampaign = @{ state = 'default' }
+                }
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq 'Registration Campaign Actively Enabled' }).State | Should -Be 'Disabled'
+        }
+
+        It 'reports the campaign as not actively enabled when state is enabled but includeTargets is empty' {
+            $raw = @{
+                authenticationMethodConfigurations = @()
+                registrationEnforcement            = @{
+                    authenticationMethodsRegistrationCampaign = @{ state = 'enabled'; includeTargets = @() }
+                }
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq 'Registration Campaign Actively Enabled' }).State | Should -Be 'Disabled'
+        }
+
+        It 'reports the campaign as actively enabled when state is enabled with at least one target' {
+            $raw = @{
+                authenticationMethodConfigurations = @()
+                registrationEnforcement            = @{
+                    authenticationMethodsRegistrationCampaign = @{
+                        state          = 'enabled'
+                        includeTargets = @(@{ targetType = 'group'; id = 'all_users'; targetedAuthenticationMethod = 'microsoftAuthenticator' })
+                    }
+                }
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq 'Registration Campaign Actively Enabled' }).State | Should -Be 'Enabled'
+        }
+
+        It 'omits the passkey-targeting check entirely when no campaign is active' {
+            $raw = @{
+                authenticationMethodConfigurations = @()
+                registrationEnforcement            = @{
+                    authenticationMethodsRegistrationCampaign = @{ state = 'default' }
+                }
+            }
+
+            $result = @($raw | ConvertTo-SAWNormalizedAuthenticationMethods)
+
+            ($result | Where-Object { $_.Setting -eq 'Registration Campaign Targets Passkey (FIDO2)' }) | Should -BeNullOrEmpty
+        }
+
+        It 'reports passkey-targeting Enabled when an active campaign targets fido2' {
+            $raw = @{
+                authenticationMethodConfigurations = @()
+                registrationEnforcement            = @{
+                    authenticationMethodsRegistrationCampaign = @{
+                        state          = 'enabled'
+                        includeTargets = @(@{ targetType = 'group'; id = 'all_users'; targetedAuthenticationMethod = 'fido2' })
+                    }
+                }
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq 'Registration Campaign Targets Passkey (FIDO2)' }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports passkey-targeting Disabled when an active campaign targets only microsoftAuthenticator' {
+            $raw = @{
+                authenticationMethodConfigurations = @()
+                registrationEnforcement            = @{
+                    authenticationMethodsRegistrationCampaign = @{
+                        state          = 'enabled'
+                        includeTargets = @(@{ targetType = 'group'; id = 'all_users'; targetedAuthenticationMethod = 'microsoftAuthenticator' })
+                    }
+                }
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq 'Registration Campaign Targets Passkey (FIDO2)' }).State | Should -Be 'Disabled'
+        }
+    }
+
+    Context 'phishing-resistant registration bootstrap' {
+        It 'reports Enabled when FIDO2 self-service registration is allowed' {
+            $raw = @{
+                authenticationMethodConfigurations = @(
+                    @{ id = 'Fido2'; state = 'enabled'; isSelfServiceRegistrationAllowed = $true },
+                    @{ id = 'TemporaryAccessPass'; state = 'disabled' }
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -like 'Phishing-Resistant Registration Bootstrap*' }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports Enabled when TAP is enabled, even if FIDO2 self-service is not allowed' {
+            $raw = @{
+                authenticationMethodConfigurations = @(
+                    @{ id = 'Fido2'; state = 'disabled'; isSelfServiceRegistrationAllowed = $false },
+                    @{ id = 'TemporaryAccessPass'; state = 'enabled' }
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -like 'Phishing-Resistant Registration Bootstrap*' }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports Disabled when neither FIDO2 self-service nor TAP is available' {
+            $raw = @{
+                authenticationMethodConfigurations = @(
+                    @{ id = 'Fido2'; state = 'disabled'; isSelfServiceRegistrationAllowed = $false },
+                    @{ id = 'TemporaryAccessPass'; state = 'disabled' }
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -like 'Phishing-Resistant Registration Bootstrap*' }).State | Should -Be 'Disabled'
+        }
+
+        It 'reports Disabled when FIDO2 is enabled but self-service registration is not allowed, and TAP is off' {
+            $raw = @{
+                authenticationMethodConfigurations = @(
+                    @{ id = 'Fido2'; state = 'enabled'; isSelfServiceRegistrationAllowed = $false },
+                    @{ id = 'TemporaryAccessPass'; state = 'disabled' }
+                )
+            }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -like 'Phishing-Resistant Registration Bootstrap*' }).State | Should -Be 'Disabled'
+        }
+
+        It 'reports Disabled when Fido2/TemporaryAccessPass configs are absent entirely' {
+            $raw = @{ authenticationMethodConfigurations = @() }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -like 'Phishing-Resistant Registration Bootstrap*' }).State | Should -Be 'Disabled'
+        }
     }
 }
