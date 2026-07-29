@@ -53,6 +53,11 @@ tenant. Beyond the base 19 rules, the dashboard also has:
 - A **configurable, auto-detected customer SOLL baseline** (see below - hybrid vs. cloud-native
   is detected from the tenant itself, not just a manual flag) plus explicit **SOLL (Target) /
   IST (Current)** column labeling in both reports, with the active baseline's name shown in each
+- A **synced (cloud-backed) passkeys** check (PASS003 - Google Password Manager, iCloud
+  Keychain, 1Password, Bitwarden, and similar, detected by AAGUID against the FIDO2 key
+  restrictions allow/block-list). Synced passkeys are still phishing-resistant, so the toolkit
+  default is permissive (Expected Enabled, Low severity); a customer requiring device-bound-only
+  passkeys can flip this in a baseline (`cloud-native-passwordless` does this as an example)
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
