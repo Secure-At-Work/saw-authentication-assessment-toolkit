@@ -1,6 +1,7 @@
 BeforeAll {
     . "$PSScriptRoot/../../src/collector/Get-SAWConditionalAccess.ps1"
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNormalizedConditionalAccess.ps1"
+    . "$PSScriptRoot/../../src/collector/ConvertTo-SAWConditionalAccessInventory.ps1"
 
     function Get-MgContext { }
     function Invoke-MgGraphRequest { param($Method, $Uri) }
@@ -221,5 +222,144 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
 
             ($result | Where-Object { $_.Setting -like 'Privileged Access Protection In Place*' }).State | Should -Be 'Disabled'
         }
+    }
+}
+
+Describe 'ConvertTo-SAWConditionalAccessInventory' {
+    It 'summarizes "All users" with an exclusion count' {
+        $raw = @{
+            value = @(
+                @{
+                    displayName = 'Test Policy'
+                    state       = 'enabled'
+                    conditions  = @{
+                        users        = @{ includeUsers = @('All'); excludeUsers = @('u1'); includeRoles = @(); includeGroups = @() }
+                        applications = @{ includeApplications = @('All') }
+                    }
+                    grantControls = @{ builtInControls = @('mfa') }
+                }
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWConditionalAccessInventory
+
+        $result.UserTargetSummary | Should -Be 'All users (1 excluded)'
+        $result.AppTargetSummary | Should -Be 'All apps'
+        $result.GrantControlsSummary | Should -Be 'Require MFA'
+    }
+
+    It 'summarizes admin role targeting by count' {
+        $raw = @{
+            value = @(
+                @{
+                    displayName = 'Test Policy'
+                    state       = 'enabled'
+                    conditions  = @{
+                        users        = @{ includeUsers = @(); excludeUsers = @(); includeRoles = @('r1', 'r2'); includeGroups = @() }
+                        applications = @{ includeApplications = @('All') }
+                    }
+                    grantControls = @{ builtInControls = @('compliantDevice') }
+                }
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWConditionalAccessInventory
+
+        $result.UserTargetSummary | Should -Be '2 admin role(s)'
+        $result.GrantControlsSummary | Should -Be 'Require compliant device'
+    }
+
+    It 'reports the authentication strength display name in the grant controls summary' {
+        $raw = @{
+            value = @(
+                @{
+                    displayName = 'Test Policy'
+                    state       = 'enabled'
+                    conditions  = @{
+                        users        = @{ includeUsers = @(); excludeUsers = @(); includeRoles = @('r1'); includeGroups = @() }
+                        applications = @{ includeApplications = @('All') }
+                    }
+                    grantControls = @{ builtInControls = @(); authenticationStrength = @{ displayName = 'Phishing-resistant MFA' } }
+                }
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWConditionalAccessInventory
+
+        $result.GrantControlsSummary | Should -Be 'Require auth strength: Phishing-resistant MFA'
+    }
+
+    It 'identifies a policy targeting Register Security Information' {
+        $raw = @{
+            value = @(
+                @{
+                    displayName = 'Test Policy'
+                    state       = 'enabled'
+                    conditions  = @{
+                        users        = @{ includeUsers = @('All'); excludeUsers = @(); includeRoles = @(); includeGroups = @() }
+                        applications = @{ includeApplications = @(); includeUserActions = @('urn:user:registersecurityinfo') }
+                    }
+                    grantControls = @{ builtInControls = @('mfa') }
+                }
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWConditionalAccessInventory
+
+        $result.TargetsSecurityInfoRegistration | Should -BeTrue
+        $result.AppTargetSummary | Should -Be 'Register security information'
+    }
+
+    It 'maps enabledForReportingButNotEnforced to a readable label' {
+        $raw = @{
+            value = @(
+                @{
+                    displayName = 'Test Policy'
+                    state       = 'enabledForReportingButNotEnforced'
+                    conditions  = @{
+                        users        = @{ includeUsers = @('All'); excludeUsers = @(); includeRoles = @(); includeGroups = @() }
+                        applications = @{ includeApplications = @('All') }
+                    }
+                    grantControls = @{ builtInControls = @('mfa') }
+                }
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWConditionalAccessInventory
+
+        $result.State | Should -Be 'Enabled (report-only)'
+    }
+
+    It 'reports None for grant controls when there are none' {
+        $raw = @{
+            value = @(
+                @{
+                    displayName = 'Test Policy'
+                    state       = 'disabled'
+                    conditions  = @{
+                        users        = @{ includeUsers = @('All'); excludeUsers = @(); includeRoles = @(); includeGroups = @() }
+                        applications = @{ includeApplications = @('All') }
+                    }
+                    grantControls = @{ builtInControls = @() }
+                }
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWConditionalAccessInventory
+
+        $result.GrantControlsSummary | Should -Be 'None'
+    }
+
+    It 'produces one inventory entry per policy' {
+        $raw = @{
+            value = @(
+                @{ displayName = 'Policy A'; state = 'enabled'; conditions = @{ users = @{ includeUsers = @('All'); excludeUsers = @(); includeRoles = @(); includeGroups = @() }; applications = @{ includeApplications = @('All') } }; grantControls = @{ builtInControls = @() } },
+                @{ displayName = 'Policy B'; state = 'disabled'; conditions = @{ users = @{ includeUsers = @('All'); excludeUsers = @(); includeRoles = @(); includeGroups = @() }; applications = @{ includeApplications = @('All') } }; grantControls = @{ builtInControls = @() } }
+            )
+        }
+
+        $result = @($raw | ConvertTo-SAWConditionalAccessInventory)
+
+        $result.Count | Should -Be 2
     }
 }

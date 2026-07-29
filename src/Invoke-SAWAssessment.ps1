@@ -73,6 +73,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWConditionalAccess.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedConditionalAccess.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWConditionalAccessInventory.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuthenticationStrengths.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationStrengths.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWRegistration.ps1')
@@ -117,6 +118,7 @@ $normalized += $authRaw | ConvertTo-SAWNormalizedAuthenticationMethods -Verbose:
 Write-Verbose 'Invoke-SAWAssessment: collecting conditional access policies'
 $caRaw = Get-SAWConditionalAccess -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $caRaw | ConvertTo-SAWNormalizedConditionalAccess -Verbose:$VerbosePreference
+$caPolicyInventory = $caRaw | ConvertTo-SAWConditionalAccessInventory -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: collecting authentication strength policies'
 $strengthsRaw = Get-SAWAuthenticationStrengths -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
@@ -150,7 +152,7 @@ Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -OutputPath $ReportPath -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
-$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

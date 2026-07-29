@@ -104,4 +104,24 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match 'Remove weak fallback \(1 admin\)'
         $content | Should -Match 'Hunt for registration \(0 admin\)'
     }
+
+    It 'omits the CA policy inventory section entirely when none is supplied' {
+        $script:DashboardContent | Should -Not -Match 'Conditional Access Policy Inventory'
+    }
+
+    It 'renders the CA policy inventory section with policy details when supplied' {
+        $caPath = Join-Path $TestDrive 'cainventory\index.html'
+        $inventory = @(
+            @{ DisplayName = 'Block Legacy Auth'; State = 'Enabled'; UserTargetSummary = 'All users (1 excluded)'; AppTargetSummary = 'All apps'; GrantControlsSummary = 'Block access'; TargetsSecurityInfoRegistration = $false }
+            @{ DisplayName = 'Require MFA for Security Info Registration'; State = 'Enabled'; UserTargetSummary = 'All users'; AppTargetSummary = 'Register security information'; GrantControlsSummary = 'Require MFA'; TargetsSecurityInfoRegistration = $true }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -CaPolicyInventory $inventory -OutputPath $caPath | Out-Null
+        $content = Get-Content -Path $caPath -Raw
+
+        $content | Should -Match 'Conditional Access Policy Inventory'
+        $content | Should -Match 'Block Legacy Auth'
+        $content | Should -Match 'Block access'
+        $content | Should -Match '<span class="badge bg-info text-dark">Security Info Registration</span>'
+    }
 }

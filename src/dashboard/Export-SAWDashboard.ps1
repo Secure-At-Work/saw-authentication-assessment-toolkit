@@ -26,6 +26,12 @@ function Export-SAWDashboard {
         Triage" section: who's fine, who needs hunting down to register a phishing-resistant
         method, and who has a downgrade-risk fallback method to remove - already sorted
         Remove > Hunt > OK, admins first within each bucket. Omitted entirely if empty/absent.
+    .PARAMETER CaPolicyInventory
+        Optional output of ConvertTo-SAWConditionalAccessInventory (one hashtable per CA
+        policy). When supplied, renders a "Conditional Access Policy Inventory" section
+        listing every policy's name, state, targets, and grant controls - independent of the
+        handful of synthetic pass/fail CA checks in the rules engine. Omitted entirely if
+        empty/absent.
     .PARAMETER OutputPath
         File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
         subfolder is created alongside it. Parent directory is created if missing.
@@ -40,6 +46,9 @@ function Export-SAWDashboard {
 
         [AllowEmptyCollection()]
         [object[]]$UserRoster = @(),
+
+        [AllowEmptyCollection()]
+        [object[]]$CaPolicyInventory = @(),
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -256,6 +265,49 @@ $($rosterRowsHtml -join "`n")
 "@
     }
 
+    # --- Conditional Access policy inventory ---
+    $caStateBadgeClass = @{
+        'Enabled'                = 'bg-success'
+        'Enabled (report-only)' = 'bg-warning text-dark'
+        'Disabled'               = 'bg-secondary'
+    }
+
+    $caInventoryRowsHtml = foreach ($p in $CaPolicyInventory) {
+        $badgeClass = $caStateBadgeClass[$p.State]
+        if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
+        $registrationBadge = ''
+        if ($p.TargetsSecurityInfoRegistration) {
+            $registrationBadge = ' <span class="badge bg-info text-dark">Security Info Registration</span>'
+        }
+        @"
+      <tr>
+        <td>$(ConvertTo-SAWHtmlEncoded $p.DisplayName)$registrationBadge</td>
+        <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $p.State)</span></td>
+        <td>$(ConvertTo-SAWHtmlEncoded $p.UserTargetSummary)</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $p.AppTargetSummary)</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $p.GrantControlsSummary)</td>
+      </tr>
+"@
+    }
+
+    $caInventorySectionHtml = ''
+    if ($CaPolicyInventory.Count -gt 0) {
+        $caInventorySectionHtml = @"
+  <h2 class="h4 mb-3">Conditional Access Policy Inventory</h2>
+  <p class="text-body-secondary small">Every policy as configured in the tenant, independent of the synthetic pass/fail checks above.</p>
+  <div class="table-responsive mb-4">
+    <table class="table table-striped table-hover align-middle">
+      <thead>
+        <tr><th>Policy</th><th>State</th><th>Users/Roles</th><th>Apps/Actions</th><th>Grant Controls</th></tr>
+      </thead>
+      <tbody>
+$($caInventoryRowsHtml -join "`n")
+      </tbody>
+    </table>
+  </div>
+"@
+    }
+
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $totalRules = $RuleResults.Count
 
@@ -335,6 +387,7 @@ $($findingsHtml -join "`n")
   </div>
 
 $rosterSectionHtml
+$caInventorySectionHtml
   <h2 class="h4 mb-3">Detail by Category</h2>
   <ul class="nav nav-pills mb-3" role="tablist">
 $($navItems -join "`n")

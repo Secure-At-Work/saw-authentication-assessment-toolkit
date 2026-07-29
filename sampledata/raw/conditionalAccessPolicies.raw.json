@@ -137,6 +137,38 @@
         }
       },
       "sessionControls": null
+    },
+    {
+      "id": "55555555-5555-5555-5555-555555555555",
+      "displayName": "SAW - Require MFA for Security Info Registration",
+      "state": "enabled",
+      "createdDateTime": "2025-11-07T09:00:00Z",
+      "modifiedDateTime": "2025-11-07T09:00:00Z",
+      "conditions": {
+        "applications": {
+          "includeApplications": [],
+          "excludeApplications": [],
+          "includeUserActions": ["urn:user:registersecurityinfo"]
+        },
+        "users": {
+          "includeUsers": ["All"],
+          "excludeUsers": ["99999999-9999-9999-9999-999999999999"],
+          "includeGroups": [],
+          "excludeGroups": [],
+          "includeRoles": [],
+          "excludeRoles": []
+        },
+        "clientAppTypes": ["all"],
+        "platforms": null,
+        "locations": null
+      },
+      "grantControls": {
+        "operator": "OR",
+        "builtInControls": ["mfa"],
+        "customAuthenticationFactors": [],
+        "termsOfUse": []
+      },
+      "sessionControls": null
     }
   ]
 }
