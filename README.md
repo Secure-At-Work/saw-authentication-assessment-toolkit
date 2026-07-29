@@ -16,19 +16,23 @@ specs/              Specifications driving development
 config/baselines/   Named customer SOLL baseline presets (see "Customer baselines" below)
 src/
   Invoke-SAWAssessment.ps1   Orchestrator: connect -> collect -> normalize -> evaluate -> report
+  Invoke-SAWDriftReport.ps1  Compares two history/ snapshots for a tenant, renders a drift report
   Connect-SAWGraph.ps1       Module check + Microsoft Graph connection helper
   collector/         One Get-SAW*.ps1 (Graph read) + ConvertTo-SAWNormalized*.ps1 (derive
                       Category/Setting/State facts) pair per assessed category
-  rules/             Secure At Work rule definitions (JSON, no logic), the rules engine, and
-                      Get-SAWBaselineOverrides.ps1 (customer baseline loader)
-  dashboard/          Export-SAWHtmlReport.ps1 (flat table) and Export-SAWDashboard.ps1
-                      (Bootstrap/Chart.js dashboard, vendored locally under vendor/)
+  rules/             Secure At Work rule definitions (JSON, no logic), the rules engine,
+                      Get-SAWBaselineOverrides.ps1 (customer baseline loader), and
+                      Compare-SAWRuleResults.ps1 (drift comparison between two snapshots)
+  dashboard/          Export-SAWHtmlReport.ps1 (flat table), Export-SAWDashboard.ps1
+                      (Bootstrap/Chart.js dashboard, vendored locally under vendor/), and
+                      Export-SAWDriftReport.ps1 (flat drift comparison report)
 tests/              Pester tests, mirroring src/ (see tests/README.md - can't run locally
                     on this machine, see docs/powershell-coding-notes.md)
 sampledata/raw/     Committed synthetic Graph response fixtures, used by -UseSampleData
                     and by the tests
 schemas/            JSON schemas for normalized data and rules (not yet written)
-reports/            Generated report output (gitignored)
+reports/            Generated report output, namespaced per tenant + run (gitignored)
+history/            Per-tenant, per-run JSON result snapshots for drift comparison (gitignored)
 .github/workflows/  CI: runs Pester + PSScriptAnalyzer on push/PR
 ```
 
@@ -58,6 +62,10 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   restrictions allow/block-list). Synced passkeys are still phishing-resistant, so the toolkit
   default is permissive (Expected Enabled, Low severity); a customer requiring device-bound-only
   passkeys can flip this in a baseline (`cloud-native-passwordless` does this as an example)
+- **Multi-tenant, repeat-run-safe output** - reports and history snapshots are namespaced by
+  tenant + run timestamp, so nothing overwrites a previous run - plus a **drift report**
+  (`Invoke-SAWDriftReport.ps1`, see below) comparing any two runs of the same tenant to surface
+  regressions/improvements and registration roster movement over time
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
@@ -119,10 +127,46 @@ Program](https://developer.microsoft.com/microsoft-365/dev-program) sandbox tena
 (`-DaysBack`) after an earlier real-tenant run hit Graph's request timeout querying those
 endpoints unfiltered.
 
-Output lands in `reports/assessment-report.html` (flat table) and
-`reports/dashboard/index.html` (full dashboard - self-contained with its own `vendor/`
-subfolder, so the whole `reports/dashboard/` directory can be zipped up and handed to a
-client without needing internet access to render).
+Output lands in `reports/<tenant-slug>/<run-timestamp>/assessment-report.html` (flat table)
+and `.../dashboard/index.html` (full dashboard - self-contained with its own `vendor/`
+subfolder, so the whole `dashboard/` directory can be zipped up and handed to a client
+without needing internet access to render). Pass `-ReportPath`/`-DashboardPath` explicitly to
+pin a fixed location instead (e.g. for scripting/CI that always wants the latest run at a
+known path).
+
+## Multiple tenants and drift over time
+
+Every run is namespaced by tenant and timestamp, so repeated runs - against the same tenant
+or different ones - never overwrite each other:
+
+- **Tenant identity** comes from `organization.id` via Graph (`Get-SAWTenantProfile.ps1`,
+  already collected for baseline auto-detection - no extra permission needed).
+  `ConvertTo-SAWTenantProfile.ps1` derives a filesystem-safe `Slug` from it (falling back to a
+  sanitized `DisplayName` if `TenantId` is ever missing), used to namespace both
+  `reports/<tenant-slug>/...` and `history/<tenant-slug>/...`.
+- **Every run writes a JSON snapshot** to `history/<tenant-slug>/<run-timestamp>.json` (rule
+  results, roster bucket counts, baseline name, tenant metadata) - opt out with
+  `-SkipHistorySnapshot` for one-off runs you don't want counted in a tenant's drift history.
+
+To see what changed between two runs of the same tenant, run `Invoke-SAWDriftReport.ps1`. By
+default it picks the two most recent snapshots for a tenant slug:
+
+```powershell
+pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose   # run #1, writes a snapshot
+# ... time passes, or the tenant configuration changes ...
+pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose   # run #2, writes another snapshot
+
+pwsh -File src/Invoke-SAWDriftReport.ps1 -TenantSlug <tenant-guid-or-slug> -Verbose
+# or compare two specific snapshots directly:
+pwsh -File src/Invoke-SAWDriftReport.ps1 -OldSnapshotPath history/<slug>/<older>.json -NewSnapshotPath history/<slug>/<newer>.json
+```
+
+The drift report (`reports/<tenant-slug>/drift/<old>-vs-<new>.html`) leads with **Regressions**
+(status got worse - review first), then **Improvements**, then rules that became applicable or
+not applicable (typically because a related feature was toggled), then any rule set changes
+between the two toolkit versions used, then the Security Info Registration roster's bucket
+deltas (e.g. how many users moved from Hunt into OK). Unchanged rules are summarized as a
+count only, to keep the signal-to-noise ratio high on repeated runs.
 
 ## Requirements
 
