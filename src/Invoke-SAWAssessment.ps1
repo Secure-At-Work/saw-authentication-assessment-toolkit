@@ -20,6 +20,14 @@
     installed. Ignored when -UseSampleData is set.
 .PARAMETER RulesPath
     Directory containing rule *.json files. Defaults to src/rules.
+.PARAMETER Baseline
+    Name of a customer SOLL baseline preset under config/baselines/ (without the .json
+    extension), e.g. 'hybrid-ad-passwords-required' or 'cloud-native-passwordless'. Optional -
+    omit to evaluate every rule exactly as authored, with no customer-specific overrides.
+.PARAMETER BaselineOverridePath
+    Path to a per-engagement override JSON file (same shape as a baseline preset), layered on
+    top of -Baseline for one-off tweaks specific to this engagement. Optional; can be used
+    with or without -Baseline.
 .PARAMETER ReportPath
     Output path for the generated flat HTML report. Defaults to reports/assessment-report.html.
 .PARAMETER DashboardPath
@@ -29,6 +37,8 @@
     pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
 .EXAMPLE
     pwsh -File src/Invoke-SAWAssessment.ps1 -InstallMissingModules -Verbose
+.EXAMPLE
+    pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Baseline hybrid-ad-passwords-required -Verbose
 #>
 [CmdletBinding()]
 param(
@@ -45,6 +55,10 @@ param(
     [switch]$InstallMissingModules,
 
     [string]$RulesPath = (Join-Path $PSScriptRoot 'rules'),
+
+    [string]$Baseline,
+
+    [string]$BaselineOverridePath,
 
     [string]$ReportPath = (Join-Path $PSScriptRoot '..' 'reports' 'assessment-report.html'),
 
@@ -72,6 +86,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedSignInLogs.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuditLogs.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuditLogs.ps1')
+. (Join-Path $PSScriptRoot 'rules' 'Get-SAWBaselineOverrides.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Invoke-SAWRulesEngine.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
@@ -80,6 +95,18 @@ if (-not $UseSampleData) {
     Write-Verbose 'Invoke-SAWAssessment: establishing Microsoft Graph connection'
     Connect-SAWGraph -Scopes $Scopes -InstallMissingModules:$InstallMissingModules -Verbose:$VerbosePreference | Out-Null
 }
+
+$baselinePath = $null
+if ($Baseline) {
+    $baselinePath = Join-Path $PSScriptRoot '..' 'config' 'baselines' "$Baseline.json"
+    if (-not (Test-Path -Path $baselinePath)) {
+        $availableBaselines = Get-ChildItem -Path (Join-Path $PSScriptRoot '..' 'config' 'baselines') -Filter '*.json' -File |
+            ForEach-Object { $_.BaseName }
+        throw "Baseline preset '$Baseline' not found at $baselinePath. Available presets: $($availableBaselines -join ', ')"
+    }
+}
+
+$baselineOverrides = Get-SAWBaselineOverrides -BaselinePath $baselinePath -OverridePath $BaselineOverridePath -Verbose:$VerbosePreference
 
 $normalized = @()
 
@@ -117,7 +144,7 @@ $auditsRaw = Get-SAWAuditLogs -UseSampleData:$UseSampleData -Verbose:$VerbosePre
 $normalized += $auditsRaw | ConvertTo-SAWNormalizedAuditLogs -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: evaluating Secure At Work rules'
-$results = Invoke-SAWRulesEngine -RulesPath $RulesPath -NormalizedData $normalized -Verbose:$VerbosePreference
+$results = Invoke-SAWRulesEngine -RulesPath $RulesPath -NormalizedData $normalized -BaselineOverrides $baselineOverrides -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -OutputPath $ReportPath -Verbose:$VerbosePreference

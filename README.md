@@ -13,12 +13,14 @@ This toolkit is **read-only**. It must never create, modify, enable/disable, or 
 ```
 docs/               Project documentation (see docs/powershell-coding-notes.md)
 specs/              Specifications driving development
+config/baselines/   Named customer SOLL baseline presets (see "Customer baselines" below)
 src/
   Invoke-SAWAssessment.ps1   Orchestrator: connect -> collect -> normalize -> evaluate -> report
   Connect-SAWGraph.ps1       Module check + Microsoft Graph connection helper
   collector/         One Get-SAW*.ps1 (Graph read) + ConvertTo-SAWNormalized*.ps1 (derive
                       Category/Setting/State facts) pair per assessed category
-  rules/             Secure At Work rule definitions (JSON, no logic) + the rules engine
+  rules/             Secure At Work rule definitions (JSON, no logic), the rules engine, and
+                      Get-SAWBaselineOverrides.ps1 (customer baseline loader)
   dashboard/          Export-SAWHtmlReport.ps1 (flat table) and Export-SAWDashboard.ps1
                       (Bootstrap/Chart.js dashboard, vendored locally under vendor/)
 tests/              Pester tests, mirroring src/ (see tests/README.md - can't run locally
@@ -34,8 +36,30 @@ reports/            Generated report output (gitignored)
 
 All 8 collectors from spec section 6 are implemented (Authentication Methods, Conditional
 Access, Authentication Strengths, Registration, Temporary Access Pass, Passkeys, Sign-In
-Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section 9) and flat
-HTML report both work. Not yet built: Markdown/Excel/JSON report exports (spec section 14).
+Analysis, Audit Logs), each with a Pester test file, plus a per-user registration triage view
+and a configurable customer SOLL baseline (see below). The dashboard (spec section 9) and flat
+HTML report both work, and the live-Graph path has been run successfully against a real
+tenant. Not yet built: Markdown/Excel/JSON report exports (spec section 14), and a full raw
+Conditional Access policy inventory report (today's CA checks are derived pass/fail facts,
+not a full policy listing).
+
+## Customer baselines (SOLL)
+
+SOLL (target state) is customer-specific: a hybrid tenant still tied to on-prem AD may
+legitimately need passwords/SSPR for longer than a cloud-native, passwordless-only tenant, and
+a severity that's right for one isn't necessarily right for the other. Rather than one
+hard-coded "correct" Expected/Severity per rule, a baseline file overrides specific rules for
+one customer profile without touching the rule JSON files themselves - see
+[config/baselines/](config/baselines/) for the two starter presets
+(`cloud-native-passwordless`, `hybrid-ad-passwords-required`) and their shape.
+
+```powershell
+pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Baseline hybrid-ad-passwords-required -Verbose
+```
+
+`-BaselineOverridePath <file>` layers a one-off, per-engagement override file (same shape) on
+top of `-Baseline` for tweaks specific to a single customer, without needing a whole new named
+preset.
 
 ## Usage
 
@@ -58,10 +82,12 @@ pwsh -File src/Invoke-SAWAssessment.ps1 -InstallMissingModules -Verbose
 ```
 
 `Connect-MgGraph` opens its normal interactive/device-code sign-in - that part is yours to
-complete, the script doesn't handle credentials itself. Start against a
-[Microsoft 365 Developer Program](https://developer.microsoft.com/microsoft-365/dev-program)
-sandbox tenant rather than production the first time, since the live-Graph code path (as
-opposed to `-UseSampleData`) hasn't been exercised against a real tenant yet.
+complete, the script doesn't handle credentials itself. If you haven't run it against this
+tenant before, consider trying a [Microsoft 365 Developer
+Program](https://developer.microsoft.com/microsoft-365/dev-program) sandbox tenant first;
+`Get-SAWSignInLogs`/`Get-SAWAuditLogs` scope their queries to the last 7 days by default
+(`-DaysBack`) after an earlier real-tenant run hit Graph's request timeout querying those
+endpoints unfiltered.
 
 Output lands in `reports/assessment-report.html` (flat table) and
 `reports/dashboard/index.html` (full dashboard - self-contained with its own `vendor/`

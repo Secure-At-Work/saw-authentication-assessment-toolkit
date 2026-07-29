@@ -118,4 +118,75 @@ Describe 'Invoke-SAWRulesEngine' {
         $result.Count | Should -Be 2
         ($result | Where-Object { $_.Status -eq 'Green' }).Count | Should -Be 2
     }
+
+    Context 'baseline overrides' {
+        It 'evaluates exactly as authored when BaselineOverrides is not supplied' {
+            New-SAWTestRule -Path $script:rulesDir -Expected 'Enabled' -Severity 'High'
+            $normalized = @(@{ Category = 'Test Category'; Setting = 'Test Setting'; State = 'Disabled' })
+
+            $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized
+
+            $result.Status | Should -Be 'Red'
+            $result.Severity | Should -Be 'High'
+        }
+
+        It 'overrides Expected so a previously-mismatched actual now reads Green' {
+            New-SAWTestRule -Path $script:rulesDir -Expected 'Disabled' -Severity 'High'
+            $normalized = @(@{ Category = 'Test Category'; Setting = 'Test Setting'; State = 'Enabled' })
+            $overrides = @{ T001 = @{ Expected = 'Enabled' } }
+
+            $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized -BaselineOverrides $overrides
+
+            $result.Status | Should -Be 'Green'
+            $result.Expected | Should -Be 'Enabled'
+        }
+
+        It 'overrides Severity, changing Red to Yellow for the same mismatch' {
+            New-SAWTestRule -Path $script:rulesDir -Expected 'Enabled' -Severity 'High'
+            $normalized = @(@{ Category = 'Test Category'; Setting = 'Test Setting'; State = 'Disabled' })
+            $overrides = @{ T001 = @{ Severity = 'Low' } }
+
+            $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized -BaselineOverrides $overrides
+
+            $result.Status | Should -Be 'Yellow'
+            $result.Severity | Should -Be 'Low'
+        }
+
+        It 'marks a rule Grey with no Actual when NotApplicable is true, even though normalized data exists and would otherwise match' {
+            New-SAWTestRule -Path $script:rulesDir -Expected 'Enabled' -Severity 'High'
+            $normalized = @(@{ Category = 'Test Category'; Setting = 'Test Setting'; State = 'Enabled' })
+            $overrides = @{ T001 = @{ NotApplicable = $true } }
+
+            $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized -BaselineOverrides $overrides
+
+            $result.Status | Should -Be 'Grey'
+            $result.Actual | Should -BeNullOrEmpty
+        }
+
+        It 'appends the baseline Note to the Recommendation text' {
+            New-SAWTestRule -Path $script:rulesDir -Expected 'Enabled' -Severity 'High' -Recommendation 'Original text.'
+            $normalized = @(@{ Category = 'Test Category'; Setting = 'Test Setting'; State = 'Enabled' })
+            $overrides = @{ T001 = @{ Severity = 'Low'; Note = 'Explained here.' } }
+
+            $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized -BaselineOverrides $overrides
+
+            $result.Recommendation | Should -Match 'Original text\.'
+            $result.Recommendation | Should -Match 'Explained here\.'
+        }
+
+        It 'only applies an override to the RuleID it targets, leaving other rules untouched' {
+            New-SAWTestRule -Path $script:rulesDir -RuleID 'T009A' -Category 'Cat A' -Setting 'Setting A' -Expected 'Enabled' -Severity 'High'
+            New-SAWTestRule -Path $script:rulesDir -RuleID 'T009B' -Category 'Cat B' -Setting 'Setting B' -Expected 'Enabled' -Severity 'High'
+            $normalized = @(
+                @{ Category = 'Cat A'; Setting = 'Setting A'; State = 'Disabled' },
+                @{ Category = 'Cat B'; Setting = 'Setting B'; State = 'Disabled' }
+            )
+            $overrides = @{ T009A = @{ Severity = 'Low' } }
+
+            $result = @(Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized -BaselineOverrides $overrides)
+
+            ($result | Where-Object { $_.RuleID -eq 'T009A' }).Status | Should -Be 'Yellow'
+            ($result | Where-Object { $_.RuleID -eq 'T009B' }).Status | Should -Be 'Red'
+        }
+    }
 }
