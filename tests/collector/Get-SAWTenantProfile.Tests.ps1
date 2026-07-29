@@ -39,12 +39,14 @@ Describe 'Get-SAWTenantProfile' {
 
 Describe 'ConvertTo-SAWTenantProfile' {
     It 'detects Hybrid when onPremisesSyncEnabled is true' {
-        $raw = @{ value = @(@{ displayName = 'Contoso'; onPremisesSyncEnabled = $true; onPremisesLastSyncDateTime = '2026-07-28T03:15:00Z' }) }
+        $raw = @{ value = @(@{ id = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'; displayName = 'Contoso'; onPremisesSyncEnabled = $true; onPremisesLastSyncDateTime = '2026-07-28T03:15:00Z' }) }
 
         $result = $raw | ConvertTo-SAWTenantProfile
 
         $result.HybridState | Should -Be 'Hybrid'
         $result.RecommendedBaseline | Should -Be 'hybrid-ad-passwords-required'
+        $result.TenantId | Should -Be 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+        $result.Slug | Should -Be 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
     }
 
     It 'detects FormerlyHybrid when onPremisesSyncEnabled is explicitly false' {
@@ -80,6 +82,16 @@ Describe 'ConvertTo-SAWTenantProfile' {
 
         $result.HybridState | Should -Be 'CloudNative'
         $result.DisplayName | Should -BeNullOrEmpty
+        $result.TenantId | Should -BeNullOrEmpty
+        $result.Slug | Should -Be 'unknown-tenant'
+    }
+
+    It 'derives a filesystem-safe Slug from DisplayName when TenantId is missing' {
+        $raw = @{ value = @(@{ displayName = 'Contoso Ltd! (EU)' }) }
+
+        $result = $raw | ConvertTo-SAWTenantProfile
+
+        $result.Slug | Should -Be 'contoso-ltd-eu'
     }
 
     It 'uses only the first organization entry when more than one is present' {

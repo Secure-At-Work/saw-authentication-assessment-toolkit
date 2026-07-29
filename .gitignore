@@ -2,6 +2,11 @@
 reports/*
 !reports/.gitkeep
 
+# Per-tenant, per-run JSON result snapshots (drift history) - same customer-data
+# sensitivity as reports/, never committed.
+history/*
+!history/.gitkeep
+
 # sampledata/ holds committed synthetic fixtures used for offline dev/testing -
 # it is intentionally NOT gitignored. Real per-tenant collector output has no
 # committed home yet; when that lands, gitignore its actual output path here

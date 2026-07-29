@@ -36,10 +36,24 @@
     top of -Baseline (explicit or auto-detected) for one-off tweaks specific to this
     engagement. Optional; can be used with or without -Baseline.
 .PARAMETER ReportPath
-    Output path for the generated flat HTML report. Defaults to reports/assessment-report.html.
+    Output path for the generated flat HTML report. Defaults to
+    <OutputRoot>/<tenant-slug>/<run-timestamp>/assessment-report.html so repeated runs (and
+    runs against different tenants) never overwrite each other. Pass explicitly to pin a fixed
+    location instead (e.g. for scripting/CI that always wants the latest run at a known path).
 .PARAMETER DashboardPath
     Output path for the generated dashboard's index.html. Defaults to
-    reports/dashboard/index.html (a vendor/ subfolder is created alongside it).
+    <OutputRoot>/<tenant-slug>/<run-timestamp>/dashboard/index.html (a vendor/ subfolder is
+    created alongside it). Same override behavior as -ReportPath.
+.PARAMETER OutputRoot
+    Base directory under which per-tenant, per-run report/dashboard output is namespaced when
+    -ReportPath/-DashboardPath are not explicitly given. Defaults to reports/.
+.PARAMETER HistoryPath
+    Base directory for persisted JSON result snapshots, one per run, used for drift comparison
+    across runs (see Invoke-SAWDriftReport.ps1). Defaults to history/. Each snapshot lands at
+    <HistoryPath>/<tenant-slug>/<run-timestamp>.json.
+.PARAMETER SkipHistorySnapshot
+    Skip writing the JSON history snapshot for this run. Use for one-off/exploratory runs you
+    don't want counted in a tenant's drift history.
 .EXAMPLE
     pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
 .EXAMPLE
@@ -69,10 +83,19 @@ param(
 
     [string]$BaselineOverridePath,
 
-    [string]$ReportPath = (Join-Path $PSScriptRoot '..' 'reports' 'assessment-report.html'),
+    [string]$ReportPath,
 
-    [string]$DashboardPath = (Join-Path $PSScriptRoot '..' 'reports' 'dashboard' 'index.html')
+    [string]$DashboardPath,
+
+    [string]$OutputRoot = (Join-Path $PSScriptRoot '..' 'reports'),
+
+    [string]$HistoryPath = (Join-Path $PSScriptRoot '..' 'history'),
+
+    [switch]$SkipHistorySnapshot
 )
+
+$reportPathWasExplicit = $PSBoundParameters.ContainsKey('ReportPath')
+$dashboardPathWasExplicit = $PSBoundParameters.ContainsKey('DashboardPath')
 
 $ErrorActionPreference = 'Stop'
 
@@ -112,6 +135,19 @@ Write-Verbose 'Invoke-SAWAssessment: collecting tenant profile (hybrid vs. cloud
 $tenantProfileRaw = Get-SAWTenantProfile -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $tenantProfile = $tenantProfileRaw | ConvertTo-SAWTenantProfile -Verbose:$VerbosePreference
 Write-Host "Detected tenant profile: $($tenantProfile.HybridState) (organization.onPremisesSyncEnabled = $($tenantProfile.OnPremisesSyncEnabled))"
+
+# Namespace output per tenant + per run so repeated runs (drift over time) and multiple
+# tenants never collide or overwrite each other, unless the caller pinned an explicit path.
+$runTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$tenantSlug = $tenantProfile.Slug
+Write-Verbose "Invoke-SAWAssessment: tenant slug '$tenantSlug', run timestamp '$runTimestamp'"
+
+if (-not $reportPathWasExplicit) {
+    $ReportPath = Join-Path $OutputRoot $tenantSlug $runTimestamp 'assessment-report.html'
+}
+if (-not $dashboardPathWasExplicit) {
+    $DashboardPath = Join-Path $OutputRoot $tenantSlug $runTimestamp 'dashboard' 'index.html'
+}
 
 $baselineWasExplicit = [bool]$Baseline
 $autoDetectionNote = $null
@@ -196,6 +232,41 @@ $report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisp
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
 $dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -BaselineName $baselineDisplayName -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
+$snapshotPath = $null
+if (-not $SkipHistorySnapshot) {
+    Write-Verbose 'Invoke-SAWAssessment: writing history snapshot'
+
+    $rosterCounts = @{ Remove = 0; Hunt = 0; 'Guest (FIDO2 Not Supported)' = 0; OK = 0 }
+    $rosterAdminCounts = @{ Remove = 0; Hunt = 0; 'Guest (FIDO2 Not Supported)' = 0; OK = 0 }
+    foreach ($u in $userRoster) {
+        if ($rosterCounts.ContainsKey($u.Bucket)) {
+            $rosterCounts[$u.Bucket]++
+            if ($u.IsAdmin) { $rosterAdminCounts[$u.Bucket]++ }
+        }
+    }
+
+    $snapshot = @{
+        TenantId          = $tenantProfile.TenantId
+        TenantSlug         = $tenantSlug
+        TenantDisplayName  = $tenantProfile.DisplayName
+        HybridState        = $tenantProfile.HybridState
+        BaselineName       = $baselineDisplayName
+        RunTimestamp       = $runTimestamp
+        GeneratedAt        = (Get-Date).ToString('o')
+        Results            = $results
+        RosterCounts       = $rosterCounts
+        RosterAdminCounts  = $rosterAdminCounts
+    }
+
+    $snapshotDirectory = Join-Path $HistoryPath $tenantSlug
+    if (-not (Test-Path -Path $snapshotDirectory)) {
+        New-Item -ItemType Directory -Force -Path $snapshotDirectory | Out-Null
+    }
+    $snapshotPath = Join-Path $snapshotDirectory "$runTimestamp.json"
+    $snapshot | ConvertTo-Json -Depth 10 | Out-File -FilePath $snapshotPath -Encoding utf8
+    Write-Verbose "Invoke-SAWAssessment: wrote history snapshot to $snapshotPath"
+}
+
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `
         $result.RuleID, $result.Category, $result.Setting, $result.Expected, $result.Actual, $result.Severity, $result.Status)
@@ -203,3 +274,6 @@ foreach ($result in $results) {
 Write-Host ''
 Write-Host "Report written to: $($report.FullName)"
 Write-Host "Dashboard written to: $($dashboard.FullName)"
+if ($snapshotPath) {
+    Write-Host "History snapshot written to: $snapshotPath"
+}
