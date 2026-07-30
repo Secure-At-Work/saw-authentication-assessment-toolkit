@@ -177,4 +177,17 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match 'Blocked - waiting on B'
         $content | Should -Match 'All rules in this phase are already Green or not applicable\.'
     }
+
+    It 'omits the Domain Services note by default' {
+        $script:DashboardContent | Should -Not -Match 'Entra Domain Services'
+    }
+
+    It 'shows the Domain Services note when -DomainServicesDetected is true' {
+        $path = Join-Path $TestDrive 'domainservices\index.html'
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -DomainServicesDetected $true -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Entra Domain Services'
+    }
 }

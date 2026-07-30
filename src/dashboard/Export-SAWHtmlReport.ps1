@@ -12,6 +12,10 @@ function Export-SAWHtmlReport {
         Display name of the customer SOLL baseline that produced these results (typically a
         baseline preset's "name" field), shown in the report header for traceability. Defaults
         to a label indicating no customer-specific baseline was applied.
+    .PARAMETER DomainServicesDetected
+        Whether Get-SAWTenantProfile found an "AAD DC Administrators" group (a proxy signal
+        for Microsoft Entra Domain Services - see ConvertTo-SAWTenantProfile.ps1). When true, a
+        caveated note is shown in the report header.
     .PARAMETER OutputPath
         File path to write the HTML report to. Parent directory is created if missing.
     .OUTPUTS
@@ -24,6 +28,8 @@ function Export-SAWHtmlReport {
         [object[]]$RuleResults,
 
         [string]$BaselineName = 'Toolkit default (no customer-specific baseline applied)',
+
+        [bool]$DomainServicesDetected = $false,
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -74,6 +80,11 @@ function Export-SAWHtmlReport {
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $rowsHtml = $rows -join "`n"
 
+    $domainServicesNote = ''
+    if ($DomainServicesDetected) {
+        $domainServicesNote = '<br>Possible Microsoft Entra Domain Services usage detected (&quot;AAD DC Administrators&quot; group found) - a proxy signal, not authoritative. Worth confirming with the customer.'
+    }
+
     $html = @"
 <!doctype html>
 <html lang="en">
@@ -92,7 +103,7 @@ function Export-SAWHtmlReport {
 </head>
 <body>
   <h1>Secure At Work Authentication Assessment Report</h1>
-  <p class="meta">Generated $generated &middot; Categories: $categoriesText &middot; Read-only assessment, no tenant changes made.<br>SOLL baseline: $(ConvertTo-SAWHtmlEncoded $BaselineName)<br>SOLL = target state for this customer. IST = what was actually observed in the tenant.</p>
+  <p class="meta">Generated $generated &middot; Categories: $categoriesText &middot; Read-only assessment, no tenant changes made.<br>SOLL baseline: $(ConvertTo-SAWHtmlEncoded $BaselineName)<br>SOLL = target state for this customer. IST = what was actually observed in the tenant.$domainServicesNote</p>
   <table>
     <thead>
       <tr>

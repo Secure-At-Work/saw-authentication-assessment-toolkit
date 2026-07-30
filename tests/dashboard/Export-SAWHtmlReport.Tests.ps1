@@ -86,6 +86,24 @@ Describe 'Export-SAWHtmlReport' {
         $content | Should -Match 'Hybrid AD, Passwords Still Required'
     }
 
+    It 'omits the Domain Services note by default' {
+        $outputPath = Join-Path $TestDrive 'nodsdefault.html'
+
+        Export-SAWHtmlReport -RuleResults @() -OutputPath $outputPath | Out-Null
+
+        $content = Get-Content -Path $outputPath -Raw
+        $content | Should -Not -Match 'Entra Domain Services'
+    }
+
+    It 'shows the Domain Services note when -DomainServicesDetected is true' {
+        $outputPath = Join-Path $TestDrive 'dsdetected.html'
+
+        Export-SAWHtmlReport -RuleResults @() -DomainServicesDetected $true -OutputPath $outputPath | Out-Null
+
+        $content = Get-Content -Path $outputPath -Raw
+        $content | Should -Match 'Entra Domain Services'
+    }
+
     It 'applies the correct color per status' {
         $outputPath = Join-Path $TestDrive 'colors.html'
         $results = @(

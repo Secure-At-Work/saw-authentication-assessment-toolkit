@@ -16,6 +16,25 @@ Describe 'Get-SAWTenantProfile' {
         It 'throws if the sample data file does not exist' {
             { Get-SAWTenantProfile -UseSampleData -SampleDataPath 'C:\does\not\exist.json' } | Should -Throw
         }
+
+        It 'throws if the Domain Services group sample data file does not exist' {
+            { Get-SAWTenantProfile -UseSampleData -DomainServicesGroupSampleDataPath 'C:\does\not\exist.json' } | Should -Throw
+        }
+
+        It 'merges an empty aadDcAdministratorsGroups array from the bundled (not-detected) fixture' {
+            $result = Get-SAWTenantProfile -UseSampleData
+
+            @($result.aadDcAdministratorsGroups).Count | Should -Be 0
+        }
+
+        It 'merges a populated aadDcAdministratorsGroups array when the group sample data has an entry' {
+            $groupPath = Join-Path $TestDrive 'dc-admins-detected.json'
+            '{ "value": [{ "id": "g1", "displayName": "AAD DC Administrators" }] }' | Set-Content -Path $groupPath
+
+            $result = Get-SAWTenantProfile -UseSampleData -DomainServicesGroupSampleDataPath $groupPath
+
+            @($result.aadDcAdministratorsGroups).Count | Should -Be 1
+        }
     }
 
     Context 'live Graph calls' {
@@ -33,6 +52,22 @@ Describe 'Get-SAWTenantProfile' {
             Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
                 $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/v1.0/organization'
             }
+        }
+
+        It 'also calls the AAD DC Administrators groups endpoint and merges the result' {
+            Mock Get-MgContext { @{ Account = 'assessor@contoso.com' } }
+            Mock Invoke-MgGraphRequest {
+                param($Method, $Uri)
+                if ($Uri -like '*groups*') { return @{ value = @(@{ id = 'g1'; displayName = 'AAD DC Administrators' }) } }
+                return @{ value = @(@{ id = 'aaaa'; displayName = 'Contoso' }) }
+            }
+
+            $result = Get-SAWTenantProfile
+
+            Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
+                $Method -eq 'GET' -and $Uri -like "*/groups?`$filter=displayName eq 'AAD DC Administrators'"
+            }
+            @($result.aadDcAdministratorsGroups).Count | Should -Be 1
         }
     }
 }
@@ -106,5 +141,37 @@ Describe 'ConvertTo-SAWTenantProfile' {
 
         $result.DisplayName | Should -Be 'First'
         $result.HybridState | Should -Be 'Hybrid'
+    }
+
+    Context 'Entra Domain Services proxy signal (DomainServicesDetected)' {
+        It 'reports true when aadDcAdministratorsGroups has at least one entry' {
+            $raw = @{
+                value                     = @(@{ displayName = 'Contoso' })
+                aadDcAdministratorsGroups = @(@{ id = 'g1'; displayName = 'AAD DC Administrators' })
+            }
+
+            $result = $raw | ConvertTo-SAWTenantProfile
+
+            $result.DomainServicesDetected | Should -BeTrue
+        }
+
+        It 'reports false when aadDcAdministratorsGroups is an empty array' {
+            $raw = @{
+                value                     = @(@{ displayName = 'Contoso' })
+                aadDcAdministratorsGroups = @()
+            }
+
+            $result = $raw | ConvertTo-SAWTenantProfile
+
+            $result.DomainServicesDetected | Should -BeFalse
+        }
+
+        It 'reports false when aadDcAdministratorsGroups is absent entirely (no crash)' {
+            $raw = @{ value = @(@{ displayName = 'Contoso' }) }
+
+            $result = $raw | ConvertTo-SAWTenantProfile
+
+            $result.DomainServicesDetected | Should -BeFalse
+        }
     }
 }

@@ -136,6 +136,9 @@ Write-Verbose 'Invoke-SAWAssessment: collecting tenant profile (hybrid vs. cloud
 $tenantProfileRaw = Get-SAWTenantProfile -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $tenantProfile = $tenantProfileRaw | ConvertTo-SAWTenantProfile -Verbose:$VerbosePreference
 Write-Host "Detected tenant profile: $($tenantProfile.HybridState) (organization.onPremisesSyncEnabled = $($tenantProfile.OnPremisesSyncEnabled))"
+if ($tenantProfile.DomainServicesDetected) {
+    Write-Host "Possible Microsoft Entra Domain Services usage detected ('AAD DC Administrators' group found) - this is a proxy signal, not authoritative (Domain Services itself lives in Azure Resource Manager, out of reach for this toolkit's Graph-only scopes). Worth confirming with the customer."
+}
 
 # Namespace output per tenant + per run so repeated runs (drift over time) and multiple
 # tenants never collide or overwrite each other, unless the caller pinned an explicit path.
@@ -231,10 +234,10 @@ Write-Verbose 'Invoke-SAWAssessment: building remediation roadmap'
 $roadmap = ConvertTo-SAWRemediationRoadmap -RuleResults $results -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
-$report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisplayName -OutputPath $ReportPath -Verbose:$VerbosePreference
+$report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
-$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -BaselineName $baselineDisplayName -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 $snapshotPath = $null
 if (-not $SkipHistorySnapshot) {
@@ -254,6 +257,7 @@ if (-not $SkipHistorySnapshot) {
         TenantSlug         = $tenantSlug
         TenantDisplayName  = $tenantProfile.DisplayName
         HybridState        = $tenantProfile.HybridState
+        DomainServicesDetected = $tenantProfile.DomainServicesDetected
         BaselineName       = $baselineDisplayName
         RunTimestamp       = $runTimestamp
         GeneratedAt        = (Get-Date).ToString('o')

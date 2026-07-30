@@ -43,6 +43,10 @@ function Export-SAWDashboard {
         Display name of the customer SOLL baseline that produced these results (typically a
         baseline preset's "name" field), shown in the navbar and Overview for traceability.
         Defaults to a label indicating no customer-specific baseline was applied.
+    .PARAMETER DomainServicesDetected
+        Whether Get-SAWTenantProfile found an "AAD DC Administrators" group (a proxy signal
+        for Microsoft Entra Domain Services - see ConvertTo-SAWTenantProfile.ps1). When true, a
+        caveated note is shown in the top banner alongside the baseline name.
     .PARAMETER OutputPath
         File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
         subfolder is created alongside it. Parent directory is created if missing.
@@ -65,6 +69,8 @@ function Export-SAWDashboard {
         [object[]]$Roadmap = @(),
 
         [string]$BaselineName = 'Toolkit default (no customer-specific baseline applied)',
+
+        [bool]$DomainServicesDetected = $false,
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -423,6 +429,13 @@ $($phaseCardsHtml -join "`n")
     <div><strong>SOLL baseline:</strong> $(ConvertTo-SAWHtmlEncoded $BaselineName)</div>
     <div class="text-body-secondary">SOLL = target state for this customer &middot; IST = what was actually observed in the tenant</div>
   </div>
+$(if ($DomainServicesDetected) {
+@"
+  <div class="alert alert-warning d-flex flex-wrap gap-3 align-items-center mb-4" role="alert">
+    <div><strong>Possible Microsoft Entra Domain Services usage detected</strong> (an "AAD DC Administrators" group was found in the directory) - a proxy signal, not authoritative. Domain Services itself is managed via Azure Resource Manager, outside this Graph-only toolkit's reach. Worth confirming with the customer.</div>
+  </div>
+"@
+})
 
   <h2 class="h4 mb-3">Overview</h2>
   <div class="row g-3 mb-4">

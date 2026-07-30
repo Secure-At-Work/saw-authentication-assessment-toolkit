@@ -19,12 +19,23 @@ function ConvertTo-SAWTenantProfile {
         history snapshot storage (see Invoke-SAWAssessment.ps1 and Invoke-SAWDriftReport.ps1) -
         it exists so every run for the same tenant lands in the same folder without assuming
         TenantId is always present (e.g. hand-edited sample data).
+
+        DomainServicesDetected is a proxy signal, not an authoritative check: it's true when
+        Get-SAWTenantProfile finds a group named "AAD DC Administrators" in the tenant, which
+        Microsoft's setup wizard automatically creates when Microsoft Entra Domain Services is
+        enabled (the actual service lives in Azure Resource Manager, out of reach for a
+        Graph-only, delegated-scopes toolkit like this one - see Get-SAWTenantProfile.ps1's
+        .DESCRIPTION). The group's presence means Domain Services was provisioned at some
+        point; it does not confirm the managed domain is still active today, and the group
+        could in principle have been renamed or removed. Treat this as "worth following up on
+        with the customer", not a hard finding - it never feeds Invoke-SAWRulesEngine.
     .PARAMETER RawResponse
         The object returned by Get-SAWTenantProfile (has a .value array; only the first
-        entry is used - a tenant has exactly one organization object).
+        entry is used - a tenant has exactly one organization object; and an
+        .aadDcAdministratorsGroups array merged on from the second /groups call).
     .OUTPUTS
         Hashtable with TenantId, DisplayName, Slug, OnPremisesSyncEnabled, HybridState,
-        RecommendedBaseline, OnPremisesLastSyncDateTime.
+        RecommendedBaseline, OnPremisesLastSyncDateTime, DomainServicesDetected.
     #>
     [CmdletBinding()]
     param(
@@ -67,6 +78,9 @@ function ConvertTo-SAWTenantProfile {
         $slug = ($slugSource -replace '[^a-zA-Z0-9\-]+', '-').Trim('-').ToLowerInvariant()
         if (-not $slug) { $slug = 'unknown-tenant' }
 
+        $domainServicesDetected = (@($RawResponse.aadDcAdministratorsGroups) | Where-Object { $_ }).Count -gt 0
+        Write-Verbose "ConvertTo-SAWTenantProfile: 'AAD DC Administrators' group found=$domainServicesDetected (proxy signal for Entra Domain Services)"
+
         @{
             TenantId                    = $tenantId
             DisplayName                = $displayName
@@ -75,6 +89,7 @@ function ConvertTo-SAWTenantProfile {
             OnPremisesLastSyncDateTime  = if ($org) { $org.onPremisesLastSyncDateTime } else { $null }
             HybridState                 = $hybridState
             RecommendedBaseline         = $recommendedBaseline
+            DomainServicesDetected      = $domainServicesDetected
         }
     }
 }
