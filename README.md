@@ -66,6 +66,9 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   tenant + run timestamp, so nothing overwrites a previous run - plus a **drift report**
   (`Invoke-SAWDriftReport.ps1`, see below) comparing any two runs of the same tenant to surface
   regressions/improvements and registration roster movement over time
+- A **Remediation Roadmap** (see "From IST to SOLL" below) - not just a findings list, but an
+  ordered, phased work plan showing what's safe to fix now versus what's blocked on an earlier
+  phase still being open
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
@@ -98,6 +101,35 @@ pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
 `-BaselineOverridePath <file>` layers a one-off, per-engagement override file (same shape) on
 top of `-Baseline` for tweaks specific to a single customer, without needing a whole new named
 preset.
+
+## From IST to SOLL: the Remediation Roadmap
+
+A findings list tells you *what's* wrong; it doesn't tell you *what order* to fix it in - and
+order matters here. Enforcing "MFA for all users" via Conditional Access before registration
+coverage is high enough risks locking out unregistered users. Chasing passkey registration
+before a bootstrap method (self-service FIDO2 or TAP) exists gives users no way to act on the
+ask. Removing a phone-based fallback before a stronger method is registered removes the only
+factor a user has.
+
+Every rule carries a `Phase` (1-5) and, where sequencing is a real rollout-safety concern
+rather than just severity, a `DependsOn` list of RuleIDs that should be resolved first:
+
+1. **Foundation & Visibility** - safe immediately, no dependencies (block legacy auth, enable
+   Authenticator/FIDO2/TAP, audit log hygiene, TAP hardening)
+2. **Enable Phishing-Resistant Capability** - needs FIDO2 enabled first (attestation, key
+   restrictions, synced-passkey policy, phishing-resistant auth strength)
+3. **Drive Registration Coverage** - needs a bootstrap path first (registration campaign,
+   admin/overall MFA coverage, SSPR coverage)
+4. **Retire Weak Fallback Methods** - don't remove SMS/Voice until coverage is high enough
+5. **Enforce via Conditional Access** - enforcing MFA-for-all or privileged access protection
+   before coverage is up risks lockouts
+
+`ConvertTo-SAWRemediationRoadmap.ps1` groups the rules-engine results by phase and flags each
+outstanding rule `Blocked = true` when one of its `DependsOn` rules is itself still Red/Yellow
+(a Grey/not-applicable or already-Green dependency never blocks). The dashboard's
+**Remediation Roadmap** section (right after the Overview, ahead of the flat findings list)
+shows this directly: one card per phase with a completion count, and each still-open rule
+tagged either safe to work on now or `Blocked - waiting on <RuleID>`.
 
 ## Usage
 
