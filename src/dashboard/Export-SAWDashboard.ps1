@@ -32,6 +32,13 @@ function Export-SAWDashboard {
         listing every policy's name, state, targets, and grant controls - independent of the
         handful of synthetic pass/fail CA checks in the rules engine. Omitted entirely if
         empty/absent.
+    .PARAMETER Roadmap
+        Optional output of ConvertTo-SAWRemediationRoadmap (one hashtable per phase). When
+        supplied, renders a "Remediation Roadmap" section right after the Overview - the
+        answer to "what do I fix, in what order" rather than just a flat findings list: each
+        phase shows its completion state, and each outstanding rule within it shows whether
+        it's safe to work on now or Blocked on an earlier phase's rule still being open.
+        Omitted entirely if empty/absent.
     .PARAMETER BaselineName
         Display name of the customer SOLL baseline that produced these results (typically a
         baseline preset's "name" field), shown in the navbar and Overview for traceability.
@@ -53,6 +60,9 @@ function Export-SAWDashboard {
 
         [AllowEmptyCollection()]
         [object[]]$CaPolicyInventory = @(),
+
+        [AllowEmptyCollection()]
+        [object[]]$Roadmap = @(),
 
         [string]$BaselineName = 'Toolkit default (no customer-specific baseline applied)',
 
@@ -322,6 +332,63 @@ $($caInventoryRowsHtml -join "`n")
 "@
     }
 
+    # --- Remediation Roadmap (IST -> SOLL phased work plan) ---
+    $roadmapSectionHtml = ''
+    if ($Roadmap.Count -gt 0) {
+        $phaseCardsHtml = foreach ($phase in $Roadmap) {
+            $headerBadge = if ($phase.IsComplete) {
+                '<span class="badge bg-success">Complete</span>'
+            }
+            else {
+                "<span class=""badge bg-secondary"">$($phase.OutstandingCount) outstanding</span>"
+            }
+
+            $outstandingItemsHtml = foreach ($o in $phase.OutstandingRules) {
+                $badgeClass = $statusBadgeClass[$o.Status]
+                if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
+                $blockedHtml = ''
+                if ($o.Blocked) {
+                    $blockedHtml = " <span class=""badge bg-dark"">Blocked - waiting on $(ConvertTo-SAWHtmlEncoded (($o.BlockedBy) -join ', '))</span>"
+                }
+                @"
+          <div class="list-group-item">
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+              <span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $o.Status)</span>
+              <strong>$(ConvertTo-SAWHtmlEncoded $o.RuleID)</strong>
+              <span class="text-body-secondary">$(ConvertTo-SAWHtmlEncoded $o.Category) / $(ConvertTo-SAWHtmlEncoded $o.Setting)</span>
+              <span class="badge bg-light text-dark border">$(ConvertTo-SAWHtmlEncoded $o.Severity)</span>$blockedHtml
+            </div>
+            <p class="mb-0 text-body-secondary">$(ConvertTo-SAWHtmlEncoded $o.Recommendation)</p>
+          </div>
+"@
+            }
+            if ($phase.OutstandingRules.Count -eq 0) {
+                $outstandingItemsHtml = '<div class="list-group-item text-body-secondary">All rules in this phase are already Green or not applicable.</div>'
+            }
+
+            @"
+      <div class="card mb-3">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <strong>$(ConvertTo-SAWHtmlEncoded $phase.PhaseName)</strong>
+          <span class="d-flex align-items-center gap-2">
+            <span class="text-body-secondary small">$($phase.CompletedCount)/$($phase.TotalCount) complete$(if ($phase.NotApplicableCount -gt 0) { " &middot; $($phase.NotApplicableCount) N/A" })</span>
+            $headerBadge
+          </span>
+        </div>
+        <div class="list-group list-group-flush">
+$($outstandingItemsHtml -join "`n")
+        </div>
+      </div>
+"@
+        }
+
+        $roadmapSectionHtml = @"
+  <h2 class="h4 mb-3">Remediation Roadmap</h2>
+  <p class="text-body-secondary small">The IST -&gt; SOLL work plan, in order. Each phase should generally be worked before the next; a <span class="badge bg-dark">Blocked</span> item is waiting on a rule from an earlier phase and should not be tackled out of order, even where technically possible, since doing so can carry real rollout risk (e.g. account lockouts).</p>
+$($phaseCardsHtml -join "`n")
+"@
+    }
+
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $totalRules = $RuleResults.Count
 
@@ -400,6 +467,7 @@ $($caInventoryRowsHtml -join "`n")
     </div>
   </div>
 
+$roadmapSectionHtml
   <h2 class="h4 mb-3">Risk Findings &amp; Recommendations</h2>
   <div class="list-group mb-4">
 $($findingsHtml -join "`n")

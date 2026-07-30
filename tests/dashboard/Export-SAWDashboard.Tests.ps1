@@ -152,4 +152,29 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match 'Block access'
         $content | Should -Match '<span class="badge bg-info text-dark">Security Info Registration</span>'
     }
+
+    It 'omits the Remediation Roadmap section entirely when none is supplied' {
+        $script:DashboardContent | Should -Not -Match 'Remediation Roadmap'
+    }
+
+    It 'renders phase progress, an outstanding rule, and its Blocked badge when a roadmap is supplied' {
+        $roadmapPath = Join-Path $TestDrive 'roadmap\index.html'
+        $roadmap = @(
+            @{ Phase = 1; PhaseName = '1. Foundation'; TotalCount = 2; CompletedCount = 1; NotApplicableCount = 0; OutstandingCount = 1; IsComplete = $false
+               OutstandingRules = @(@{ RuleID = 'B'; Category = 'Conditional Access'; Setting = 'Setting B'; Status = 'Red'; Severity = 'High'; Recommendation = 'Fix B.'; Blocked = $false; BlockedBy = @() }) }
+            @{ Phase = 2; PhaseName = '2. Capability'; TotalCount = 1; CompletedCount = 0; NotApplicableCount = 0; OutstandingCount = 1; IsComplete = $false
+               OutstandingRules = @(@{ RuleID = 'D'; Category = 'Passkeys'; Setting = 'Setting D'; Status = 'Yellow'; Severity = 'Low'; Recommendation = 'Fix D.'; Blocked = $true; BlockedBy = @('B') }) }
+            @{ Phase = 3; PhaseName = '3. All Done'; TotalCount = 1; CompletedCount = 1; NotApplicableCount = 0; OutstandingCount = 0; IsComplete = $true
+               OutstandingRules = @() }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -Roadmap $roadmap -OutputPath $roadmapPath | Out-Null
+        $content = Get-Content -Path $roadmapPath -Raw
+
+        $content | Should -Match 'Remediation Roadmap'
+        $content | Should -Match '1\. Foundation'
+        $content | Should -Match '1/2 complete'
+        $content | Should -Match 'Blocked - waiting on B'
+        $content | Should -Match 'All rules in this phase are already Green or not applicable\.'
+    }
 }
