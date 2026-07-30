@@ -4,5 +4,7 @@
     "Setting": "Temporary Access Pass",
     "Expected": "Enabled",
     "Severity": "Low",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
     "Recommendation": "Keep Temporary Access Pass enabled for secure onboarding and passwordless recovery scenarios."
 }

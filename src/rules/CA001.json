@@ -4,5 +4,7 @@
     "Setting": "Block Legacy Authentication",
     "Expected": "Enabled",
     "Severity": "High",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
     "Recommendation": "Ensure an enabled (not report-only) Conditional Access policy blocks legacy authentication (Exchange ActiveSync and other legacy clients) for all users and applications."
 }

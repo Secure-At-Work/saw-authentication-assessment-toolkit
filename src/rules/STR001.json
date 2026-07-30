@@ -4,5 +4,8 @@
     "Setting": "Phishing-Resistant MFA Strength Available",
     "Expected": "Enabled",
     "Severity": "Medium",
+    "Phase": 2,
+    "PhaseName": "2. Enable Phishing-Resistant Capability",
+    "DependsOn": ["AUTH004"],
     "Recommendation": "Define (or keep) an authentication strength restricted to phishing-resistant methods only (FIDO2, Windows Hello for Business, certificate-based MFA) so it can be required for admins and other high-risk users via Conditional Access."
 }

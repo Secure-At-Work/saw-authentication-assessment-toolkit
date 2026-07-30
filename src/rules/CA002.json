@@ -4,5 +4,8 @@
     "Setting": "Require MFA For All Users",
     "Expected": "Enabled",
     "Severity": "High",
+    "Phase": 5,
+    "PhaseName": "5. Enforce via Conditional Access",
+    "DependsOn": ["REG002"],
     "Recommendation": "Move the Conditional Access policy requiring MFA for all users out of report-only mode ('enabledForReportingButNotEnforced') and enable enforcement."
 }

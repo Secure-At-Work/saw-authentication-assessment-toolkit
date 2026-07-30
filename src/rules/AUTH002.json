@@ -4,5 +4,8 @@
     "Setting": "SMS",
     "Expected": "Disabled",
     "Severity": "High",
+    "Phase": 4,
+    "PhaseName": "4. Retire Weak Fallback Methods",
+    "DependsOn": ["REG002"],
     "Recommendation": "Disable SMS as an authentication method; it is phishable and should be replaced by Microsoft Authenticator or FIDO2."
 }

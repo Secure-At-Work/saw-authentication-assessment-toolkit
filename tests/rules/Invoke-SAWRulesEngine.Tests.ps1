@@ -10,7 +10,10 @@ BeforeAll {
             [string]$Setting = 'Test Setting',
             [string]$Expected = 'Enabled',
             [string]$Severity = 'High',
-            [string]$Recommendation = 'Fix it.'
+            [string]$Recommendation = 'Fix it.',
+            [int]$Phase = 1,
+            [string]$PhaseName = 'Test Phase',
+            [string[]]$DependsOn = @()
         )
         $rule = [ordered]@{
             RuleID         = $RuleID
@@ -18,6 +21,9 @@ BeforeAll {
             Setting        = $Setting
             Expected       = $Expected
             Severity       = $Severity
+            Phase          = $Phase
+            PhaseName      = $PhaseName
+            DependsOn      = $DependsOn
             Recommendation = $Recommendation
         }
         $rule | ConvertTo-Json | Set-Content -Path (Join-Path $Path "$RuleID.json")
@@ -103,6 +109,39 @@ Describe 'Invoke-SAWRulesEngine' {
         $result.Setting | Should -Be 'My Setting'
         $result.Severity | Should -Be 'High'
         $result.Recommendation | Should -Be 'Do the thing.'
+    }
+
+    It 'preserves Phase, PhaseName, and DependsOn from the rule file' {
+        New-SAWTestRule -Path $script:rulesDir -RuleID 'T010' -Category 'My Category' -Setting 'My Setting' `
+            -Phase 3 -PhaseName 'Drive Registration Coverage' -DependsOn @('BOOT001', 'AUTH004')
+        $normalized = @(@{ Category = 'My Category'; Setting = 'My Setting'; State = 'Enabled' })
+
+        $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized
+
+        $result.Phase | Should -Be 3
+        $result.PhaseName | Should -Be 'Drive Registration Coverage'
+        $result.DependsOn | Should -Be @('BOOT001', 'AUTH004')
+    }
+
+    It 'yields a zero-length DependsOn array when the rule file has none' {
+        New-SAWTestRule -Path $script:rulesDir -DependsOn @()
+        $normalized = @(@{ Category = 'Test Category'; Setting = 'Test Setting'; State = 'Enabled' })
+
+        $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized
+
+        $result.ContainsKey('DependsOn') | Should -BeTrue
+        @($result.DependsOn).Count | Should -Be 0
+    }
+
+    It 'preserves Phase/PhaseName/DependsOn on a Grey (no matching data) result too' {
+        New-SAWTestRule -Path $script:rulesDir -Phase 2 -PhaseName 'Test Phase' -DependsOn @('AUTH004')
+        $normalized = @(@{ Category = 'Some Other Category'; Setting = 'Some Other Setting'; State = 'Enabled' })
+
+        $result = Invoke-SAWRulesEngine -RulesPath $script:rulesDir -NormalizedData $normalized
+
+        $result.Status | Should -Be 'Grey'
+        $result.Phase | Should -Be 2
+        $result.DependsOn | Should -Be @('AUTH004')
     }
 
     It 'evaluates every rule file found in the rules directory' {

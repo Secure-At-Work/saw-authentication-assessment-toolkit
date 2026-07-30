@@ -4,5 +4,8 @@
     "Setting": "FIDO2 Attestation Enforced",
     "Expected": "Enabled",
     "Severity": "Medium",
+    "Phase": 2,
+    "PhaseName": "2. Enable Phishing-Resistant Capability",
+    "DependsOn": ["AUTH004"],
     "Recommendation": "Once FIDO2 is enabled (see AUTH004), require attestation so only certified, known security key models can be registered."
 }

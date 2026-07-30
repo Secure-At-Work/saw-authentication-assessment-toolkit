@@ -4,5 +4,8 @@
     "Setting": "Privileged Access Protection In Place (Compliant Device Or Phishing-Resistant Auth Strength For Admins)",
     "Expected": "Enabled",
     "Severity": "Medium",
+    "Phase": 5,
+    "PhaseName": "5. Enforce via Conditional Access",
+    "DependsOn": ["REG001", "STR001"],
     "Recommendation": "Ensure at least one hardening control protects privileged role sign-ins: require a compliant device, or require a phishing-resistant authentication strength for admin roles via Conditional Access. A Privileged Access Workstation (PAW) model or equivalent out-of-band control also satisfies this intent even though it isn't visible to this assessment - treat this finding as a starting point for that conversation, not a mandate for one specific implementation."
 }

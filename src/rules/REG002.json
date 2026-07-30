@@ -4,5 +4,8 @@
     "Setting": "Overall MFA Registration Coverage At Least 90 Percent",
     "Expected": "Enabled",
     "Severity": "Medium",
+    "Phase": 3,
+    "PhaseName": "3. Drive Registration Coverage",
+    "DependsOn": ["BOOT001"],
     "Recommendation": "Drive MFA registration coverage above 90% tenant-wide through a registration campaign before enforcing stricter Conditional Access controls, to avoid locking out unregistered users."
 }

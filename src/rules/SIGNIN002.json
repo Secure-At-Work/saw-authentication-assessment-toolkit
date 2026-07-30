@@ -4,5 +4,7 @@
     "Setting": "No Successful Device Code Flow Sign-ins",
     "Expected": "Enabled",
     "Severity": "Medium",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
     "Recommendation": "Review successful device code flow sign-ins. This flow is a known phishing vector (device code phishing) and should be restricted via Conditional Access to trusted scenarios only."
 }

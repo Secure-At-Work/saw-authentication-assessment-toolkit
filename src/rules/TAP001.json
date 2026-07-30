@@ -4,5 +4,7 @@
     "Setting": "One-Time Use Enforced",
     "Expected": "Enabled",
     "Severity": "Medium",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
     "Recommendation": "Set Temporary Access Pass to one-time use (isUsableOnce = true) rather than reusable, to limit its window of exposure to a single onboarding or recovery event."
 }

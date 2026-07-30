@@ -4,5 +4,8 @@
     "Setting": "Synced Passkeys Currently Allowed",
     "Expected": "Enabled",
     "Severity": "Low",
+    "Phase": 2,
+    "PhaseName": "2. Enable Phishing-Resistant Capability",
+    "DependsOn": ["AUTH004"],
     "Recommendation": "Synced (cloud-backed) passkeys - Google Password Manager, iCloud Keychain, 1Password, Bitwarden, and similar - remain phishing-resistant WebAuthn credentials; allowing them is a legitimate customer choice, not a fixed toolkit judgement. If this customer's policy requires device-bound-only passkeys (e.g. regulatory or key-custody requirements), override Expected to Disabled and raise the Severity in a customer baseline. Detection is based on a maintained but non-exhaustive list of known synced-passkey provider AAGUIDs - treat a result here as a strong signal, not absolute proof, and verify manually if it materially affects a finding."
 }

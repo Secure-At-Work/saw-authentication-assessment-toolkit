@@ -18,6 +18,12 @@ function Invoke-SAWRulesEngine {
           Yellow - Actual differs from Expected and the effective Severity is Medium/Low.
           Grey   - No normalized data was collected for this rule's Category/Setting, OR the
                    baseline marks it NotApplicable for this customer.
+
+        Rule files also carry Phase/PhaseName/DependsOn - the IST->SOLL remediation sequence
+        (see ConvertTo-SAWRemediationRoadmap.ps1), passed through unchanged onto every result
+        so downstream consumers (the roadmap builder, the dashboard) don't need to re-read the
+        rule files themselves. Not evaluated or interpreted here - this engine only compares
+        Expected vs. Actual; sequencing is a separate concern layered on top of its output.
     .PARAMETER RulesPath
         Directory containing rule *.json files.
     .PARAMETER NormalizedData
@@ -26,7 +32,8 @@ function Invoke-SAWRulesEngine {
         Optional hashtable from Get-SAWBaselineOverrides, keyed by RuleID. Defaults to no
         overrides (every rule evaluates exactly as authored).
     .OUTPUTS
-        Hashtable[]
+        Hashtable[] - RuleID, Category, Setting, Expected, Actual, Severity, Status,
+        Recommendation, Phase, PhaseName, DependsOn.
     #>
     [CmdletBinding()]
     param(
@@ -79,6 +86,9 @@ function Invoke-SAWRulesEngine {
                 Severity       = $severity
                 Status         = 'Grey'
                 Recommendation = $recommendation
+                Phase          = $rule.Phase
+                PhaseName      = $rule.PhaseName
+                DependsOn      = @($rule.DependsOn)
             }
             continue
         }
@@ -98,6 +108,9 @@ function Invoke-SAWRulesEngine {
                 Severity       = $severity
                 Status         = 'Grey'
                 Recommendation = $recommendation
+                Phase          = $rule.Phase
+                PhaseName      = $rule.PhaseName
+                DependsOn      = @($rule.DependsOn)
             }
             continue
         }
@@ -121,6 +134,9 @@ function Invoke-SAWRulesEngine {
             Severity       = $severity
             Status         = $status
             Recommendation = $recommendation
+            Phase          = $rule.Phase
+            PhaseName      = $rule.PhaseName
+            DependsOn      = @($rule.DependsOn)
         }
     }
 }

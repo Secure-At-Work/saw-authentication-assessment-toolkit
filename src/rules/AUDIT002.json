@@ -4,5 +4,7 @@
     "Setting": "Conditional Access Changes Not Made By Applications",
     "Expected": "Enabled",
     "Severity": "Medium",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
     "Recommendation": "Review Conditional Access policy changes initiated by an application or service principal rather than a named administrator. Confirm the automation is expected and appropriately scoped, since unattributed changes to security policy are a governance risk."
 }

@@ -4,5 +4,7 @@
     "Setting": "Microsoft Authenticator",
     "Expected": "Enabled",
     "Severity": "High",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
     "Recommendation": "Enable Microsoft Authenticator"
 }

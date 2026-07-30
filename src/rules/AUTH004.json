@@ -4,5 +4,7 @@
     "Setting": "FIDO2",
     "Expected": "Enabled",
     "Severity": "High",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
     "Recommendation": "Enable FIDO2 security keys to support phishing-resistant authentication for privileged and high-risk users."
 }
