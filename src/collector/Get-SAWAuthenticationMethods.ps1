@@ -3,16 +3,30 @@ function Get-SAWAuthenticationMethods {
     .SYNOPSIS
         Collects the tenant's authentication methods policy configuration via Microsoft Graph.
     .DESCRIPTION
-        Read-only collector. Issues a single GET against
-        /policies/authenticationMethodsPolicy and returns the raw Graph response
-        as a PowerShell object. Must never create, modify, or delete any tenant object.
+        Read-only collector. Issues a GET against /policies/authenticationMethodsPolicy (v1.0)
+        and returns the raw Graph response as a PowerShell object. Must never create, modify,
+        or delete any tenant object.
+
+        Also issues a second, narrowly-scoped GET against the beta endpoint for exactly one
+        additional field: optOutSettings.passkeyDynamicMigration (see
+        https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement).
+        This is deliberately the toolkit's only /beta call - everything else stays on v1.0 - kept
+        this narrow ($select=optOutSettings only) specifically because this field does not exist
+        on v1.0 yet and there is no v1.0 substitute: Microsoft auto-enables passkeys for SMS/
+        Voice users and flips the registration campaign to "Microsoft managed" starting
+        2026-09-01, and this opt-out is the only tenant-level control over the timing of that
+        (opting out does not exempt the tenant from the 2027-02-01 SMS/Voice retirement, which
+        has no opt-out at all). The result is merged onto the v1.0 response as .optOutSettings
+        before returning, so callers (see ConvertTo-SAWNormalizedAuthenticationMethods.ps1) see
+        one object regardless of which endpoint each field actually came from.
     .PARAMETER UseSampleData
         Read from a local sample JSON file instead of calling Microsoft Graph. Used for
-        offline development and testing.
+        offline development and testing. The sample fixture already includes an optOutSettings
+        block, so no second file/call is needed in this mode.
     .PARAMETER SampleDataPath
         Path to the sample raw response used when -UseSampleData is set.
     .OUTPUTS
-        PSCustomObject
+        PSCustomObject (sample data) or Hashtable (live Graph), both carrying .optOutSettings.
     #>
     [CmdletBinding()]
     param(
@@ -37,5 +51,11 @@ function Get-SAWAuthenticationMethods {
     }
 
     Write-Verbose 'Get-SAWAuthenticationMethods: GET https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy'
-    return Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy'
+    $policy = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy'
+
+    Write-Verbose 'Get-SAWAuthenticationMethods: GET https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy?$select=optOutSettings'
+    $betaPolicy = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy?$select=optOutSettings'
+    $policy.optOutSettings = $betaPolicy.optOutSettings
+
+    return $policy
 }

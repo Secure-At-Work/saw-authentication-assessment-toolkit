@@ -29,13 +29,33 @@ Describe 'Get-SAWAuthenticationMethods' {
 
         It 'calls the tenant-wide authenticationMethodsPolicy endpoint' {
             Mock Get-MgContext { @{ Account = 'assessor@contoso.com' } }
-            Mock Invoke-MgGraphRequest { @{ authenticationMethodConfigurations = @() } }
+            Mock Invoke-MgGraphRequest {
+                param($Method, $Uri)
+                if ($Uri -like '*/beta/*') { return @{ optOutSettings = @{ passkeyDynamicMigration = $false } } }
+                return @{ authenticationMethodConfigurations = @() }
+            }
 
             Get-SAWAuthenticationMethods | Out-Null
 
             Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
                 $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy'
             }
+        }
+
+        It 'also calls the beta endpoint for optOutSettings and merges it onto the v1.0 response' {
+            Mock Get-MgContext { @{ Account = 'assessor@contoso.com' } }
+            Mock Invoke-MgGraphRequest {
+                param($Method, $Uri)
+                if ($Uri -like '*/beta/*') { return @{ optOutSettings = @{ passkeyDynamicMigration = $true } } }
+                return @{ authenticationMethodConfigurations = @() }
+            }
+
+            $result = Get-SAWAuthenticationMethods
+
+            Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
+                $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy?$select=optOutSettings'
+            }
+            $result.optOutSettings.passkeyDynamicMigration | Should -BeTrue
         }
     }
 }
@@ -236,6 +256,37 @@ Describe 'ConvertTo-SAWNormalizedAuthenticationMethods' {
             $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
 
             ($result | Where-Object { $_.Setting -like 'Phishing-Resistant Registration Bootstrap*' }).State | Should -Be 'Disabled'
+        }
+    }
+
+    Context 'passkey dynamic migration opt-out (AUTH006)' {
+        # true = opted OUT = tenant EXCLUDED from Microsoft's automatic passkey rollout.
+        # Verified verbatim against Microsoft's own docs after an initial misread got this
+        # backwards - see ConvertTo-SAWNormalizedAuthenticationMethods.ps1's .DESCRIPTION.
+        $settingName = 'Passkey Dynamic Migration Not Opted Out'
+
+        It 'reports Enabled (rollout applies) when optOutSettings is absent entirely' {
+            $raw = @{ authenticationMethodConfigurations = @() }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports Enabled (rollout applies) when passkeyDynamicMigration is explicitly false' {
+            $raw = @{ authenticationMethodConfigurations = @(); optOutSettings = @{ passkeyDynamicMigration = $false } }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports Disabled (tenant excluded from rollout) when passkeyDynamicMigration is true' {
+            $raw = @{ authenticationMethodConfigurations = @(); optOutSettings = @{ passkeyDynamicMigration = $true } }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
         }
     }
 }

@@ -1,0 +1,11 @@
+{
+    "RuleID": "AUTH006",
+    "Category": "Authentication Methods",
+    "Setting": "Passkey Dynamic Migration Not Opted Out",
+    "Expected": "Enabled",
+    "Severity": "Low",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
+    "DependsOn": [],
+    "Recommendation": "Starting 2026-09-01, Microsoft automatically enables passkeys for users currently enabled for SMS or Voice authentication and moves the registration campaign to 'Microsoft managed', nudging those users to register a passkey at their next MFA sign-in. Setting authenticationMethodsPolicy.optOutSettings.passkeyDynamicMigration to true (beta Graph endpoint only) opts the tenant OUT of that automatic rollout during the 2026-09-01 to 2027-02-01 transition window - it does not exempt the tenant from the 2027-02-01 retirement of Microsoft-provided SMS/Voice, which has no opt-out at all. Opting out is a legitimate choice if the tenant needs time to prepare (e.g. configuring a customer-managed telecom provider, or running its own more controlled registration campaign first) - Low severity reflects that this is a deliberate timing decision, not a fixed gap - but it should be a time-boxed decision tied to an active migration plan, not a way to defer the underlying work. If opted out, verify there is an active plan to be ready before 2027-02-01 (see BOOT001 and CA004 for whether users can actually complete that registration once nudged)."
+}

@@ -25,6 +25,17 @@ function ConvertTo-SAWNormalizedAuthenticationMethods {
             enabled (a TAP lets a user with nothing register FIDO2/a passkey without needing
             an existing strong method or their password). Without either, phishing-resistant
             rollout has no on-ramp for users who don't already have one.
+
+        Also derives a fact from RawPolicy.optOutSettings.passkeyDynamicMigration (only
+        present via the beta Graph endpoint - see Get-SAWAuthenticationMethods.ps1), a real,
+        easy-to-get-backwards property: setting it to true OPTS OUT of - i.e. EXCLUDES the
+        tenant from - Microsoft's automatic passkey enablement and registration-campaign
+        rollout for SMS/Voice users, which otherwise starts 2026-09-01 (confirmed verbatim
+        against https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement,
+        after an initial paraphrase got this backwards and was caught before it shipped).
+        Left absent/false (the default), the automatic rollout applies to the tenant. Opting
+        out only buys time to prepare - it does not exempt the tenant from the 2027-02-01
+        Microsoft-provided SMS/Voice retirement, which has no opt-out at all.
     .PARAMETER RawPolicy
         The object returned by Get-SAWAuthenticationMethods.
     .OUTPUTS
@@ -125,6 +136,19 @@ function ConvertTo-SAWNormalizedAuthenticationMethods {
             Category = 'Registration'
             Setting  = 'Phishing-Resistant Registration Bootstrap Available (Self-Service FIDO2 or TAP)'
             State    = ConvertTo-SAWStateLabel $bootstrapAvailable
+        }
+
+        # --- Passkey dynamic migration opt-out (beta-only field, see collector) ---
+        # true = opted OUT = tenant EXCLUDED from Microsoft's automatic passkey rollout.
+        # absent/false = the default = the automatic rollout applies to this tenant.
+        $passkeyDynamicMigrationOptedOut = [bool]$RawPolicy.optOutSettings.passkeyDynamicMigration
+
+        Write-Verbose "ConvertTo-SAWNormalizedAuthenticationMethods: passkeyDynamicMigration opted out=$passkeyDynamicMigrationOptedOut"
+
+        @{
+            Category = 'Authentication Methods'
+            Setting  = 'Passkey Dynamic Migration Not Opted Out'
+            State    = ConvertTo-SAWStateLabel (-not $passkeyDynamicMigrationOptedOut)
         }
     }
 }
