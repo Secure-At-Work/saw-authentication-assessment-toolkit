@@ -22,6 +22,18 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         This normalizer reports both underlying facts plus the composite so the rules engine
         only needs to evaluate "is at least one admin-protection control in place", not force
         a single specific implementation.
+
+        Also checks for a specific lockout trap: an enabled policy targeting the "Register
+        security information" user action (urn:user:registersecurityinfo) whose grantControls
+        require a custom authentication strength that a Temporary Access Pass does not satisfy
+        (allowedCombinations omits temporaryAccessPassOneTime/temporaryAccessPassMultiUse). A
+        user with no phishing-resistant method yet - exactly the population Microsoft's
+        automatic passkey nudges from 2026-09-01 target, see AUTH006 - relies on TAP as their
+        only way to bootstrap into registering one (see BOOT001). If the policy gating that
+        registration page itself demands a phishing-resistant strength with no TAP escape,
+        that user can never reach the page that would let them register a phishing-resistant
+        method in the first place. A plain "mfa" builtin control (no custom strength) does not
+        trigger this - TAP satisfies a generic MFA requirement.
     .PARAMETER RawResponse
         The object returned by Get-SAWConditionalAccess (has a .value array of policies).
     .OUTPUTS
@@ -61,6 +73,28 @@ function ConvertTo-SAWNormalizedConditionalAccess {
 
             return $false
         }
+
+        $tapSatisfyingCombinations = @('temporaryAccessPassOneTime', 'temporaryAccessPassMultiUse')
+
+        function Test-SAWStrengthBlocksTapOnlyUser {
+            param([object]$AuthenticationStrength)
+
+            # No custom strength configured - the policy just uses a plain "mfa" builtin
+            # control, which a Temporary Access Pass generically satisfies. Nothing to block.
+            if (-not $AuthenticationStrength) { return $false }
+
+            $combinations = @($AuthenticationStrength.allowedCombinations) | Where-Object { $_ }
+            if ($combinations.Count -eq 0) {
+                # Can't determine what this strength actually allows - don't flag a false
+                # positive off incomplete data.
+                return $false
+            }
+
+            foreach ($combination in $combinations) {
+                if ($tapSatisfyingCombinations -contains $combination) { return $false }
+            }
+            return $true
+        }
     }
 
     process {
@@ -71,6 +105,7 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         $mfaForAllUsers = $false
         $compliantDeviceForAdmins = $false
         $phishingResistantStrengthForAdmins = $false
+        $securityInfoRegistrationBlockedForTapOnlyUsers = $false
 
         foreach ($policy in $policies) {
             if ($policy.state -ne 'enabled') {
@@ -81,6 +116,7 @@ function ConvertTo-SAWNormalizedConditionalAccess {
             $targetsAllUsers = $policy.conditions.users.includeUsers -contains 'All'
             $targetsAllApps = $policy.conditions.applications.includeApplications -contains 'All'
             $targetsAdminRoles = ($policy.conditions.users.includeRoles | Measure-Object).Count -gt 0
+            $targetsSecurityInfoRegistration = @($policy.conditions.applications.includeUserActions) -contains 'urn:user:registersecurityinfo'
             $controls = $policy.grantControls.builtInControls
             $clientAppTypes = $policy.conditions.clientAppTypes
 
@@ -101,6 +137,12 @@ function ConvertTo-SAWNormalizedConditionalAccess {
             if (-not $phishingResistantStrengthForAdmins -and $targetsAdminRoles -and
                 (Test-SAWPhishingResistantStrength $policy.grantControls.authenticationStrength)) {
                 $phishingResistantStrengthForAdmins = $true
+            }
+
+            if ($targetsSecurityInfoRegistration -and
+                (Test-SAWStrengthBlocksTapOnlyUser $policy.grantControls.authenticationStrength)) {
+                Write-Verbose "ConvertTo-SAWNormalizedConditionalAccess: '$($policy.displayName)' gates Register Security Information with a strength that does not accept a Temporary Access Pass"
+                $securityInfoRegistrationBlockedForTapOnlyUsers = $true
             }
         }
 
@@ -130,6 +172,11 @@ function ConvertTo-SAWNormalizedConditionalAccess {
             Category = 'Conditional Access'
             Setting  = 'Privileged Access Protection In Place (Compliant Device Or Phishing-Resistant Auth Strength For Admins)'
             State    = ConvertTo-SAWStateLabel $adminProtectionInPlace
+        }
+        @{
+            Category = 'Conditional Access'
+            Setting  = 'Security Info Registration Reachable With Only A Temporary Access Pass'
+            State    = ConvertTo-SAWStateLabel (-not $securityInfoRegistrationBlockedForTapOnlyUsers)
         }
     }
 }

@@ -11,6 +11,7 @@ BeforeAll {
             [string]$State = 'enabled',
             [string[]]$IncludeUsers = @('All'),
             [string[]]$IncludeApplications = @('All'),
+            [string[]]$IncludeUserActions = @(),
             [string[]]$IncludeRoles = @(),
             [string[]]$ClientAppTypes = @('all'),
             [string[]]$BuiltInControls = @(),
@@ -20,7 +21,7 @@ BeforeAll {
             state      = $State
             conditions = @{
                 users        = @{ includeUsers = $IncludeUsers; includeRoles = $IncludeRoles }
-                applications = @{ includeApplications = $IncludeApplications }
+                applications = @{ includeApplications = $IncludeApplications; includeUserActions = $IncludeUserActions }
                 clientAppTypes = $ClientAppTypes
             }
             grantControls = @{ builtInControls = $BuiltInControls; authenticationStrength = $AuthenticationStrength }
@@ -128,13 +129,14 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
         ($result | Where-Object { $_.Setting -eq 'Require Compliant Device For Admins' }).State | Should -Be 'Enabled'
     }
 
-    It 'returns Disabled for every capability when there are no policies at all' {
+    It 'returns Disabled for every capability when there are no policies at all, except the TAP-lockout check (absence of a blocking policy is the good state)' {
         $raw = @{ value = @() }
 
         $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
 
-        $result.Count | Should -Be 5
-        ($result | Where-Object { $_.State -eq 'Enabled' }).Count | Should -Be 0
+        $result.Count | Should -Be 6
+        ($result | Where-Object { $_.Setting -ne 'Security Info Registration Reachable With Only A Temporary Access Pass' -and $_.State -eq 'Enabled' }).Count | Should -Be 0
+        ($result | Where-Object { $_.Setting -eq 'Security Info Registration Reachable With Only A Temporary Access Pass' }).State | Should -Be 'Enabled'
     }
 
     Context 'admin protection composite' {
@@ -221,6 +223,71 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
             $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
 
             ($result | Where-Object { $_.Setting -like 'Privileged Access Protection In Place*' }).State | Should -Be 'Disabled'
+        }
+    }
+
+    Context 'Register Security Information reachable with only a Temporary Access Pass (CA004)' {
+        $settingName = 'Security Info Registration Reachable With Only A Temporary Access Pass'
+
+        It 'is Enabled when no policy targets registersecurityinfo at all' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'is Enabled when the policy targeting registersecurityinfo only requires plain mfa (no custom strength)' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'is Disabled (the lockout) when the policy requires a phishing-resistant-only strength with no TAP escape' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2', 'windowsHelloForBusiness', 'x509CertificateMultiFactor') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'is Enabled when the required strength explicitly allows temporaryAccessPassOneTime' {
+            $strength = @{ displayName = 'Custom'; allowedCombinations = @('fido2', 'temporaryAccessPassOneTime') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'is Enabled when the required strength explicitly allows temporaryAccessPassMultiUse' {
+            $strength = @{ displayName = 'Custom'; allowedCombinations = @('windowsHelloForBusiness', 'temporaryAccessPassMultiUse') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'ignores a report-only policy even if its strength would otherwise block TAP-only users' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -State 'enabledForReportingButNotEnforced' -IncludeUserActions @('urn:user:registersecurityinfo') -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'does not false-positive when the authentication strength reference has no allowedCombinations data' {
+            $strength = @{ displayName = 'Unresolved reference' }
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
         }
     }
 }

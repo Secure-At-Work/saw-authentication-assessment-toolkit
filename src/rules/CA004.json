@@ -1,0 +1,11 @@
+{
+    "RuleID": "CA004",
+    "Category": "Conditional Access",
+    "Setting": "Security Info Registration Reachable With Only A Temporary Access Pass",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
+    "DependsOn": [],
+    "Recommendation": "An enabled Conditional Access policy targeting the 'Register security information' user action (urn:user:registersecurityinfo) currently requires an authentication strength that a Temporary Access Pass does not satisfy. Any user with no phishing-resistant method yet - including anyone caught up in Microsoft's automatic passkey registration nudges starting 2026-09-01 for SMS/Voice users - relies on a TAP as their only way to bootstrap into registering a stronger method. If the policy gating that registration page itself demands a phishing-resistant strength with no TAP escape, that user can never reach the page that would let them register one, and is locked out of self-service recovery. Either add Temporary Access Pass (temporaryAccessPassOneTime/temporaryAccessPassMultiUse) to the authentication strength's allowed combinations, exclude this policy from targeting security info registration, or ensure every affected user has another bootstrap route (e.g. self-service FIDO2 registration) before relying on TAP."
+}
