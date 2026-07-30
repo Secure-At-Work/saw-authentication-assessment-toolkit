@@ -123,6 +123,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuditLogs.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Get-SAWBaselineOverrides.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Invoke-SAWRulesEngine.ps1')
+. (Join-Path $PSScriptRoot 'rules' 'ConvertTo-SAWRemediationRoadmap.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
 
@@ -226,11 +227,14 @@ $normalized += $auditsRaw | ConvertTo-SAWNormalizedAuditLogs -Verbose:$VerbosePr
 Write-Verbose 'Invoke-SAWAssessment: evaluating Secure At Work rules'
 $results = Invoke-SAWRulesEngine -RulesPath $RulesPath -NormalizedData $normalized -BaselineOverrides $baselineOverrides -Verbose:$VerbosePreference
 
+Write-Verbose 'Invoke-SAWAssessment: building remediation roadmap'
+$roadmap = ConvertTo-SAWRemediationRoadmap -RuleResults $results -Verbose:$VerbosePreference
+
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisplayName -OutputPath $ReportPath -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
-$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -BaselineName $baselineDisplayName -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -BaselineName $baselineDisplayName -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 $snapshotPath = $null
 if (-not $SkipHistorySnapshot) {
