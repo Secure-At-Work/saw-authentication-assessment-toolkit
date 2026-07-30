@@ -53,7 +53,7 @@ Describe 'Get-SAWAuthenticationMethods' {
             $result = Get-SAWAuthenticationMethods
 
             Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
-                $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy?$select=optOutSettings'
+                $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy'
             }
             $result.optOutSettings.passkeyDynamicMigration | Should -BeTrue
         }

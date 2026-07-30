@@ -146,12 +146,14 @@ date.
 - **AUTH006 - Passkey Dynamic Migration Not Opted Out.** The only tenant-level control over
   the *timing* of the first date is `authenticationMethodsPolicy.optOutSettings.
   passkeyDynamicMigration` - a field that only exists on the **beta** Graph endpoint (the one
-  deliberate exception to this toolkit calling `v1.0` everywhere else; the collector's beta
-  call is narrowly scoped to `$select=optOutSettings` and nothing more). Its semantics are
-  easy to get backwards: setting it to `true` **opts the tenant OUT of - i.e. excludes it
-  from** - the automatic 2026-09-01 rollout while it prepares; left absent/`false` (the
-  default), the rollout applies. Opting out never affects the 2027-02-01 date. Severity is Low
-  because opting out is a legitimate, time-boxed choice - the recommendation is to verify
+  deliberate exception to this toolkit calling `v1.0` everywhere else). The collector fetches
+  the whole beta object rather than `$select`ing just this field - confirmed against a real
+  tenant that this endpoint rejects `$select` outright ("Query option 'Select' is not
+  allowed"), unlike most Graph resources. Its semantics are easy to get backwards: setting it
+  to `true` **opts the tenant OUT of - i.e. excludes it from** - the automatic 2026-09-01
+  rollout while it prepares; left absent/`false` (the default), the rollout applies. Opting out
+  never affects the 2027-02-01 date. Severity is Low because opting out is a legitimate,
+  time-boxed choice - the recommendation is to verify
   there's an active plan behind it, not to treat opting out itself as a finding.
 - **CA004 - Security Info Registration Reachable With Only A Temporary Access Pass.** A real
   lockout trap: once a user with no phishing-resistant method is nudged to register one
