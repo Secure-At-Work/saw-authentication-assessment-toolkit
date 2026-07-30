@@ -44,6 +44,9 @@ Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section
 HTML report both work, and the live-Graph path has been run successfully against a real
 tenant. Beyond the base 19 rules, the dashboard also has:
 
+- A **passkey dynamic migration opt-out check** (AUTH006) and a **CA lockout check** (CA004) -
+  see "Passkey rollout and lockout-risk checks" below
+
 - A full **Conditional Access policy inventory** (every policy's name, state, targets, and
   grant controls in plain language - independent of the pass/fail CA checks)
 - A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
@@ -130,6 +133,36 @@ outstanding rule `Blocked = true` when one of its `DependsOn` rules is itself st
 **Remediation Roadmap** section (right after the Overview, ahead of the flat findings list)
 shows this directly: one card per phase with a completion count, and each still-open rule
 tagged either safe to work on now or `Blocked - waiting on <RuleID>`.
+
+## Passkey rollout and lockout-risk checks
+
+Microsoft is retiring its own SMS/Voice authentication delivery on a fixed timeline
+([Microsoft Learn](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement)):
+starting **2026-09-01**, Microsoft automatically enables passkeys for users currently enabled
+for SMS or Voice and moves the registration campaign to "Microsoft managed"; on **2027-02-01**,
+Microsoft-provided SMS/Voice delivery retires outright, with **no opt-out at all** for that
+date.
+
+- **AUTH006 - Passkey Dynamic Migration Not Opted Out.** The only tenant-level control over
+  the *timing* of the first date is `authenticationMethodsPolicy.optOutSettings.
+  passkeyDynamicMigration` - a field that only exists on the **beta** Graph endpoint (the one
+  deliberate exception to this toolkit calling `v1.0` everywhere else; the collector's beta
+  call is narrowly scoped to `$select=optOutSettings` and nothing more). Its semantics are
+  easy to get backwards: setting it to `true` **opts the tenant OUT of - i.e. excludes it
+  from** - the automatic 2026-09-01 rollout while it prepares; left absent/`false` (the
+  default), the rollout applies. Opting out never affects the 2027-02-01 date. Severity is Low
+  because opting out is a legitimate, time-boxed choice - the recommendation is to verify
+  there's an active plan behind it, not to treat opting out itself as a finding.
+- **CA004 - Security Info Registration Reachable With Only A Temporary Access Pass.** A real
+  lockout trap: once a user with no phishing-resistant method is nudged to register one
+  (including via the automatic rollout above), a Temporary Access Pass is often their only way
+  to bootstrap into the registration flow (see `BOOT001`). If an *enabled* Conditional Access
+  policy gates `urn:user:registersecurityinfo` with a custom authentication strength whose
+  `allowedCombinations` doesn't include `temporaryAccessPassOneTime`/
+  `temporaryAccessPassMultiUse`, that user can never reach the page that would let them
+  register a stronger method - they're locked out of self-service recovery entirely. A plain
+  `mfa` builtin control doesn't trigger this (TAP generically satisfies it); only a custom
+  strength without a TAP escape does.
 
 ## Usage
 
