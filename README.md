@@ -105,6 +105,17 @@ pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
 top of `-Baseline` for tweaks specific to a single customer, without needing a whole new named
 preset.
 
+**Entra Domain Services (proxy signal, not a rule):** the same collector also checks for a
+group named `AAD DC Administrators`, which Microsoft's setup wizard automatically creates when
+[Microsoft Entra Domain Services](https://learn.microsoft.com/entra/identity/domain-services/)
+is enabled. Domain Services itself lives in Azure Resource Manager
+(`Microsoft.AAD/domainServices`) - a different API, token audience, and permission model than
+everything else this toolkit does - so this is the closest signal reachable through ordinary
+Graph data, not a direct check. It means Domain Services was provisioned at some point, not
+that it's still active today. When found, a caveated note appears in the console output and in
+both reports' header - never as a rules-engine finding, since it's a hint to follow up on with
+the customer, not a pass/fail.
+
 ## From IST to SOLL: the Remediation Roadmap
 
 A findings list tells you *what's* wrong; it doesn't tell you *what order* to fix it in - and
