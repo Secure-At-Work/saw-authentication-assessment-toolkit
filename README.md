@@ -246,6 +246,14 @@ between the two toolkit versions used, then the Security Info Registration roste
 deltas (e.g. how many users moved from Hunt into OK). Unchanged rules are summarized as a
 count only, to keep the signal-to-noise ratio high on repeated runs.
 
+**The dashboard itself also shows a lighter, at-a-glance trend** - no extra command needed.
+Every dashboard has a "Trend Over Time" section (right after the Overview) plotting Green/
+Yellow/Red/Grey counts across every run recorded for that tenant, built from the same
+`history/<tenant-slug>/*.json` snapshots by `Get-SAWHistoryTrend.ps1`. With fewer than 2 runs
+it shows a "not enough history yet" note instead of a chart. Use this for a quick read on
+overall direction across many runs; use `Invoke-SAWDriftReport.ps1` when you need the detailed
+rule-by-rule diff between two specific runs.
+
 ## Requirements
 
 - PowerShell 7.4+ (`pwsh`, not Windows PowerShell / `powershell.exe`). If you run either
