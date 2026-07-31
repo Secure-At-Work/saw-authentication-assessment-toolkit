@@ -190,4 +190,37 @@ Describe 'Export-SAWDashboard' {
         $content = Get-Content -Path $path -Raw
         $content | Should -Match 'Entra Domain Services'
     }
+
+    It 'omits the Trend Over Time section entirely when -Trend is not supplied' {
+        $script:DashboardContent | Should -Not -Match 'Trend Over Time'
+    }
+
+    It 'shows a "not enough history" note when -Trend has fewer than 2 runs' {
+        $path = Join-Path $TestDrive 'trendonepoint\index.html'
+        $trend = @(@{ RunTimestamp = 't1'; BaselineName = 'B'; Counts = @{ Green = 1; Yellow = 0; Red = 0; Grey = 0 }; RosterCounts = @{} })
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -Trend $trend -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Trend Over Time'
+        $content | Should -Match 'Not enough history yet'
+        $content | Should -Not -Match 'id="trendChart"'
+    }
+
+    It 'renders a trend chart and per-run table when -Trend has 2 or more runs' {
+        $path = Join-Path $TestDrive 'trendtwopoint\index.html'
+        $trend = @(
+            @{ RunTimestamp = '20260101-000000'; BaselineName = 'B'; Counts = @{ Green = 1; Yellow = 2; Red = 3; Grey = 4 }; RosterCounts = @{} }
+            @{ RunTimestamp = '20260201-000000'; BaselineName = 'B'; Counts = @{ Green = 5; Yellow = 1; Red = 0; Grey = 4 }; RosterCounts = @{} }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -Trend $trend -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'id="trendChart"'
+        $content | Should -Match "getElementById\('trendChart'\)"
+        $content | Should -Match '20260101-000000'
+        $content | Should -Match '20260201-000000'
+        $content | Should -Match '2 runs for this tenant'
+    }
 }

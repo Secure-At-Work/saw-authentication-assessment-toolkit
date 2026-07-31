@@ -47,6 +47,13 @@ function Export-SAWDashboard {
         Whether Get-SAWTenantProfile found an "AAD DC Administrators" group (a proxy signal
         for Microsoft Entra Domain Services - see ConvertTo-SAWTenantProfile.ps1). When true, a
         caveated note is shown in the top banner alongside the baseline name.
+    .PARAMETER Trend
+        Optional output of Get-SAWHistoryTrend (one hashtable per historical run for this
+        tenant, ascending by RunTimestamp). When supplied with 2 or more runs, renders a "Trend
+        Over Time" section (a line chart of Green/Yellow/Red/Grey counts across every run, plus
+        a small per-run table) right after the Overview - the lighter, at-a-glance counterpart
+        to Invoke-SAWDriftReport.ps1's detailed two-run diff. With 0 or 1 runs, shows a "not
+        enough history yet" note instead of a chart. Omitted entirely if not supplied at all.
     .PARAMETER OutputPath
         File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
         subfolder is created alongside it. Parent directory is created if missing.
@@ -71,6 +78,9 @@ function Export-SAWDashboard {
         [string]$BaselineName = 'Toolkit default (no customer-specific baseline applied)',
 
         [bool]$DomainServicesDetected = $false,
+
+        [AllowNull()]
+        [object[]]$Trend = $null,
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -137,6 +147,77 @@ function Export-SAWDashboard {
 
     $statusChartLabelsJson = @('Green', 'Yellow', 'Red', 'Grey') | ConvertTo-Json -Compress
     $statusChartDataJson = @($counts.Green, $counts.Yellow, $counts.Red, $counts.Grey) | ConvertTo-Json -Compress
+
+    # --- Trend over time (optional - Get-SAWHistoryTrend output) ---
+    $trendSectionHtml = ''
+    $trendScriptHtml = ''
+    if ($null -ne $Trend) {
+        if (@($Trend).Count -lt 2) {
+            $trendSectionHtml = @"
+  <h2 class="h4 mb-3">Trend Over Time</h2>
+  <p class="text-body-secondary small mb-4">Not enough history yet for this tenant to show a trend - at least 2 runs are needed. Run this assessment again later to start building one.</p>
+"@
+        }
+        else {
+            $trendLabelsJson = @($Trend | ForEach-Object { $_.RunTimestamp }) | ConvertTo-Json -Compress
+            $trendGreenJson = @($Trend | ForEach-Object { $_.Counts.Green }) | ConvertTo-Json -Compress
+            $trendYellowJson = @($Trend | ForEach-Object { $_.Counts.Yellow }) | ConvertTo-Json -Compress
+            $trendRedJson = @($Trend | ForEach-Object { $_.Counts.Red }) | ConvertTo-Json -Compress
+            $trendGreyJson = @($Trend | ForEach-Object { $_.Counts.Grey }) | ConvertTo-Json -Compress
+
+            $trendRowsHtml = foreach ($t in $Trend) {
+                @"
+      <tr>
+        <td>$(ConvertTo-SAWHtmlEncoded $t.RunTimestamp)</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $t.BaselineName)</td>
+        <td><span class="badge bg-success">$($t.Counts.Green)</span> <span class="badge bg-warning text-dark">$($t.Counts.Yellow)</span> <span class="badge bg-danger">$($t.Counts.Red)</span> <span class="badge bg-secondary">$($t.Counts.Grey)</span></td>
+      </tr>
+"@
+            }
+
+            $trendSectionHtml = @"
+  <h2 class="h4 mb-3">Trend Over Time</h2>
+  <p class="text-body-secondary small">$(@($Trend).Count) runs for this tenant. The lighter, at-a-glance counterpart to the detailed two-run drift report (<code>Invoke-SAWDriftReport.ps1</code>).</p>
+  <div class="row mb-4 g-3">
+    <div class="col-lg-8">
+      <div class="card h-100"><div class="card-body">
+        <canvas id="trendChart" height="220"></canvas>
+      </div></div>
+    </div>
+    <div class="col-lg-4">
+      <div class="table-responsive" style="max-height: 300px;">
+        <table class="table table-sm table-striped align-middle">
+          <thead><tr><th>Run</th><th>Baseline</th><th>G/Y/R/Grey</th></tr></thead>
+          <tbody>
+$($trendRowsHtml -join "`n")
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+"@
+
+            $trendScriptHtml = @"
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: $trendLabelsJson,
+      datasets: [
+        { label: 'Green', data: $trendGreenJson, borderColor: '#198754', backgroundColor: '#198754', tension: 0.2 },
+        { label: 'Yellow', data: $trendYellowJson, borderColor: '#ffc107', backgroundColor: '#ffc107', tension: 0.2 },
+        { label: 'Red', data: $trendRedJson, borderColor: '#dc3545', backgroundColor: '#dc3545', tension: 0.2 },
+        { label: 'Grey', data: $trendGreyJson, borderColor: '#6c757d', backgroundColor: '#6c757d', tension: 0.2 }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+"@
+        }
+    }
     $categoryLabelsJson = @($categories) | ConvertTo-Json -Compress
     $categoryRedJson = @($categoryRedCounts) | ConvertTo-Json -Compress
     $categoryYellowJson = @($categoryYellowCounts) | ConvertTo-Json -Compress
@@ -480,6 +561,7 @@ $(if ($DomainServicesDetected) {
     </div>
   </div>
 
+$trendSectionHtml
 $roadmapSectionHtml
   <h2 class="h4 mb-3">Risk Findings &amp; Recommendations</h2>
   <div class="list-group mb-4">
@@ -535,6 +617,7 @@ $($tabPanes -join "`n")
       plugins: { legend: { position: 'bottom' } }
     }
   });
+$trendScriptHtml
 </script>
 </body>
 </html>
