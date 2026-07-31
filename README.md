@@ -248,7 +248,12 @@ count only, to keep the signal-to-noise ratio high on repeated runs.
 
 ## Requirements
 
-- PowerShell 7.4+
+- PowerShell 7.4+ (`pwsh`, not Windows PowerShell / `powershell.exe`). If you run either
+  entry-point script (`Invoke-SAWAssessment.ps1`, `Invoke-SAWDriftReport.ps1`) under the wrong
+  host or an outdated `pwsh`, `Test-SAWPowerShellVersion.ps1` catches it before anything else
+  runs and prints exactly what to do next - relaunch with `pwsh -File ...` if PowerShell 7 is
+  already installed, or an install link/command if it isn't - rather than PowerShell's own
+  generic `#Requires` error.
 - `Microsoft.Graph.Authentication` - the only Graph SDK module this toolkit depends on. Every
   collector calls Graph via generic `Invoke-MgGraphRequest`/`Get-MgContext` rather than the
   typed per-resource cmdlets, so the heavier modules listed in spec section 5 (e.g.

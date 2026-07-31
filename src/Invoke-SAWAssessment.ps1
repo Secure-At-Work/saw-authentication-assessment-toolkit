@@ -1,4 +1,3 @@
-#Requires -Version 7.4
 <#
 .SYNOPSIS
     Runs the assessment vertical slice: collect -> normalize -> evaluate -> report,
@@ -75,7 +74,14 @@ param(
 
     [switch]$InstallMissingModules,
 
-    [string]$RulesPath = (Join-Path $PSScriptRoot 'rules'),
+    # $RulesPath/$OutputRoot/$HistoryPath deliberately have NO default value expression here
+    # (defaulted in the script body below instead, once execution is actually inside the
+    # script). Windows PowerShell 5.1 leaves $PSScriptRoot empty specifically while evaluating
+    # param-block default VALUES when the script is invoked via `-File` (confirmed against a
+    # real 5.1 host - a longstanding, documented quirk) - a default like
+    # `(Join-Path $PSScriptRoot 'rules')` here would throw before Test-SAWPowerShellVersion
+    # below ever gets a chance to run, defeating the entire point of this check.
+    [string]$RulesPath,
 
     [string]$Baseline,
 
@@ -87,12 +93,28 @@ param(
 
     [string]$DashboardPath,
 
-    [string]$OutputRoot = (Join-Path $PSScriptRoot '..' 'reports'),
+    [string]$OutputRoot,
 
-    [string]$HistoryPath = (Join-Path $PSScriptRoot '..' 'history'),
+    [string]$HistoryPath,
 
     [switch]$SkipHistorySnapshot
 )
+
+# Checked first, before anything else in this script (including the dot-sourcing below) - see
+# Test-SAWPowerShellVersion.ps1 for why this replaces a plain #Requires -Version 7.4: that
+# directive blocks the whole script before any of our own code runs, showing only PowerShell's
+# generic version-mismatch message with no guidance on what to actually do about it. $PSScriptRoot
+# is reliable here (script body), unlike in the param block default values above.
+. (Join-Path $PSScriptRoot 'Test-SAWPowerShellVersion.ps1')
+$powerShellVersionCheck = Test-SAWPowerShellVersion -ScriptPath $PSCommandPath
+if (-not $powerShellVersionCheck.Satisfied) {
+    Write-Host $powerShellVersionCheck.Message -ForegroundColor Red
+    exit 1
+}
+
+if (-not $RulesPath) { $RulesPath = Join-Path $PSScriptRoot 'rules' }
+if (-not $OutputRoot) { $OutputRoot = Join-Path (Join-Path $PSScriptRoot '..') 'reports' }
+if (-not $HistoryPath) { $HistoryPath = Join-Path (Join-Path $PSScriptRoot '..') 'history' }
 
 $reportPathWasExplicit = $PSBoundParameters.ContainsKey('ReportPath')
 $dashboardPathWasExplicit = $PSBoundParameters.ContainsKey('DashboardPath')

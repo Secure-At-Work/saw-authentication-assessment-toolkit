@@ -4,6 +4,7 @@ Pester 5.x unit tests, mirroring `src/`:
 
 ```
 tests/
+  Test-SAWPowerShellVersion.Tests.ps1
   collector/
     Get-SAWAuthenticationMethods.Tests.ps1
     Get-SAWConditionalAccess.Tests.ps1
@@ -13,12 +14,23 @@ tests/
     Get-SAWPasskeys.Tests.ps1
     Get-SAWSignInLogs.Tests.ps1
     Get-SAWAuditLogs.Tests.ps1
+    Get-SAWTenantProfile.Tests.ps1
   rules/
     Invoke-SAWRulesEngine.Tests.ps1
+    Get-SAWBaselineOverrides.Tests.ps1
+    Compare-SAWRuleResults.Tests.ps1
+    ConvertTo-SAWRemediationRoadmap.Tests.ps1
   dashboard/
     Export-SAWHtmlReport.Tests.ps1
     Export-SAWDashboard.Tests.ps1
+    Export-SAWDriftReport.Tests.ps1
 ```
+
+Orchestrator scripts (`Invoke-SAWAssessment.ps1`, `Invoke-SAWDriftReport.ps1`,
+`Connect-SAWGraph.ps1`) have no dedicated test file - they're thin wiring over already-tested
+functions, verified end-to-end against sample data (and, where relevant, a real tenant) instead.
+`Test-SAWPowerShellVersion.ps1` is the exception among top-level `src/` files: it's a small,
+pure, branching function worth unit-testing on its own.
 
 Each collector test file covers both the collector and its paired normalizer (they're tested
 together since they're always used together):

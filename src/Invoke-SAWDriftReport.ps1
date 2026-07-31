@@ -1,4 +1,3 @@
-#Requires -Version 7.4
 <#
 .SYNOPSIS
     Compares two Invoke-SAWAssessment history snapshots for the same tenant and renders an
@@ -38,7 +37,11 @@
 param(
     [string]$TenantSlug,
 
-    [string]$HistoryPath = (Join-Path $PSScriptRoot '..' 'history'),
+    # No default value expression here (defaulted in the script body below instead) - see
+    # Invoke-SAWAssessment.ps1 for why: Windows PowerShell 5.1 leaves $PSScriptRoot empty
+    # specifically while evaluating param-block default values under `-File` invocation, which
+    # would throw before Test-SAWPowerShellVersion below ever runs.
+    [string]$HistoryPath,
 
     [string]$OldSnapshotPath,
 
@@ -46,8 +49,20 @@ param(
 
     [string]$OutputPath,
 
-    [string]$OutputRoot = (Join-Path $PSScriptRoot '..' 'reports')
+    [string]$OutputRoot
 )
+
+# Checked first, before anything else in this script - see Test-SAWPowerShellVersion.ps1 and
+# Invoke-SAWAssessment.ps1 for why this replaces a plain #Requires -Version 7.4.
+. (Join-Path $PSScriptRoot 'Test-SAWPowerShellVersion.ps1')
+$powerShellVersionCheck = Test-SAWPowerShellVersion -ScriptPath $PSCommandPath
+if (-not $powerShellVersionCheck.Satisfied) {
+    Write-Host $powerShellVersionCheck.Message -ForegroundColor Red
+    exit 1
+}
+
+if (-not $HistoryPath) { $HistoryPath = Join-Path (Join-Path $PSScriptRoot '..') 'history' }
+if (-not $OutputRoot) { $OutputRoot = Join-Path (Join-Path $PSScriptRoot '..') 'reports' }
 
 $ErrorActionPreference = 'Stop'
 
