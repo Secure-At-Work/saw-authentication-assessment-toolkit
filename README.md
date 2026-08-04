@@ -191,6 +191,16 @@ just does the date math. Not every entry is checkable yet: the Message Center it
 "passwordless password change in My Sign-Ins" (~late October 2026) explicitly states its APIs
 won't exist until release, so it's tracked here for awareness only, with no corresponding rule.
 
+Where a milestone maps to a real population in this tenant, its card also shows **"N user(s)
+impacted"** - e.g. how many users still have a phone-based method registered (relevant to both
+the 2026-09-01 automatic passkey enablement and the 2027-02-01 SMS/Voice retirement), or how
+many SSPR-enabled users aren't yet SSPR-registered (a proxy for "relying on directory-sourced
+contact info," since Graph doesn't expose whether a registered method was explicit or
+directory-sourced - the card's own label always states exactly what's being counted). This
+reuses data already collected for the registration/roster checks - no extra Graph calls. A
+milestone with no matching data source (like the passwordless password change entry above)
+simply omits the line rather than showing a fabricated "0 users impacted".
+
 ## Usage
 
 Offline, against the bundled sample tenant fixtures (no Graph connection needed):

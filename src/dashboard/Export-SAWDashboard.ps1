@@ -522,6 +522,16 @@ $($phaseCardsHtml -join "`n")
                 $sourceLinkHtml = "<a href=""$(ConvertTo-SAWHtmlEncoded $m.SourceUrl)"" target=""_blank"" rel=""noopener noreferrer"" class=""small"">Source</a>"
             }
 
+            # UsersImpacted is nullable by design (Get-SAWTimelineMilestones.ps1) - a milestone
+            # with no ImpactMetric (no rule/data source exists yet, e.g. passwordless password
+            # change) or no -ImpactMetrics supplied (e.g. -UseSampleData without registration
+            # data) omits this line entirely rather than showing a fabricated "0 users impacted".
+            $impactHtml = ''
+            if ($null -ne $m.UsersImpacted) {
+                $impactLabel = if ($m.ImpactMetricLabel) { " ($(ConvertTo-SAWHtmlEncoded $m.ImpactMetricLabel))" } else { '' }
+                $impactHtml = "<div class=""small fw-semibold mb-1"">$($m.UsersImpacted) user(s) impacted$impactLabel</div>"
+            }
+
             @"
       <div class="col-md-6 col-lg-4">
         <div class="card h-100 $urgencyClass" style="border-left-width: 4px;"><div class="card-body">
@@ -530,6 +540,7 @@ $($phaseCardsHtml -join "`n")
             <span class="badge bg-dark">$daysLabel</span>
           </div>
           <div class="text-body-secondary small mb-2">$(ConvertTo-SAWHtmlEncoded $m.Date) &middot; $relatedBadgesHtml</div>
+          $impactHtml
           <p class="small mb-1">$(ConvertTo-SAWHtmlEncoded $m.Description)</p>
           $sourceLinkHtml
         </div></div>

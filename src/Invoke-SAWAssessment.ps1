@@ -337,7 +337,22 @@ Write-Verbose 'Invoke-SAWAssessment: reading history trend for dashboard'
 $trend = Get-SAWHistoryTrend -HistoryPath $HistoryPath -TenantSlug $tenantSlug -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: loading Microsoft rollout timeline'
-$timelineMilestones = Get-SAWTimelineMilestones -Verbose:$VerbosePreference
+# Reuses data already collected for the roster/registration checks above - no extra Graph
+# calls. PhoneBasedMethodUsers matches the roster's own downgrade-risk detection exactly
+# (mobilePhone/alternateMobilePhone/officePhone). SsprEnabledNotRegisteredUsers is a proxy for
+# "relying on directory-sourced contact info" (see ImpactMetricLabel in the JSON for the
+# caveat) - Graph's per-user isSsprRegistered doesn't distinguish an explicitly-registered
+# method from a directory-sourced one, so this is an upper bound, not an exact count.
+$phoneBasedMethodUsers = @($userRoster | Where-Object { $_.HasDowngradeRiskMethod }).Count
+$ssprEnabledNotRegisteredUsers = 0
+foreach ($u in @($registrationRaw.value)) {
+    if ($u.isSsprEnabled -and -not $u.isSsprRegistered) { $ssprEnabledNotRegisteredUsers++ }
+}
+$impactMetrics = @{
+    PhoneBasedMethodUsers         = $phoneBasedMethodUsers
+    SsprEnabledNotRegisteredUsers = $ssprEnabledNotRegisteredUsers
+}
+$timelineMilestones = Get-SAWTimelineMilestones -ImpactMetrics $impactMetrics -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference

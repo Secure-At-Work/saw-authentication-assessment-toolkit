@@ -94,4 +94,46 @@ Describe 'Get-SAWTimelineMilestones' {
         $result.Count | Should -Be 5
         $result[0].Date | Should -Be '2026-08-06'
     }
+
+    It 'sets UsersImpacted to $null when no -ImpactMetrics is supplied (no fabricated 0)' {
+        New-SAWTestMilestonesFile -Path $script:milestonesPath -Milestones @(
+            @{ Date = '2026-09-01'; Title = 'Phone users'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; ImpactMetric = 'PhoneBasedMethodUsers'; ImpactMetricLabel = 'phone users' }
+        )
+
+        $result = Get-SAWTimelineMilestones -MilestonesPath $script:milestonesPath -ReferenceDate ([datetime]'2026-08-04')
+
+        $result[0].UsersImpacted | Should -Be $null
+    }
+
+    It 'sets UsersImpacted to $null when the milestone declares an ImpactMetric not present in -ImpactMetrics' {
+        New-SAWTestMilestonesFile -Path $script:milestonesPath -Milestones @(
+            @{ Date = '2026-09-01'; Title = 'Phone users'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; ImpactMetric = 'PhoneBasedMethodUsers'; ImpactMetricLabel = 'phone users' }
+        )
+
+        $result = Get-SAWTimelineMilestones -MilestonesPath $script:milestonesPath -ReferenceDate ([datetime]'2026-08-04') -ImpactMetrics @{ SomeOtherMetric = 99 }
+
+        $result[0].UsersImpacted | Should -Be $null
+    }
+
+    It 'looks up UsersImpacted from -ImpactMetrics by the milestone''s ImpactMetric key and carries ImpactMetricLabel through' {
+        New-SAWTestMilestonesFile -Path $script:milestonesPath -Milestones @(
+            @{ Date = '2026-09-01'; Title = 'Phone users'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; ImpactMetric = 'PhoneBasedMethodUsers'; ImpactMetricLabel = 'phone users still registered' }
+        )
+
+        $result = Get-SAWTimelineMilestones -MilestonesPath $script:milestonesPath -ReferenceDate ([datetime]'2026-08-04') -ImpactMetrics @{ PhoneBasedMethodUsers = 7 }
+
+        $result[0].UsersImpacted | Should -Be 7
+        $result[0].ImpactMetricLabel | Should -Be 'phone users still registered'
+    }
+
+    It 'handles UsersImpacted=0 as a real value, not the same as "not computable"' {
+        New-SAWTestMilestonesFile -Path $script:milestonesPath -Milestones @(
+            @{ Date = '2026-09-01'; Title = 'Phone users'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; ImpactMetric = 'PhoneBasedMethodUsers'; ImpactMetricLabel = 'phone users' }
+        )
+
+        $result = Get-SAWTimelineMilestones -MilestonesPath $script:milestonesPath -ReferenceDate ([datetime]'2026-08-04') -ImpactMetrics @{ PhoneBasedMethodUsers = 0 }
+
+        $result[0].UsersImpacted | Should -Be 0
+        $result[0].UsersImpacted | Should -Not -Be $null
+    }
 }

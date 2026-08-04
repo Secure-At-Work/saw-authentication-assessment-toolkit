@@ -6,21 +6,27 @@
             "Title": "SSPR Registration Campaign Nudges Begin",
             "Description": "Microsoft begins automatically prompting users who don't have enough registered methods to satisfy SSPR, ahead of the 2026-09-07 enforcement below. Informational - no admin action required to trigger it.",
             "RelatedRuleIDs": ["SSPR001"],
-            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/howto-sspr-authenticationdata"
+            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/howto-sspr-authenticationdata",
+            "ImpactMetric": "SsprEnabledNotRegisteredUsers",
+            "ImpactMetricLabel": "SSPR-enabled users not yet SSPR-registered"
         },
         {
             "Date": "2026-09-01",
             "Title": "Automatic Passkey Enablement For SMS/Voice Users",
             "Description": "Microsoft auto-enables passkeys for users currently enabled for SMS or Voice and flips the registration campaign to 'Microsoft managed' for them. See AUTH006 to check/opt out of this timing.",
             "RelatedRuleIDs": ["AUTH006", "AUTH002", "AUTH003"],
-            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement"
+            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement",
+            "ImpactMetric": "PhoneBasedMethodUsers",
+            "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered"
         },
         {
             "Date": "2026-09-07",
             "Title": "SSPR Stops Accepting Directory-Sourced Contact Info",
             "Description": "SSPR will only accept explicitly registered authentication methods from this date. Directory-sourced attributes synced from on-premises AD (mobilePhone, businessPhone, otherMails) that were never explicitly registered stop working for SSPR verification.",
             "RelatedRuleIDs": ["SSPR001"],
-            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/howto-sspr-authenticationdata"
+            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/howto-sspr-authenticationdata",
+            "ImpactMetric": "SsprEnabledNotRegisteredUsers",
+            "ImpactMetricLabel": "SSPR-enabled users not yet SSPR-registered (upper-bound proxy - Graph doesn't expose whether a registered method is directory-sourced or explicit)"
         },
         {
             "Date": "2026-10-31",
@@ -34,7 +40,9 @@
             "Title": "Microsoft-Provided SMS/Voice Retirement (No Opt-Out)",
             "Description": "Microsoft-provided SMS and voice delivery retires outright. There is no opt-out for this date - AUTH006's opt-out only defers the 2026-09-01 automatic enablement above, not this one. Users whose only MFA method is SMS/Voice will be blocked with a mandatory passkey registration prompt.",
             "RelatedRuleIDs": ["AUTH002", "AUTH003", "AUTH006"],
-            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement"
+            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement",
+            "ImpactMetric": "PhoneBasedMethodUsers",
+            "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered"
         }
     ]
 }

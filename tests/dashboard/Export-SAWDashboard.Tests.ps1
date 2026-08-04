@@ -248,4 +248,41 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '>SSPR001<'
         $content | Should -Match 'href="https://example.com/a"'
     }
+
+    It 'renders a users-impacted line when UsersImpacted is set, including the ImpactMetricLabel' {
+        $path = Join-Path $TestDrive 'timeline-impact\index.html'
+        $milestones = @(
+            @{ Date = '2026-09-01'; Title = 'Phone Users'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; DaysRemaining = 5; IsPast = $false; UsersImpacted = 12; ImpactMetricLabel = 'users with a phone-based method still registered' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TimelineMilestones $milestones -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match '12 user\(s\) impacted'
+        $content | Should -Match 'users with a phone-based method still registered'
+    }
+
+    It 'omits the users-impacted line entirely when UsersImpacted is $null (not a fabricated 0)' {
+        $path = Join-Path $TestDrive 'timeline-no-impact\index.html'
+        $milestones = @(
+            @{ Date = '2026-10-31'; Title = 'No Data Yet'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; DaysRemaining = 90; IsPast = $false; UsersImpacted = $null; ImpactMetricLabel = $null }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TimelineMilestones $milestones -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Not -Match 'user\(s\) impacted'
+    }
+
+    It 'renders "0 user(s) impacted" when UsersImpacted is exactly 0, not omitted like $null' {
+        $path = Join-Path $TestDrive 'timeline-zero-impact\index.html'
+        $milestones = @(
+            @{ Date = '2026-09-01'; Title = 'No Phone Users Left'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; DaysRemaining = 5; IsPast = $false; UsersImpacted = 0; ImpactMetricLabel = 'phone users' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TimelineMilestones $milestones -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match '0 user\(s\) impacted'
+    }
 }
