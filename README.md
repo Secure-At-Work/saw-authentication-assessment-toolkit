@@ -249,6 +249,14 @@ kept using tenant A's connection - not tenant B's - on the very next run). `-Ten
 `Connect-SAWGraph.ps1` detect that mismatch and reconnect to the tenant you actually asked for
 instead.
 
+**Just activated a role via PIM and still getting a 403?** Pass `-ForceReauth`. Even a correctly
+tenant-matched connection can be a still-valid *cached* token that predates a role you activated
+moments ago via PIM (including PIM for Groups) - `Connect-MgGraph` will happily reuse it rather
+than authenticate fresh, so the activated role's claims never make it into the token the script
+is using. `-ForceReauth` disconnects and reconnects unconditionally, scoped to this process only
+(`-ContextScope Process`) so it can't pick up the shared, disk-persisted context another terminal
+window populated earlier.
+
 - **Tenant identity** comes from `organization.id` via Graph (`Get-SAWTenantProfile.ps1`,
   already collected for baseline auto-detection - no extra permission needed).
   `ConvertTo-SAWTenantProfile.ps1` derives a filesystem-safe `Slug` from it (falling back to a

@@ -24,6 +24,12 @@
 .PARAMETER InstallMissingModules
     Install Microsoft.Graph.Authentication for the current user if it isn't already
     installed. Ignored when -UseSampleData is set.
+.PARAMETER ForceReauth
+    Always disconnect and re-authenticate fresh, even if an active connection already covers
+    the requested tenant and scopes. Ignored when -UseSampleData is set. Use this if you just
+    activated a role via PIM (including PIM for Groups) and still get a 403 on something that
+    role should now cover - Connect-MgGraph can silently reuse a still-valid cached token that
+    predates the activation. See Connect-SAWGraph.ps1.
 .PARAMETER RulesPath
     Directory containing rule *.json files. Defaults to src/rules.
 .PARAMETER Baseline
@@ -71,6 +77,9 @@
     # stale connection from the first tenant is never silently reused for the second.
     pwsh -File src/Invoke-SAWAssessment.ps1 -TenantId contoso.onmicrosoft.com -Verbose
     pwsh -File src/Invoke-SAWAssessment.ps1 -TenantId fabrikam.onmicrosoft.com -Verbose
+.EXAMPLE
+    # Just activated a role via PIM and still hitting a 403 - force a fresh, non-cached login.
+    pwsh -File src/Invoke-SAWAssessment.ps1 -TenantId contoso.onmicrosoft.com -ForceReauth -Verbose
 #>
 [CmdletBinding()]
 param(
@@ -87,6 +96,8 @@ param(
     [string]$TenantId,
 
     [switch]$InstallMissingModules,
+
+    [switch]$ForceReauth,
 
     # $RulesPath/$OutputRoot/$HistoryPath deliberately have NO default value expression here
     # (defaulted in the script body below instead, once execution is actually inside the
@@ -168,7 +179,7 @@ $ErrorActionPreference = 'Stop'
 
 if (-not $UseSampleData) {
     Write-Verbose 'Invoke-SAWAssessment: establishing Microsoft Graph connection'
-    Connect-SAWGraph -Scopes $Scopes -TenantId $TenantId -InstallMissingModules:$InstallMissingModules -Verbose:$VerbosePreference | Out-Null
+    Connect-SAWGraph -Scopes $Scopes -TenantId $TenantId -InstallMissingModules:$InstallMissingModules -ForceReauth:$ForceReauth -Verbose:$VerbosePreference | Out-Null
 }
 
 Write-Verbose 'Invoke-SAWAssessment: collecting tenant profile (hybrid vs. cloud-native detection)'

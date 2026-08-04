@@ -99,4 +99,51 @@ Describe 'Connect-SAWGraph' {
 
         { Connect-SAWGraph -Scopes $requiredScopes } | Should -Throw
     }
+
+    It '-ForceReauth disconnects and reconnects even when the existing connection already matches tenant and scopes' {
+        # Real-world case: a role was just activated via PIM (or PIM for Groups), but
+        # Connect-MgGraph is silently reusing a still-valid cached token from before the
+        # activation - reusing it (the normal path) would keep hitting 403s.
+        $script:currentContext = @{ Account = 'kenneth@contoso.com'; Scopes = $requiredScopes; TenantId = 'tenant-a-guid' }
+
+        $result = Connect-SAWGraph -Scopes $requiredScopes -TenantId 'tenant-a-guid' -ForceReauth 3>$null
+
+        $script:disconnectCalls | Should -Be 1
+        $script:connectCalls.Count | Should -Be 1
+        $script:connectCalls[0].TenantId | Should -Be 'tenant-a-guid'
+        $result.TenantId | Should -Be 'tenant-a-guid'
+    }
+
+    It '-ForceReauth connects with -ContextScope Process so the token is not the shared, disk-persisted context' {
+        $script:currentContext = @{ Account = 'kenneth@contoso.com'; Scopes = $requiredScopes; TenantId = 'tenant-a-guid' }
+        $script:connectContextScopes = @()
+        function Connect-MgGraph {
+            param($Scopes, [switch]$NoWelcome, $ErrorAction, $TenantId, $ContextScope)
+            $script:connectCalls += @{ Scopes = $Scopes; TenantId = $TenantId }
+            $script:connectContextScopes += $ContextScope
+            $script:currentContext = @{ Account = 'kenneth@contoso.com'; Scopes = $Scopes; TenantId = 'tenant-a-guid' }
+        }
+
+        Connect-SAWGraph -Scopes $requiredScopes -TenantId 'tenant-a-guid' -ForceReauth 3>$null | Out-Null
+
+        $script:connectContextScopes | Should -Be @('Process')
+    }
+
+    It '-ForceReauth with no active connection just connects fresh (nothing to disconnect)' {
+        $script:currentContext = $null
+
+        Connect-SAWGraph -Scopes $requiredScopes -ForceReauth | Out-Null
+
+        $script:disconnectCalls | Should -Be 0
+        $script:connectCalls.Count | Should -Be 1
+    }
+
+    It 'warns when -ForceReauth disconnects an existing connection' {
+        $script:currentContext = @{ Account = 'kenneth@contoso.com'; Scopes = $requiredScopes; TenantId = 'tenant-a-guid' }
+
+        $warnings = Connect-SAWGraph -Scopes $requiredScopes -TenantId 'tenant-a-guid' -ForceReauth 3>&1 | Where-Object { $_ -is [System.Management.Automation.WarningRecord] }
+
+        $warnings.Count | Should -BeGreaterThan 0
+        $warnings[0].Message | Should -Match 'ForceReauth'
+    }
 }

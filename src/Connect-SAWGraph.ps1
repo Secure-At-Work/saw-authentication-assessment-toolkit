@@ -41,6 +41,19 @@ function Connect-SAWGraph {
     .PARAMETER InstallMissingModules
         Install Microsoft.Graph.Authentication for the current user if it isn't already
         installed, instead of throwing with install instructions.
+    .PARAMETER ForceReauth
+        Always disconnect and re-authenticate, even if an active connection already exists for
+        the right tenant with sufficient scopes. Also connects with -ContextScope Process
+        instead of the default CurrentUser, so the new token isn't the shared, disk-persisted
+        context other terminals on this machine can see.
+
+        Use this when a role was just activated via PIM (including PIM for Groups) and the
+        assessment still gets a 403 on an endpoint that role should now cover: Connect-MgGraph
+        happily reuses a still-valid cached access/refresh token rather than authenticating
+        fresh, and that cached token can predate the activation - so it doesn't carry the new
+        role's claims even though PIM shows the role as Activated. Closing every open
+        PowerShell/pwsh window and starting over would also clear this, but -ForceReauth does it
+        without needing to hunt down every other terminal that might hold the shared context.
     .OUTPUTS
         The Microsoft.Graph.Authentication context object (Get-MgContext).
     #>
@@ -56,7 +69,9 @@ function Connect-SAWGraph {
 
         [string]$TenantId,
 
-        [switch]$InstallMissingModules
+        [switch]$InstallMissingModules,
+
+        [switch]$ForceReauth
     )
 
     $module = Get-Module -ListAvailable -Name Microsoft.Graph.Authentication |
@@ -92,6 +107,13 @@ function Connect-SAWGraph {
 
     $connectArgs = @{ Scopes = $Scopes; NoWelcome = $true; ErrorAction = 'Stop' }
     if ($TenantId) { $connectArgs['TenantId'] = $TenantId }
+    if ($ForceReauth) { $connectArgs['ContextScope'] = 'Process' }
+
+    if ($ForceReauth -and $context) {
+        Write-Warning "Connect-SAWGraph: -ForceReauth was requested - disconnecting the existing connection (tenant '$($context.TenantId)', account $($context.Account)) and re-authenticating fresh instead of reusing a possibly stale cached token."
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+        $context = $null
+    }
 
     if (-not $context) {
         Write-Verbose "Connect-SAWGraph: no active connection, connecting with scopes: $($Scopes -join ', ')"
