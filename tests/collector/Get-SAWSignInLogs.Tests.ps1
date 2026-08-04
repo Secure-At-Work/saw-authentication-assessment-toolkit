@@ -2,6 +2,8 @@ BeforeAll {
     . "$PSScriptRoot/../../src/collector/Get-SAWSignInLogs.ps1"
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNormalizedSignInLogs.ps1"
 
+    . "$PSScriptRoot/../../src/Invoke-SAWGraphRequest.ps1"
+
     function Get-MgContext { }
     function Invoke-MgGraphRequest { param($Method, $Uri) }
 

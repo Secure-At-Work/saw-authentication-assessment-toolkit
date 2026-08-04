@@ -5,6 +5,7 @@ Pester 5.x unit tests, mirroring `src/`:
 ```
 tests/
   Test-SAWPowerShellVersion.Tests.ps1
+  Invoke-SAWGraphRequest.Tests.ps1
   collector/
     Get-SAWAuthenticationMethods.Tests.ps1
     Get-SAWConditionalAccess.Tests.ps1

@@ -3,6 +3,8 @@ BeforeAll {
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNormalizedRegistration.ps1"
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWUserRegistrationRoster.ps1"
 
+    . "$PSScriptRoot/../../src/Invoke-SAWGraphRequest.ps1"
+
     function Get-MgContext { }
     function Invoke-MgGraphRequest { param($Method, $Uri) }
 

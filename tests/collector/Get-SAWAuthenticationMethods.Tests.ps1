@@ -4,6 +4,8 @@ BeforeAll {
 
     # Stub commands from Microsoft.Graph.Authentication so Mock has something to intercept
     # even when that module isn't installed in the test environment.
+    . "$PSScriptRoot/../../src/Invoke-SAWGraphRequest.ps1"
+
     function Get-MgContext { }
     function Invoke-MgGraphRequest { param($Method, $Uri) }
 }

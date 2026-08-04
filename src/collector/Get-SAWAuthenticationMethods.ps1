@@ -55,10 +55,10 @@ function Get-SAWAuthenticationMethods {
     }
 
     Write-Verbose 'Get-SAWAuthenticationMethods: GET https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy'
-    $policy = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy'
+    $policy = Invoke-SAWGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy'
 
     Write-Verbose 'Get-SAWAuthenticationMethods: GET https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy'
-    $betaPolicy = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy'
+    $betaPolicy = Invoke-SAWGraphRequest -Method GET -Uri 'https://graph.microsoft.com/beta/policies/authenticationMethodsPolicy'
     $policy.optOutSettings = $betaPolicy.optOutSettings
 
     return $policy

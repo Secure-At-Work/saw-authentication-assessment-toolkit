@@ -2,6 +2,8 @@ BeforeAll {
     . "$PSScriptRoot/../../src/collector/Get-SAWTemporaryAccessPass.ps1"
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNormalizedTemporaryAccessPass.ps1"
 
+    . "$PSScriptRoot/../../src/Invoke-SAWGraphRequest.ps1"
+
     function Get-MgContext { }
     function Invoke-MgGraphRequest { param($Method, $Uri) }
 }

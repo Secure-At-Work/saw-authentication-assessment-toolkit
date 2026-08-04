@@ -3,6 +3,8 @@ BeforeAll {
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNormalizedConditionalAccess.ps1"
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWConditionalAccessInventory.ps1"
 
+    . "$PSScriptRoot/../../src/Invoke-SAWGraphRequest.ps1"
+
     function Get-MgContext { }
     function Invoke-MgGraphRequest { param($Method, $Uri) }
 

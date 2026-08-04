@@ -43,7 +43,7 @@ function Get-SAWAuthenticationStrengths {
 
     while ($uri) {
         Write-Verbose "Get-SAWAuthenticationStrengths: GET $uri"
-        $response = Invoke-MgGraphRequest -Method GET -Uri $uri
+        $response = Invoke-SAWGraphRequest -Method GET -Uri $uri
         $allPolicies += $response.value
         $uri = $response.'@odata.nextLink'
     }

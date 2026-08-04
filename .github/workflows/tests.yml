@@ -46,7 +46,9 @@ jobs:
           $config.CodeCoverage.Path = @(
             './src/collector/*.ps1',
             './src/rules/*.ps1',
-            './src/dashboard/*.ps1'
+            './src/dashboard/*.ps1',
+            './src/Invoke-SAWGraphRequest.ps1',
+            './src/Test-SAWPowerShellVersion.ps1'
           )
           $config.CodeCoverage.OutputFormat = 'JaCoCo'
           $config.CodeCoverage.OutputPath = './coverage.xml'

@@ -72,7 +72,7 @@ function Get-SAWSignInLogs {
         }
 
         Write-Verbose "Get-SAWSignInLogs: GET $uri (page $pageCount)"
-        $response = Invoke-MgGraphRequest -Method GET -Uri $uri
+        $response = Invoke-SAWGraphRequest -Method GET -Uri $uri
         $allSignIns += $response.value
         $uri = $response.'@odata.nextLink'
     }

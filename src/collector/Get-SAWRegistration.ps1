@@ -43,7 +43,7 @@ function Get-SAWRegistration {
 
     while ($uri) {
         Write-Verbose "Get-SAWRegistration: GET $uri"
-        $response = Invoke-MgGraphRequest -Method GET -Uri $uri
+        $response = Invoke-SAWGraphRequest -Method GET -Uri $uri
         $allUsers += $response.value
         $uri = $response.'@odata.nextLink'
     }

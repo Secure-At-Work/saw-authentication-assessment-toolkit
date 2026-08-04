@@ -78,10 +78,10 @@ function Get-SAWTenantProfile {
     }
 
     Write-Verbose 'Get-SAWTenantProfile: GET https://graph.microsoft.com/v1.0/organization'
-    $org = Invoke-MgGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/organization'
+    $org = Invoke-SAWGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/organization'
 
     Write-Verbose "Get-SAWTenantProfile: GET https://graph.microsoft.com/v1.0/groups?`$filter=displayName eq 'AAD DC Administrators'"
-    $groups = Invoke-MgGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/groups?`$filter=displayName eq 'AAD DC Administrators'"
+    $groups = Invoke-SAWGraphRequest -Method GET -Uri "https://graph.microsoft.com/v1.0/groups?`$filter=displayName eq 'AAD DC Administrators'"
     $org | Add-Member -NotePropertyName 'aadDcAdministratorsGroups' -NotePropertyValue @($groups.value) -Force
 
     return $org

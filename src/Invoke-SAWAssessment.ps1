@@ -122,6 +122,7 @@ $dashboardPathWasExplicit = $PSBoundParameters.ContainsKey('DashboardPath')
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'Connect-SAWGraph.ps1')
+. (Join-Path $PSScriptRoot 'Invoke-SAWGraphRequest.ps1')
 
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWTenantProfile.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWTenantProfile.ps1')
