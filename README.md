@@ -177,6 +177,20 @@ date.
   `mfa` builtin control doesn't trigger this (TAP generically satisfies it); only a custom
   strength without a TAP escape does.
 
+**Upcoming Microsoft deadlines, with a countdown.** The dashboard's "Upcoming Microsoft
+Deadlines" section (right after the SOLL baseline banner, before the Overview) surfaces every
+known date above - plus others not tied to a specific rule, like the **2026-09-07** SSPR
+enforcement (directory-sourced `mobilePhone`/`businessPhone`/`otherMails` stop working for SSPR
+unless explicitly registered - see `SSPR001`'s recommendation text) and the **2026-08-06** SSPR
+registration-campaign nudge that precedes it - with a live "N days left" countdown computed
+against the current date, color-coded by urgency (red inside 14 days, yellow inside 45,
+grey once past). The list itself is [config/timeline-milestones.json](config/timeline-milestones.json),
+a small, hand-maintained, sourced JSON file (same "rules are data" philosophy as everything
+else here) - update it as Microsoft announces or moves dates; `Get-SAWTimelineMilestones.ps1`
+just does the date math. Not every entry is checkable yet: the Message Center item for
+"passwordless password change in My Sign-Ins" (~late October 2026) explicitly states its APIs
+won't exist until release, so it's tracked here for awareness only, with no corresponding rule.
+
 ## Usage
 
 Offline, against the bundled sample tenant fixtures (no Graph connection needed):
