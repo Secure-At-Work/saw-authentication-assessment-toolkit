@@ -16,9 +16,28 @@ function Connect-SAWGraph {
         to the caller's judgement unless explicitly opted into), imports it, and connects
         via Connect-MgGraph if there is no active connection or the active connection is
         missing a required scope. Never requests write scopes.
+
+        Real-world gotcha this function used to make easy to hit silently: if you already ran
+        this against tenant A earlier in the same PowerShell session, then run it again
+        intending tenant B, the old logic would see an existing connection with all the right
+        scopes and just reuse it - still tenant A - with no indication anything was wrong.
+        Confirmed against a real case: same account, PIM-eligible admin in both tenants,
+        active/native member in both, worked fine on the first (tenant A) run and then failed
+        with what looked like a permissions error on the second (tenant B) run in the same
+        session - the actual cause was that it silently never reconnected to tenant B at all.
+        Passing -TenantId now closes that gap: if the active connection's tenant doesn't match
+        what was asked for, this disconnects and reconnects fresh instead of reusing it.
     .PARAMETER Scopes
         Graph delegated scopes to request. Defaults to the union of every read-only scope
         the toolkit's collectors need.
+    .PARAMETER TenantId
+        Optional. The tenant (GUID or verified domain name, same as Connect-MgGraph's own
+        -TenantId) you intend to assess. If an active connection already exists but belongs to
+        a different tenant, it is disconnected and a fresh connection to this tenant is
+        established instead of silently reusing the wrong one. If omitted (the default),
+        behavior is unchanged from before: an existing connection with sufficient scopes is
+        reused as-is, whichever tenant it happens to be for - so when switching tenants in the
+        same session, either pass -TenantId here or run Disconnect-MgGraph yourself first.
     .PARAMETER InstallMissingModules
         Install Microsoft.Graph.Authentication for the current user if it isn't already
         installed, instead of throwing with install instructions.
@@ -34,6 +53,8 @@ function Connect-SAWGraph {
             'AuditLog.Read.All',
             'Directory.Read.All'
         ),
+
+        [string]$TenantId,
 
         [switch]$InstallMissingModules
     )
@@ -69,16 +90,25 @@ function Connect-SAWGraph {
 
     $context = Get-MgContext
 
+    $connectArgs = @{ Scopes = $Scopes; NoWelcome = $true; ErrorAction = 'Stop' }
+    if ($TenantId) { $connectArgs['TenantId'] = $TenantId }
+
     if (-not $context) {
         Write-Verbose "Connect-SAWGraph: no active connection, connecting with scopes: $($Scopes -join ', ')"
-        Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
+        Connect-MgGraph @connectArgs
+        $context = Get-MgContext
+    }
+    elseif ($TenantId -and $context.TenantId -ne $TenantId) {
+        Write-Warning "Connect-SAWGraph: an active connection exists for tenant '$($context.TenantId)' (account $($context.Account)), but -TenantId '$TenantId' was requested - disconnecting and reconnecting to the requested tenant instead of silently reusing the wrong one."
+        Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
+        Connect-MgGraph @connectArgs
         $context = Get-MgContext
     }
     else {
         $missingScopes = $Scopes | Where-Object { $_ -notin $context.Scopes }
         if ($missingScopes) {
             Write-Verbose "Connect-SAWGraph: active connection is missing scope(s) ($($missingScopes -join ', ')), reconnecting"
-            Connect-MgGraph -Scopes $Scopes -NoWelcome -ErrorAction Stop
+            Connect-MgGraph @connectArgs
             $context = Get-MgContext
         }
         else {
@@ -90,6 +120,10 @@ function Connect-SAWGraph {
         throw 'Failed to establish a Microsoft Graph connection.'
     }
 
-    Write-Verbose "Connect-SAWGraph: connected as $($context.Account) (tenant $($context.TenantId))"
+    # Write-Host, not Write-Verbose: which tenant is actually being queried is safety-relevant
+    # information the caller should always see, not just under -Verbose - the whole point of
+    # the -TenantId mismatch guard above is undermined if the confirmation of what it did is
+    # itself hidden by default.
+    Write-Host "Connect-SAWGraph: connected as $($context.Account) (tenant $($context.TenantId))"
     return $context
 }

@@ -48,7 +48,8 @@ jobs:
             './src/rules/*.ps1',
             './src/dashboard/*.ps1',
             './src/Invoke-SAWGraphRequest.ps1',
-            './src/Test-SAWPowerShellVersion.ps1'
+            './src/Test-SAWPowerShellVersion.ps1',
+            './src/Connect-SAWGraph.ps1'
           )
           $config.CodeCoverage.OutputFormat = 'JaCoCo'
           $config.CodeCoverage.OutputPath = './coverage.xml'

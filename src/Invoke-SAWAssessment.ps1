@@ -14,6 +14,13 @@
 .PARAMETER Scopes
     Graph delegated scopes to request when connecting to a live tenant. Defaults to the
     read-only scopes every collector needs. Ignored when -UseSampleData is set.
+.PARAMETER TenantId
+    Optional. The tenant (GUID or verified domain name) you intend to assess. Ignored when
+    -UseSampleData is set. If a Microsoft Graph connection already exists from earlier in this
+    session but belongs to a different tenant, passing this disconnects and reconnects to the
+    requested tenant instead of silently reusing the wrong one - see Connect-SAWGraph.ps1. When
+    running against more than one tenant in the same session, either pass this explicitly each
+    time or run Disconnect-MgGraph yourself between runs.
 .PARAMETER InstallMissingModules
     Install Microsoft.Graph.Authentication for the current user if it isn't already
     installed. Ignored when -UseSampleData is set.
@@ -59,6 +66,11 @@
     pwsh -File src/Invoke-SAWAssessment.ps1 -InstallMissingModules -Verbose
 .EXAMPLE
     pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Baseline hybrid-ad-passwords-required -Verbose
+.EXAMPLE
+    # Assessing two different tenants in the same session - pass -TenantId each time so a
+    # stale connection from the first tenant is never silently reused for the second.
+    pwsh -File src/Invoke-SAWAssessment.ps1 -TenantId contoso.onmicrosoft.com -Verbose
+    pwsh -File src/Invoke-SAWAssessment.ps1 -TenantId fabrikam.onmicrosoft.com -Verbose
 #>
 [CmdletBinding()]
 param(
@@ -71,6 +83,8 @@ param(
         'AuditLog.Read.All',
         'Directory.Read.All'
     ),
+
+    [string]$TenantId,
 
     [switch]$InstallMissingModules,
 
@@ -154,7 +168,7 @@ $ErrorActionPreference = 'Stop'
 
 if (-not $UseSampleData) {
     Write-Verbose 'Invoke-SAWAssessment: establishing Microsoft Graph connection'
-    Connect-SAWGraph -Scopes $Scopes -InstallMissingModules:$InstallMissingModules -Verbose:$VerbosePreference | Out-Null
+    Connect-SAWGraph -Scopes $Scopes -TenantId $TenantId -InstallMissingModules:$InstallMissingModules -Verbose:$VerbosePreference | Out-Null
 }
 
 Write-Verbose 'Invoke-SAWAssessment: collecting tenant profile (hybrid vs. cloud-native detection)'

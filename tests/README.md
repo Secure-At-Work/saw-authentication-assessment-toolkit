@@ -6,6 +6,7 @@ Pester 5.x unit tests, mirroring `src/`:
 tests/
   Test-SAWPowerShellVersion.Tests.ps1
   Invoke-SAWGraphRequest.Tests.ps1
+  Connect-SAWGraph.Tests.ps1
   collector/
     Get-SAWAuthenticationMethods.Tests.ps1
     Get-SAWConditionalAccess.Tests.ps1
@@ -29,11 +30,12 @@ tests/
     Export-SAWDriftReport.Tests.ps1
 ```
 
-Orchestrator scripts (`Invoke-SAWAssessment.ps1`, `Invoke-SAWDriftReport.ps1`,
-`Connect-SAWGraph.ps1`) have no dedicated test file - they're thin wiring over already-tested
-functions, verified end-to-end against sample data (and, where relevant, a real tenant) instead.
-`Test-SAWPowerShellVersion.ps1` is the exception among top-level `src/` files: it's a small,
-pure, branching function worth unit-testing on its own.
+`Invoke-SAWAssessment.ps1` and `Invoke-SAWDriftReport.ps1` have no dedicated test file - they're
+thin wiring over already-tested functions, verified end-to-end against sample data (and, where
+relevant, a real tenant) instead. `Test-SAWPowerShellVersion.ps1`, `Invoke-SAWGraphRequest.ps1`,
+and `Connect-SAWGraph.ps1` are the exceptions among top-level `src/` files: each has real,
+mockable branching logic worth unit-testing on its own (module/connection checks, tenant-match
+guarding, error-shape detection), not just orchestration.
 
 Each collector test file covers both the collector and its paired normalizer (they're tested
 together since they're always used together):
