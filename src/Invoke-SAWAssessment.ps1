@@ -147,6 +147,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'rules' 'Invoke-SAWRulesEngine.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'ConvertTo-SAWRemediationRoadmap.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Get-SAWHistoryTrend.ps1')
+. (Join-Path $PSScriptRoot 'rules' 'Get-SAWTimelineMilestones.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
 
@@ -298,11 +299,14 @@ if (-not $SkipHistorySnapshot) {
 Write-Verbose 'Invoke-SAWAssessment: reading history trend for dashboard'
 $trend = Get-SAWHistoryTrend -HistoryPath $HistoryPath -TenantSlug $tenantSlug -Verbose:$VerbosePreference
 
+Write-Verbose 'Invoke-SAWAssessment: loading Microsoft rollout timeline'
+$timelineMilestones = Get-SAWTimelineMilestones -Verbose:$VerbosePreference
+
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
-$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

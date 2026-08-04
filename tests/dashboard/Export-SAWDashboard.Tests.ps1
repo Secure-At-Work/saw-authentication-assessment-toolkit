@@ -223,4 +223,29 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '20260201-000000'
         $content | Should -Match '2 runs for this tenant'
     }
+
+    It 'omits the Upcoming Microsoft Deadlines section when no -TimelineMilestones are supplied' {
+        $script:DashboardContent | Should -Not -Match 'Upcoming Microsoft Deadlines'
+    }
+
+    It 'renders a milestone with correct urgency class and days-left/days-ago labels' {
+        $path = Join-Path $TestDrive 'timeline\index.html'
+        $milestones = @(
+            @{ Date = '2026-08-06'; Title = 'Imminent Thing'; Description = 'Desc A'; RelatedRuleIDs = @('SSPR001'); SourceUrl = 'https://example.com/a'; DaysRemaining = 2; IsPast = $false }
+            @{ Date = '2026-01-01'; Title = 'Past Thing'; Description = 'Desc D'; RelatedRuleIDs = @(); SourceUrl = 'https://example.com/d'; DaysRemaining = -215; IsPast = $true }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TimelineMilestones $milestones -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Upcoming Microsoft Deadlines'
+        $content | Should -Match 'Imminent Thing'
+        $content | Should -Match '2 day\(s\) left'
+        $content | Should -Match 'border-danger'
+        $content | Should -Match 'Past Thing'
+        $content | Should -Match '215 day\(s\) ago'
+        $content | Should -Match 'border-secondary'
+        $content | Should -Match '>SSPR001<'
+        $content | Should -Match 'href="https://example.com/a"'
+    }
 }

@@ -54,6 +54,15 @@ function Export-SAWDashboard {
         a small per-run table) right after the Overview - the lighter, at-a-glance counterpart
         to Invoke-SAWDriftReport.ps1's detailed two-run diff. With 0 or 1 runs, shows a "not
         enough history yet" note instead of a chart. Omitted entirely if not supplied at all.
+    .PARAMETER TimelineMilestones
+        Optional output of Get-SAWTimelineMilestones (hand-maintained, sourced Microsoft
+        rollout dates - see config/timeline-milestones.json). When supplied, renders an
+        "Upcoming Microsoft Deadlines" section near the top of the dashboard - before the
+        Overview, since these are external, time-driven items independent of this run's
+        findings - showing each milestone's date, days remaining (or "N days ago" once past),
+        description, and a link to its source. Color-coded by urgency (<=14 days = red,
+        <=45 days = yellow, further out or already past = neutral). Omitted entirely if
+        empty/absent.
     .PARAMETER OutputPath
         File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
         subfolder is created alongside it. Parent directory is created if missing.
@@ -81,6 +90,9 @@ function Export-SAWDashboard {
 
         [AllowNull()]
         [object[]]$Trend = $null,
+
+        [AllowEmptyCollection()]
+        [object[]]$TimelineMilestones = @(),
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -476,6 +488,64 @@ $($phaseCardsHtml -join "`n")
 "@
     }
 
+    # --- Upcoming Microsoft deadlines (optional - Get-SAWTimelineMilestones output) ---
+    $timelineSectionHtml = ''
+    if (@($TimelineMilestones).Count -gt 0) {
+        $timelineCardsHtml = foreach ($m in $TimelineMilestones) {
+            $urgencyClass = 'border-info'
+            $daysLabel = "$($m.DaysRemaining) day(s) left"
+            if ($m.IsPast) {
+                $urgencyClass = 'border-secondary'
+                # -$m.DaysRemaining (unary minus), not [Math]::Abs - static calls on
+                # System.Math are blocked under this machine's ConstrainedLanguage mode.
+                # Safe here since IsPast guarantees DaysRemaining is negative.
+                $daysLabel = "$(-$m.DaysRemaining) day(s) ago"
+            }
+            elseif ($m.DaysRemaining -eq 0) {
+                $daysLabel = 'Today'
+                $urgencyClass = 'border-danger'
+            }
+            elseif ($m.DaysRemaining -le 14) {
+                $urgencyClass = 'border-danger'
+            }
+            elseif ($m.DaysRemaining -le 45) {
+                $urgencyClass = 'border-warning'
+            }
+
+            $relatedBadgesHtml = ''
+            if (@($m.RelatedRuleIDs).Count -gt 0) {
+                $relatedBadgesHtml = ($m.RelatedRuleIDs | ForEach-Object { "<span class=""badge bg-light text-dark border"">$(ConvertTo-SAWHtmlEncoded $_)</span>" }) -join ' '
+            }
+
+            $sourceLinkHtml = ''
+            if ($m.SourceUrl) {
+                $sourceLinkHtml = "<a href=""$(ConvertTo-SAWHtmlEncoded $m.SourceUrl)"" target=""_blank"" rel=""noopener noreferrer"" class=""small"">Source</a>"
+            }
+
+            @"
+      <div class="col-md-6 col-lg-4">
+        <div class="card h-100 $urgencyClass" style="border-left-width: 4px;"><div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+            <strong>$(ConvertTo-SAWHtmlEncoded $m.Title)</strong>
+            <span class="badge bg-dark">$daysLabel</span>
+          </div>
+          <div class="text-body-secondary small mb-2">$(ConvertTo-SAWHtmlEncoded $m.Date) &middot; $relatedBadgesHtml</div>
+          <p class="small mb-1">$(ConvertTo-SAWHtmlEncoded $m.Description)</p>
+          $sourceLinkHtml
+        </div></div>
+      </div>
+"@
+        }
+
+        $timelineSectionHtml = @"
+  <h2 class="h4 mb-3">Upcoming Microsoft Deadlines</h2>
+  <p class="text-body-secondary small">Hand-maintained, sourced list of known Microsoft-driven Entra rollout dates relevant to the checks above - not tenant-specific findings. Verify against the linked source before treating a date as final.</p>
+  <div class="row g-3 mb-4">
+$($timelineCardsHtml -join "`n")
+  </div>
+"@
+    }
+
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $totalRules = $RuleResults.Count
 
@@ -518,6 +588,7 @@ $(if ($DomainServicesDetected) {
 "@
 })
 
+$timelineSectionHtml
   <h2 class="h4 mb-3">Overview</h2>
   <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-3">
