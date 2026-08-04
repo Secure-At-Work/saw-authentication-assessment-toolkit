@@ -240,7 +240,14 @@ known path).
 ## Multiple tenants and drift over time
 
 Every run is namespaced by tenant and timestamp, so repeated runs - against the same tenant
-or different ones - never overwrite each other:
+or different ones - never overwrite each other. **Switching tenants in the same PowerShell
+session:** pass `-TenantId <guid-or-domain>` on every run. Without it, an existing Graph
+connection from an earlier run this session gets reused as-is - which is efficient when you
+genuinely mean the same tenant, but silently wrong if you meant a different one (confirmed with
+a real case: same account, PIM-active in both tenants, worked against tenant A, then quietly
+kept using tenant A's connection - not tenant B's - on the very next run). `-TenantId` makes
+`Connect-SAWGraph.ps1` detect that mismatch and reconnect to the tenant you actually asked for
+instead.
 
 - **Tenant identity** comes from `organization.id` via Graph (`Get-SAWTenantProfile.ps1`,
   already collected for baseline auto-detection - no extra permission needed).
