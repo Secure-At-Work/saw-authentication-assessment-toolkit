@@ -2,7 +2,7 @@
 
 Read-only assessment toolkit for Microsoft Entra ID authentication configuration. Inventories the current (IST) state of a tenant via Microsoft Graph, compares it against the Secure At Work recommended (SOLL) configuration, and produces gap analysis, risk scoring, and remediation guidance.
 
-See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification.
+See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification, or [docs/reading-the-report.md](docs/reading-the-report.md) for a plain-language walkthrough of what the assessment is and how to read its output (suitable to hand to a customer alongside a report).
 
 ## Hard constraint
 
