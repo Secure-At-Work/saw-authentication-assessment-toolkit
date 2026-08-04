@@ -146,4 +146,33 @@ Describe 'Connect-SAWGraph' {
         $warnings.Count | Should -BeGreaterThan 0
         $warnings[0].Message | Should -Match 'ForceReauth'
     }
+
+    It '-UseDeviceCode passes UseDeviceCode through to Connect-MgGraph' {
+        $script:currentContext = $null
+        $script:connectUseDeviceCodes = @()
+        function Connect-MgGraph {
+            param($Scopes, [switch]$NoWelcome, $ErrorAction, $TenantId, $ContextScope, $UseDeviceCode)
+            $script:connectCalls += @{ Scopes = $Scopes; TenantId = $TenantId }
+            $script:connectUseDeviceCodes += $UseDeviceCode
+            $script:currentContext = @{ Account = 'kenneth@contoso.com'; Scopes = $Scopes; TenantId = 'tenant-a-guid' }
+        }
+
+        Connect-SAWGraph -Scopes $requiredScopes -UseDeviceCode | Out-Null
+
+        $script:connectUseDeviceCodes | Should -Be @($true)
+    }
+
+    It '-UseDeviceCode disconnects an existing connection first, same as -ForceReauth, so it actually takes effect' {
+        # Real-world case: -ForceReauth alone (-ContextScope Process) did NOT clear a persistent
+        # 403 even with a confirmed-active role, but reconnecting via device code did - Windows'
+        # WAM broker keeps its own OS-level token cache that -ContextScope Process never reaches.
+        # If an existing connection weren't disconnected first, -UseDeviceCode alone would just
+        # silently reuse that WAM-derived connection and never actually prompt for device code.
+        $script:currentContext = @{ Account = 'kenneth@contoso.com'; Scopes = $requiredScopes; TenantId = 'tenant-a-guid' }
+
+        Connect-SAWGraph -Scopes $requiredScopes -TenantId 'tenant-a-guid' -UseDeviceCode 3>$null | Out-Null
+
+        $script:disconnectCalls | Should -Be 1
+        $script:connectCalls.Count | Should -Be 1
+    }
 }

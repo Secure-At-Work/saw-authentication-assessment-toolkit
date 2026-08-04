@@ -54,6 +54,24 @@ function Connect-SAWGraph {
         role's claims even though PIM shows the role as Activated. Closing every open
         PowerShell/pwsh window and starting over would also clear this, but -ForceReauth does it
         without needing to hunt down every other terminal that might hold the shared context.
+
+        If -ForceReauth alone doesn't clear a persistent 403 on a role-gated endpoint, also try
+        -UseDeviceCode (see below) - confirmed against a real case where -ForceReauth wasn't
+        enough on its own.
+    .PARAMETER UseDeviceCode
+        Sign in via OAuth device code flow (a URL + one-time code, completed in any browser)
+        instead of Windows' default Web Account Manager (WAM) broker. On Windows, Connect-MgGraph
+        normally signs in through WAM even for an otherwise-plain interactive login, and WAM
+        brokers tokens through its own OS-level cache (the Primary Refresh Token) that lives
+        outside both Microsoft.Graph.Authentication's own token cache and -ContextScope Process -
+        so -ForceReauth alone doesn't necessarily force a truly from-scratch token.
+
+        Confirmed against a real case (2026-08-04): a role was verifiably active - confirmed via
+        a live GET /me/transitiveMemberOf, not just the PIM UI - a role-gated endpoint still
+        403'd even after -ForceReauth, but the identical call succeeded immediately once signed
+        in with -UseDeviceCode instead. Browser-based auth (e.g. Graph Explorer) never goes
+        through WAM at all, which is consistent with Graph Explorer working throughout while
+        every WAM-based Connect-MgGraph attempt kept failing.
     .OUTPUTS
         The Microsoft.Graph.Authentication context object (Get-MgContext).
     #>
@@ -71,7 +89,9 @@ function Connect-SAWGraph {
 
         [switch]$InstallMissingModules,
 
-        [switch]$ForceReauth
+        [switch]$ForceReauth,
+
+        [switch]$UseDeviceCode
     )
 
     $module = Get-Module -ListAvailable -Name Microsoft.Graph.Authentication |
@@ -108,9 +128,10 @@ function Connect-SAWGraph {
     $connectArgs = @{ Scopes = $Scopes; NoWelcome = $true; ErrorAction = 'Stop' }
     if ($TenantId) { $connectArgs['TenantId'] = $TenantId }
     if ($ForceReauth) { $connectArgs['ContextScope'] = 'Process' }
+    if ($UseDeviceCode) { $connectArgs['UseDeviceCode'] = $true }
 
-    if ($ForceReauth -and $context) {
-        Write-Warning "Connect-SAWGraph: -ForceReauth was requested - disconnecting the existing connection (tenant '$($context.TenantId)', account $($context.Account)) and re-authenticating fresh instead of reusing a possibly stale cached token."
+    if (($ForceReauth -or $UseDeviceCode) -and $context) {
+        Write-Warning "Connect-SAWGraph: -ForceReauth/-UseDeviceCode was requested - disconnecting the existing connection (tenant '$($context.TenantId)', account $($context.Account)) and re-authenticating fresh instead of reusing a possibly stale cached token."
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
         $context = $null
     }

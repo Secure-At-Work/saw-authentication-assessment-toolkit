@@ -25,6 +25,16 @@ function Invoke-SAWGraphRequest {
             to misread as "I don't have permission" when the real fix is "activate the role,
             then reconnect" - Connect-MgGraph doesn't pick up a newly-activated PIM role on an
             already-issued token, a fresh Connect-MgGraph (after Disconnect-MgGraph) is needed.
+
+        A third, rarer case surfaced the same day: both of the above can be individually ruled
+        out (fresh token, role confirmed active via a live GET /me/transitiveMemberOf) and the
+        same endpoint still denies it - a genuine Microsoft-side inconsistency for that tenant,
+        not anything this toolkit or the caller's configuration controls. There's nothing to
+        "fix" for that case beyond escalating to Microsoft support, so this function's only job
+        for it is to make that escalation easy: it captures the request-id/client-request-id
+        from the failed response (from the HTTP headers if present, falling back to the JSON
+        error body) and surfaces them, since those are exactly what support needs to trace the
+        request server-side.
     .PARAMETER Method
         HTTP method, passed straight through to Invoke-MgGraphRequest.
     .PARAMETER Uri
@@ -59,10 +69,47 @@ function Invoke-SAWGraphRequest {
             throw
         }
 
+        $requestId = $null
+        $clientRequestId = $null
+        try {
+            if ($_.Exception.Response -and $_.Exception.Response.Headers) {
+                $values = $null
+                if ($_.Exception.Response.Headers.TryGetValues('request-id', [ref]$values)) { $requestId = @($values)[0] }
+                $values = $null
+                if ($_.Exception.Response.Headers.TryGetValues('client-request-id', [ref]$values)) { $clientRequestId = @($values)[0] }
+            }
+        }
+        catch { }
+
+        if ((-not $requestId) -and $_.ErrorDetails -and $_.ErrorDetails.Message) {
+            try {
+                $body = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction Stop
+                if ($body.error.innerError) {
+                    if (-not $requestId) { $requestId = $body.error.innerError.'request-id' }
+                    if (-not $clientRequestId) { $clientRequestId = $body.error.innerError.'client-request-id' }
+                }
+            }
+            catch { }
+        }
+
+        $requestIdBlock = ''
+        if ($requestId -or $clientRequestId) {
+            $requestIdBlock = @"
+
+
+If none of the causes above fit - role confirmed active via a live GET /me/transitiveMemberOf,
+-ForceReauth -UseDeviceCode still gets the same result, and this isn't a one-off - that's a
+genuine Microsoft-side inconsistency for this tenant, worth a Microsoft support case rather than
+more local troubleshooting. These are what support needs to trace the request server-side:
+  request-id:        $requestId
+  client-request-id: $clientRequestId
+"@
+        }
+
         $guidance = @"
 Invoke-SAWGraphRequest: GET $Uri was denied (permission/authorization error, not a toolkit bug).
 
-Two likely causes:
+Likely causes, roughly in order of how often they're the real one:
   1. The signed-in account doesn't hold a role Graph requires for this specific endpoint - having
      the right delegated scope consented (e.g. Policy.Read.All) is not always enough by itself;
      some endpoints also enforce a specific Entra directory role. If the error below names the
@@ -70,11 +117,15 @@ Two likely causes:
      typically cover everything this toolkit reads.
   2. If you access that role via Privileged Identity Management (PIM), being ELIGIBLE for it is
      not the same as having it ACTIVE. If the role wasn't actively activated before this script
-     connected, the token it's using carries none of it. Activate the role in PIM (Entra admin
-     center > Identity Governance > Privileged Identity Management, or via the PIM Graph API),
-     then run Disconnect-MgGraph and re-run this script - Connect-MgGraph does not pick up a
+     connected, the token it's using carries none of it. Re-run with -ForceReauth (see
+     Connect-SAWGraph.ps1) after activating the role - Connect-MgGraph does not pick up a
      newly-activated PIM role on an already-issued token, a fresh connection is needed.
-
+  3. If -ForceReauth alone doesn't clear it, try also adding -UseDeviceCode. Confirmed against a
+     real case: a role was verifiably active (checked via a live GET /me/transitiveMemberOf, not
+     just the PIM UI) and -ForceReauth still 403'd, but the identical call succeeded immediately
+     once signed in via device code instead of Windows' default WAM broker - WAM brokers tokens
+     through its own OS-level cache (the Primary Refresh Token) that -ForceReauth doesn't reach.
+$requestIdBlock
 Original error follows:
 $errorText
 "@

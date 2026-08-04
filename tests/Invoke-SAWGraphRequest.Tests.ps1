@@ -46,6 +46,75 @@ Describe 'Invoke-SAWGraphRequest' {
         }
     }
 
+    It 'captures request-id/client-request-id from response headers when present' {
+        function Invoke-MgGraphRequest {
+            param($Method, $Uri)
+            $headers = [System.Net.Http.Headers.HttpResponseHeaders]::new
+            $ex = [System.Exception]::new('Response status code does not indicate success: Forbidden (Forbidden).')
+            $response = [PSCustomObject]@{
+                StatusCode = [System.Net.HttpStatusCode]::Forbidden
+                Headers    = [PSCustomObject]@{
+                    TryGetValues = {
+                        param($name, [ref]$values)
+                        switch ($name) {
+                            'request-id' { $values.Value = @('11111111-2222-3333-4444-555555555555'); return $true }
+                            'client-request-id' { $values.Value = @('66666666-7777-8888-9999-aaaaaaaaaaaa'); return $true }
+                            default { return $false }
+                        }
+                    }
+                }
+            }
+            $ex | Add-Member -MemberType NoteProperty -Name Response -Value $response -Force
+            throw $ex
+        }
+
+        try {
+            Invoke-SAWGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies'
+            throw 'expected an exception'
+        }
+        catch {
+            $_.Exception.Message | Should -Match '11111111-2222-3333-4444-555555555555'
+            $_.Exception.Message | Should -Match '66666666-7777-8888-9999-aaaaaaaaaaaa'
+            $_.Exception.Message | Should -Match 'Microsoft support'
+        }
+    }
+
+    It 'falls back to the JSON error body for request-id/client-request-id when headers are unavailable' {
+        function Invoke-MgGraphRequest {
+            param($Method, $Uri)
+            $ex = [System.Exception]::new('Response status code does not indicate success: Forbidden (Forbidden).')
+            $errorDetails = [System.Management.Automation.ErrorDetails]::new('{"error":{"code":"AccessDenied","message":"denied","innerError":{"request-id":"aaaa1111-bbbb-2222-cccc-3333dddd4444","client-request-id":"bbbb2222-cccc-3333-dddd-4444eeee5555"}}}')
+            $PSCmdlet = $null
+            $record = [System.Management.Automation.ErrorRecord]::new($ex, 'Forbidden', [System.Management.Automation.ErrorCategory]::PermissionDenied, $null)
+            $record.ErrorDetails = $errorDetails
+            throw $record
+        }
+
+        try {
+            Invoke-SAWGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies'
+            throw 'expected an exception'
+        }
+        catch {
+            $_.Exception.Message | Should -Match 'aaaa1111-bbbb-2222-cccc-3333dddd4444'
+            $_.Exception.Message | Should -Match 'bbbb2222-cccc-3333-dddd-4444eeee5555'
+        }
+    }
+
+    It 'omits the Microsoft-support block entirely when no request-id is recoverable' {
+        function Invoke-MgGraphRequest {
+            param($Method, $Uri)
+            throw 'GET https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies HTTP/1.1 403 Forbidden {"error":{"code":"AccessDenied","message":"denied"}}'
+        }
+
+        try {
+            Invoke-SAWGraphRequest -Method GET -Uri 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies'
+            throw 'expected an exception'
+        }
+        catch {
+            $_.Exception.Message | Should -Not -Match 'Microsoft support'
+        }
+    }
+
     It 'does not add authorization guidance for an unrelated error (e.g. 404)' {
         function Invoke-MgGraphRequest {
             param($Method, $Uri)

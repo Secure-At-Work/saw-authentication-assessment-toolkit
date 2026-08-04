@@ -257,6 +257,15 @@ is using. `-ForceReauth` disconnects and reconnects unconditionally, scoped to t
 (`-ContextScope Process`) so it can't pick up the shared, disk-persisted context another terminal
 window populated earlier.
 
+**`-ForceReauth` alone didn't fix it?** Also pass `-UseDeviceCode`. Confirmed against a real case:
+a role was verifiably active - checked via a live `GET /me/transitiveMemberOf`, not just the PIM
+UI - and a role-gated endpoint still 403'd even with `-ForceReauth`, but the identical call
+succeeded immediately once signed in via OAuth device code flow instead of Windows' default Web
+Account Manager (WAM) broker. WAM brokers tokens through its own OS-level cache (the Primary
+Refresh Token), which lives outside both `Microsoft.Graph.Authentication`'s token cache and
+`-ContextScope Process` - so `-ForceReauth` doesn't necessarily force a truly from-scratch token
+on Windows. `-UseDeviceCode` prints a URL and one-time code; complete the sign-in in any browser.
+
 - **Tenant identity** comes from `organization.id` via Graph (`Get-SAWTenantProfile.ps1`,
   already collected for baseline auto-detection - no extra permission needed).
   `ConvertTo-SAWTenantProfile.ps1` derives a filesystem-safe `Slug` from it (falling back to a

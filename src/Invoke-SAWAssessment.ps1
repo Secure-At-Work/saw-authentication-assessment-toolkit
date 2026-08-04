@@ -30,6 +30,12 @@
     activated a role via PIM (including PIM for Groups) and still get a 403 on something that
     role should now cover - Connect-MgGraph can silently reuse a still-valid cached token that
     predates the activation. See Connect-SAWGraph.ps1.
+.PARAMETER UseDeviceCode
+    Sign in via OAuth device code flow (a URL + one-time code, completed in any browser) instead
+    of Windows' Web Account Manager (WAM) broker. Ignored when -UseSampleData is set. Try this if
+    -ForceReauth alone doesn't clear a persistent 403 on a role-gated endpoint - WAM brokers
+    tokens through its own OS-level cache that -ForceReauth doesn't reach. See
+    Connect-SAWGraph.ps1.
 .PARAMETER RulesPath
     Directory containing rule *.json files. Defaults to src/rules.
 .PARAMETER Baseline
@@ -80,6 +86,9 @@
 .EXAMPLE
     # Just activated a role via PIM and still hitting a 403 - force a fresh, non-cached login.
     pwsh -File src/Invoke-SAWAssessment.ps1 -TenantId contoso.onmicrosoft.com -ForceReauth -Verbose
+.EXAMPLE
+    # -ForceReauth alone didn't clear it - also route around Windows' WAM broker.
+    pwsh -File src/Invoke-SAWAssessment.ps1 -TenantId contoso.onmicrosoft.com -ForceReauth -UseDeviceCode -Verbose
 #>
 [CmdletBinding()]
 param(
@@ -98,6 +107,8 @@ param(
     [switch]$InstallMissingModules,
 
     [switch]$ForceReauth,
+
+    [switch]$UseDeviceCode,
 
     # $RulesPath/$OutputRoot/$HistoryPath deliberately have NO default value expression here
     # (defaulted in the script body below instead, once execution is actually inside the
@@ -179,7 +190,7 @@ $ErrorActionPreference = 'Stop'
 
 if (-not $UseSampleData) {
     Write-Verbose 'Invoke-SAWAssessment: establishing Microsoft Graph connection'
-    Connect-SAWGraph -Scopes $Scopes -TenantId $TenantId -InstallMissingModules:$InstallMissingModules -ForceReauth:$ForceReauth -Verbose:$VerbosePreference | Out-Null
+    Connect-SAWGraph -Scopes $Scopes -TenantId $TenantId -InstallMissingModules:$InstallMissingModules -ForceReauth:$ForceReauth -UseDeviceCode:$UseDeviceCode -Verbose:$VerbosePreference | Out-Null
 }
 
 Write-Verbose 'Invoke-SAWAssessment: collecting tenant profile (hybrid vs. cloud-native detection)'
