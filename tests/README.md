@@ -28,6 +28,7 @@ tests/
     Export-SAWHtmlReport.Tests.ps1
     Export-SAWDashboard.Tests.ps1
     Export-SAWDriftReport.Tests.ps1
+    ConvertTo-SAWMarkdownHtml.Tests.ps1
 ```
 
 `Invoke-SAWAssessment.ps1` and `Invoke-SAWDriftReport.ps1` have no dedicated test file - they're

@@ -285,4 +285,27 @@ Describe 'Export-SAWDashboard' {
         $content = Get-Content -Path $path -Raw
         $content | Should -Match '0 user\(s\) impacted'
     }
+
+    It 'does not add a tab wrapper when -ReadingGuideHtml is not supplied (unchanged pre-existing layout)' {
+        # $script:DashboardContent was generated in BeforeAll with no -ReadingGuideHtml, so this
+        # asserts on the shared fixture rather than generating a new dashboard.
+        $script:DashboardContent | Should -Not -Match 'Reading This Report'
+        $script:DashboardContent | Should -Not -Match 'pane-assessment'
+        $script:DashboardContent | Should -Not -Match 'nav-tabs'
+    }
+
+    It 'wraps the dashboard in Assessment / Reading This Report tabs when -ReadingGuideHtml is supplied' {
+        $path = Join-Path $TestDrive 'with-guide\index.html'
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -ReadingGuideHtml '<h1>Guide Heading</h1><p>Guide body text.</p>' -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Reading This Report'
+        $content | Should -Match 'id="pane-assessment"'
+        $content | Should -Match 'id="pane-reading-guide"'
+        $content | Should -Match '<h1>Guide Heading</h1>'
+        $content | Should -Match '<p>Guide body text.</p>'
+        # The rest of the dashboard should still be present, just now inside the Assessment pane.
+        $content | Should -Match 'Findings by Status'
+    }
 }

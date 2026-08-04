@@ -63,6 +63,18 @@ function Export-SAWDashboard {
         description, and a link to its source. Color-coded by urgency (<=14 days = red,
         <=45 days = yellow, further out or already past = neutral). Omitted entirely if
         empty/absent.
+    .PARAMETER ReadingGuideHtml
+        Optional pre-rendered HTML fragment (e.g. docs/reading-the-report.md run through
+        ConvertTo-SAWMarkdownHtml.ps1 by the caller) explaining what the assessment is and how
+        to read it. When supplied (non-empty), the whole dashboard is wrapped in two top-level
+        tabs - "Assessment" (everything below, unchanged) and "Reading This Report" (this HTML,
+        rendered as-is) - so the explainer travels with the dashboard file itself rather than
+        needing a separate doc alongside it. When omitted (the default), the dashboard renders
+        exactly as before with no tab wrapper at all, for full backward compatibility.
+
+        This function does not read the .md file or do any Markdown conversion itself - it just
+        renders whatever HTML it's given, same as every other optional section here receives
+        already-derived data rather than a file path.
     .PARAMETER OutputPath
         File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
         subfolder is created alongside it. Parent directory is created if missing.
@@ -93,6 +105,8 @@ function Export-SAWDashboard {
 
         [AllowEmptyCollection()]
         [object[]]$TimelineMilestones = @(),
+
+        [string]$ReadingGuideHtml = '',
 
         [Parameter(Mandatory)]
         [string]$OutputPath
@@ -560,33 +574,11 @@ $($timelineCardsHtml -join "`n")
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $totalRules = $RuleResults.Count
 
-    $html = @"
-<!doctype html>
-<html lang="en" data-bs-theme="light">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Secure At Work - Authentication Assessment Dashboard</title>
-<link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
-<style>
-  body { padding-bottom: 3rem; }
-  .navbar-brand { font-weight: 600; }
-  .stat-card { border-left: 4px solid; }
-  .stat-card.green { border-left-color: #198754; }
-  .stat-card.yellow { border-left-color: #ffc107; }
-  .stat-card.red { border-left-color: #dc3545; }
-  .stat-card.grey { border-left-color: #6c757d; }
-</style>
-</head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-  <div class="container-fluid">
-    <span class="navbar-brand">Secure At Work &middot; Authentication Assessment Dashboard</span>
-    <span class="navbar-text text-white-50">Generated $generated &middot; $totalRules checks &middot; Read-only assessment, no tenant changes made</span>
-  </div>
-</nav>
-<div class="container-fluid">
-
+    # --- Assessment body (everything that existed before -ReadingGuideHtml was added) ---
+    # Kept as its own fragment so it can be dropped in unwrapped (old behavior, when no guide
+    # is supplied) or wrapped in a tab pane alongside the reading guide (new behavior) without
+    # duplicating this whole block for each case.
+    $assessmentBodyHtml = @"
   <div class="alert alert-secondary d-flex flex-wrap gap-3 align-items-center mb-4" role="alert">
     <div><strong>SOLL baseline:</strong> $(ConvertTo-SAWHtmlEncoded $BaselineName)</div>
     <div class="text-body-secondary">SOLL = target state for this customer &middot; IST = what was actually observed in the tenant</div>
@@ -666,6 +658,70 @@ $($tabPanes -join "`n")
     currently appear as individual settings under Authentication Methods, since that's where
     they're actually collected.
   </p>
+"@
+
+    # --- Top-level tabs (Assessment / Reading This Report) - only when a guide was supplied,
+    # so the dashboard's own markup is byte-for-byte unchanged when it isn't (no wrapper at
+    # all, exactly the pre-existing behavior). ---
+    if ($ReadingGuideHtml) {
+        $mainContentHtml = @"
+  <ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-assessment" data-bs-toggle="tab" data-bs-target="#pane-assessment" type="button" role="tab" aria-controls="pane-assessment" aria-selected="true">Assessment</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-reading-guide" data-bs-toggle="tab" data-bs-target="#pane-reading-guide" type="button" role="tab" aria-controls="pane-reading-guide" aria-selected="false">Reading This Report</button>
+    </li>
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="pane-assessment" role="tabpanel" aria-labelledby="tab-assessment">
+$assessmentBodyHtml
+    </div>
+    <div class="tab-pane fade" id="pane-reading-guide" role="tabpanel" aria-labelledby="tab-reading-guide">
+      <div class="reading-guide-content">
+$ReadingGuideHtml
+      </div>
+    </div>
+  </div>
+"@
+    }
+    else {
+        $mainContentHtml = $assessmentBodyHtml
+    }
+
+    $html = @"
+<!doctype html>
+<html lang="en" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secure At Work - Authentication Assessment Dashboard</title>
+<link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
+<style>
+  body { padding-bottom: 3rem; }
+  .navbar-brand { font-weight: 600; }
+  .stat-card { border-left: 4px solid; }
+  .stat-card.green { border-left-color: #198754; }
+  .stat-card.yellow { border-left-color: #ffc107; }
+  .stat-card.red { border-left-color: #dc3545; }
+  .stat-card.grey { border-left-color: #6c757d; }
+  .reading-guide-content { max-width: 900px; }
+  .reading-guide-content h1 { margin-top: 0.5rem; margin-bottom: 1rem; }
+  .reading-guide-content h2 { margin-top: 2rem; margin-bottom: 0.75rem; }
+  .reading-guide-content h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
+  .reading-guide-content table { margin: 1rem 0; }
+</style>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+  <div class="container-fluid">
+    <span class="navbar-brand">Secure At Work &middot; Authentication Assessment Dashboard</span>
+    <span class="navbar-text text-white-50">Generated $generated &middot; $totalRules checks &middot; Read-only assessment, no tenant changes made</span>
+  </div>
+</nav>
+<div class="container-fluid">
+
+$mainContentHtml
 </div>
 
 <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>

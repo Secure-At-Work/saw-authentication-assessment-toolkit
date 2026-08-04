@@ -187,6 +187,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'rules' 'Get-SAWTimelineMilestones.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
+. (Join-Path $PSScriptRoot 'dashboard' 'ConvertTo-SAWMarkdownHtml.ps1')
 
 if (-not $UseSampleData) {
     Write-Verbose 'Invoke-SAWAssessment: establishing Microsoft Graph connection'
@@ -358,7 +359,22 @@ Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
-$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
+# Embeds docs/reading-the-report.md as a "Reading This Report" tab so the explainer travels
+# with the dashboard file itself (e.g. when the dashboard/ folder is zipped and handed to a
+# customer, per README). Missing file (e.g. a packaged distribution that dropped docs/) just
+# means no guide tab, not a failed run - Export-SAWDashboard.ps1 falls back to its pre-existing
+# single-page layout whenever -ReadingGuideHtml is empty.
+$readingGuideHtml = ''
+$readingGuidePath = Join-Path $PSScriptRoot '..' 'docs' 'reading-the-report.md'
+if (Test-Path -Path $readingGuidePath) {
+    $readingGuideMarkdown = Get-Content -Path $readingGuidePath -Raw
+    $readingGuideHtml = ConvertTo-SAWMarkdownHtml -Markdown $readingGuideMarkdown -Verbose:$VerbosePreference
+}
+else {
+    Write-Verbose "Invoke-SAWAssessment: no reading guide found at $readingGuidePath - dashboard will render without the 'Reading This Report' tab"
+}
+
+$dashboard = Export-SAWDashboard -RuleResults $results -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

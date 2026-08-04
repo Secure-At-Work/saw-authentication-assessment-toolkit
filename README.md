@@ -247,6 +247,15 @@ without needing internet access to render). Pass `-ReportPath`/`-DashboardPath` 
 pin a fixed location instead (e.g. for scripting/CI that always wants the latest run at a
 known path).
 
+The dashboard also embeds [docs/reading-the-report.md](docs/reading-the-report.md) as its own
+**"Reading This Report"** tab, right alongside the **"Assessment"** tab - so the explainer of
+what IST/SOLL means and how to use the Remediation Roadmap travels with the dashboard file
+itself, not as a separate doc someone has to remember to include. `ConvertTo-SAWMarkdownHtml.ps1`
+does a small, deliberately scoped Markdown-to-HTML conversion (just what that one doc actually
+uses - headers, lists, tables, bold/italic/code/links) rather than pulling in an external
+Markdown library. If `docs/reading-the-report.md` is missing (e.g. a packaged distribution that
+dropped `docs/`), the dashboard just renders without that tab - not a failed run.
+
 ## Multiple tenants and drift over time
 
 Every run is namespaced by tenant and timestamp, so repeated runs - against the same tenant
