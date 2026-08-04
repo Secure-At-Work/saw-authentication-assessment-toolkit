@@ -219,6 +219,17 @@ Program](https://developer.microsoft.com/microsoft-365/dev-program) sandbox tena
 (`-DaysBack`) after an earlier real-tenant run hit Graph's request timeout querying those
 endpoints unfiltered.
 
+**A 401/403 from Graph almost always means a permissions problem, not a toolkit bug** -
+`Invoke-SAWGraphRequest.ps1` (every collector routes through it) catches this and rethrows with
+guidance instead of a raw HTTP error dump: either the signed-in account doesn't hold a role
+Graph requires for that specific endpoint (having the delegated scope consented isn't always
+enough by itself - Graph's own error names which roles would work; Global Reader or Security
+Reader typically cover everything this toolkit reads), or - if that role is managed through
+Privileged Identity Management (PIM) - it's *eligible* but wasn't *activated* before
+`Connect-MgGraph` ran, so the issued token doesn't carry it. Activating the role fixes it, but
+only after a fresh connection: run `Disconnect-MgGraph` and re-run the script, since an
+already-issued token won't pick up a role activated after the fact.
+
 Output lands in `reports/<tenant-slug>/<run-timestamp>/assessment-report.html` (flat table)
 and `.../dashboard/index.html` (full dashboard - self-contained with its own `vendor/`
 subfolder, so the whole `dashboard/` directory can be zipped up and handed to a client
