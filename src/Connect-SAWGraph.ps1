@@ -72,6 +72,17 @@ function Connect-SAWGraph {
         in with -UseDeviceCode instead. Browser-based auth (e.g. Graph Explorer) never goes
         through WAM at all, which is consistent with Graph Explorer working throughout while
         every WAM-based Connect-MgGraph attempt kept failing.
+
+        Every internal Connect-MgGraph call is piped through Out-Host rather than left bare, for
+        exactly this switch: PowerShell only streams a command's output live to the console when
+        nothing downstream claims it. This function's own caller (Invoke-SAWAssessment.ps1) pipes
+        the whole Connect-SAWGraph call to Out-Null to discard its return value - which, without
+        Out-Host here, silently swallowed Connect-MgGraph's live device-code prompt too, so the
+        script sat waiting the full 120-second device-code timeout for a sign-in nobody was ever
+        shown (confirmed: calling this function directly, uncaptured, displayed the prompt fine;
+        going through the orchestrator's `| Out-Null` did not). Out-Host forces immediate display
+        and produces no further pipeline output of its own, so it's immune to whatever the
+        top-level caller does with this function's own return value.
     .OUTPUTS
         The Microsoft.Graph.Authentication context object (Get-MgContext).
     #>
@@ -138,20 +149,20 @@ function Connect-SAWGraph {
 
     if (-not $context) {
         Write-Verbose "Connect-SAWGraph: no active connection, connecting with scopes: $($Scopes -join ', ')"
-        Connect-MgGraph @connectArgs
+        Connect-MgGraph @connectArgs | Out-Host
         $context = Get-MgContext
     }
     elseif ($TenantId -and $context.TenantId -ne $TenantId) {
         Write-Warning "Connect-SAWGraph: an active connection exists for tenant '$($context.TenantId)' (account $($context.Account)), but -TenantId '$TenantId' was requested - disconnecting and reconnecting to the requested tenant instead of silently reusing the wrong one."
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-        Connect-MgGraph @connectArgs
+        Connect-MgGraph @connectArgs | Out-Host
         $context = Get-MgContext
     }
     else {
         $missingScopes = $Scopes | Where-Object { $_ -notin $context.Scopes }
         if ($missingScopes) {
             Write-Verbose "Connect-SAWGraph: active connection is missing scope(s) ($($missingScopes -join ', ')), reconnecting"
-            Connect-MgGraph @connectArgs
+            Connect-MgGraph @connectArgs | Out-Host
             $context = Get-MgContext
         }
         else {

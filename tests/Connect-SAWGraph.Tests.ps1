@@ -162,6 +162,29 @@ Describe 'Connect-SAWGraph' {
         $script:connectUseDeviceCodes | Should -Be @($true)
     }
 
+    It 'routes Connect-MgGraph output through Out-Host so a live prompt (e.g. the device-code message) is not lost when the caller pipes this function to Out-Null' {
+        # Real-world bug (2026-08-04): Invoke-SAWAssessment.ps1 pipes the whole Connect-SAWGraph
+        # call to Out-Null to discard the return value. PowerShell only streams a command's
+        # output live to the console when nothing downstream claims it - without routing
+        # Connect-MgGraph's own output through Out-Host explicitly, that outer Out-Null silently
+        # swallowed Connect-MgGraph's live device-code sign-in prompt too, so -UseDeviceCode
+        # would sit waiting the full 120s timeout for a sign-in nobody was ever shown.
+        $script:outHostLines = @()
+        function Out-Host {
+            param([Parameter(ValueFromPipeline)]$InputObject)
+            process { $script:outHostLines += $InputObject }
+        }
+        function Connect-MgGraph {
+            param($Scopes, [switch]$NoWelcome, $ErrorAction, $TenantId, $UseDeviceCode)
+            'To sign in, use a web browser to open the page https://login.microsoft.com/device and enter the code ABC123 to authenticate.'
+            $script:currentContext = @{ Account = 'kenneth@contoso.com'; Scopes = $Scopes; TenantId = 'tenant-a-guid' }
+        }
+
+        Connect-SAWGraph -Scopes $requiredScopes -UseDeviceCode | Out-Null
+
+        $script:outHostLines | Should -Match 'To sign in'
+    }
+
     It '-UseDeviceCode disconnects an existing connection first, same as -ForceReauth, so it actually takes effect' {
         # Real-world case: -ForceReauth alone (-ContextScope Process) did NOT clear a persistent
         # 403 even with a confirmed-active role, but reconnecting via device code did - Windows'
