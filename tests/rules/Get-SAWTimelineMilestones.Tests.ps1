@@ -86,13 +86,13 @@ Describe 'Get-SAWTimelineMilestones' {
         $result[0].SourceUrl | Should -Be 'https://example.com'
     }
 
-    It 'loads the real bundled config/timeline-milestones.json without error and returns 5 milestones' {
+    It 'loads the real bundled config/timeline-milestones.json without error and returns 6 milestones' {
         $realPath = "$PSScriptRoot/../../config/timeline-milestones.json"
 
         $result = Get-SAWTimelineMilestones -MilestonesPath $realPath -ReferenceDate ([datetime]'2026-08-04')
 
-        $result.Count | Should -Be 5
-        $result[0].Date | Should -Be '2026-08-06'
+        $result.Count | Should -Be 6
+        $result[0].Date | Should -Be '2026-07-06'
     }
 
     It 'sets UsersImpacted to $null when no -ImpactMetrics is supplied (no fabricated 0)' {

@@ -29,6 +29,13 @@
             "ImpactMetricLabel": "SSPR-enabled users not yet SSPR-registered (upper-bound proxy - Graph doesn't expose whether a registered method is directory-sourced or explicit)"
         },
         {
+            "Date": "2026-07-06",
+            "Title": "Register Security Information CA Policies Extend To WHfB/macOS Platform SSO Registration",
+            "Description": "Before this date, Conditional Access policies targeting the 'Register security information' user action did NOT evaluate during Windows Hello for Business or macOS Platform SSO credential registration - MFA was still required by default for those flows, but any stricter Grant controls (authentication strength, trusted locations, a TAP escape) on such a policy weren't enforced there. From this date they are. Widens CA004's blast radius: a policy that excludes Temporary Access Pass from its authentication strength now also blocks WHfB/macOS Platform SSO registration for TAP-only users, not just the combined registration experience - worth reviewing any Register-security-information-scoped policy if this wasn't already accounted for.",
+            "RelatedRuleIDs": ["CA004"],
+            "SourceUrl": "https://learn.microsoft.com/en-us/entra/identity/conditional-access/policy-all-users-security-info-registration"
+        },
+        {
             "Date": "2026-10-31",
             "Title": "Passwordless Password Change In My Sign-Ins (Late October 2026)",
             "Description": "Exact date not yet published by Microsoft as of this writing - 'late October 2026' per Message Center MC1437671, shown here as the last day of that month as an upper-bound estimate. Off by default, tenant-wide only (no pilot/group targeting), admin activation required. No Graph API exists yet to check this in the toolkit - supported APIs are promised 'at release'. Revisit once it ships.",
