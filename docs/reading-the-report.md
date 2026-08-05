@@ -91,14 +91,7 @@ during a remediation project, not just the point-in-time snapshot.
 This is the most actionable section, and the answer to "what do we actually do about this." See
 [From IST to SOLL](#from-ist-to-soll-the-work-plan-itself) below for how to use it.
 
-### 6. Conditional Access Policy Inventory
-
-Every Conditional Access policy in the tenant, in plain language: name, state (on/off/report-
-only), who it targets, what it requires. This is independent of the pass/fail checks above - it's
-the full picture, useful for understanding *why* a check passed or failed, or for a general
-CA hygiene review that isn't captured by any single rule.
-
-### 7. Security Info Registration Triage
+### 6. Security Info Registration Triage
 
 A per-user list, grouped into one expandable/collapsible section per bucket - click a section's
 header to open or close it. Remove/Hunt/Guest start open (there's something to act on); OK
@@ -156,7 +149,23 @@ no badge here wasn't necessarily used recently, it just wasn't evaluated, since 
 registration data and sign-in log data use two different naming schemes with no documented
 one-to-one mapping between them.
 
-### 8. Flat findings table
+### 7. Authentication Methods Policy Inventory
+
+Every authentication method's tenant-wide policy configuration, in plain language: enabled/
+disabled state, who's included/excluded (counts only - no group/user names shown, to avoid an
+extra Graph call this toolkit doesn't otherwise need), and key settings (e.g. FIDO2's attestation
+and self-service registration, Temporary Access Pass's default lifetime and one-time-use). This
+is independent of the pass/fail checks above - the full picture, useful for understanding *why*
+a check passed or failed, or for a general "what's actually configured" review.
+
+### 8. Conditional Access Policy Inventory
+
+Every Conditional Access policy in the tenant, in plain language: name, state (on/off/report-
+only), who it targets, what it requires. This is independent of the pass/fail checks above - it's
+the full picture, useful for understanding *why* a check passed or failed, or for a general
+CA hygiene review that isn't captured by any single rule.
+
+### 9. Flat findings table
 
 Every individual check, its result, and its severity - the same data as the flat report, kept
 here too so you don't need to cross-reference two files while reading.

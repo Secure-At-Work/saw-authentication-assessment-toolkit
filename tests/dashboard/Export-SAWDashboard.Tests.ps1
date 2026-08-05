@@ -334,6 +334,27 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '<span class="badge bg-info text-dark">Security Info Registration</span>'
     }
 
+    It 'omits the Authentication Methods Policy Inventory section entirely when none is supplied' {
+        $script:DashboardContent | Should -Not -Match 'Authentication Methods Policy Inventory'
+    }
+
+    It 'renders the authentication methods inventory section with method details when supplied' {
+        $authPath = Join-Path $TestDrive 'authmethodsinventory\index.html'
+        $inventory = @(
+            @{ Setting = 'FIDO2'; State = 'Disabled'; TargetSummary = 'All users'; SettingsSummary = 'Self-service registration: Not allowed; Attestation enforced: Yes' }
+            @{ Setting = 'SMS'; State = 'Enabled'; TargetSummary = 'All users (1 group(s)/user(s) excluded)'; SettingsSummary = '-' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -AuthMethodsInventory $inventory -OutputPath $authPath | Out-Null
+        $content = Get-Content -Path $authPath -Raw
+
+        $content | Should -Match 'Authentication Methods Policy Inventory'
+        $content | Should -Match 'FIDO2'
+        $content | Should -Match '<span class="badge bg-secondary">Disabled</span>'
+        $content | Should -Match 'Self-service registration: Not allowed'
+        $content | Should -Match 'All users \(1 group\(s\)/user\(s\) excluded\)'
+    }
+
     It 'omits the Remediation Roadmap section entirely when none is supplied' {
         $script:DashboardContent | Should -Not -Match 'Remediation Roadmap'
     }

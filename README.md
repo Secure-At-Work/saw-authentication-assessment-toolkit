@@ -49,6 +49,14 @@ tenant. Beyond the base 19 rules, the dashboard also has:
 
 - A full **Conditional Access policy inventory** (every policy's name, state, targets, and
   grant controls in plain language - independent of the pass/fail CA checks)
+- A full **Authentication Methods policy inventory** (`ConvertTo-SAWAuthenticationMethodsInventory.ps1`)
+  - every method's enabled/disabled state, who's included/excluded, and key settings in plain
+  language - independent of the pass/fail checks. Target scoping is confirmed against Microsoft's
+  own Graph API reference rather than guessed: `excludeTargets` is on the base
+  `authenticationMethodConfiguration` type (common to all 8 methods), each method has its own
+  typed `includeTargets`, and `all_users` is the well-known id for the built-in default target.
+  No group/user display-name resolution is done (counts and the all_users/specific distinction
+  only), to avoid an extra Graph call this toolkit doesn't otherwise need.
 - A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
   who needs nudging toward a phishing-resistant method, and who has a phone-based fallback
   method that should be removed to close off a downgrade-attack path). Grouped into one

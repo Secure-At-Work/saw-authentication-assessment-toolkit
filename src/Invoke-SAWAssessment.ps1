@@ -176,6 +176,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWTenantProfile.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWTenantProfile.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuthenticationMethods.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWAuthenticationMethodsInventory.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWConditionalAccess.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedConditionalAccess.ps1')
@@ -273,6 +274,7 @@ $normalized = @()
 Write-Verbose 'Invoke-SAWAssessment: collecting authentication methods policy'
 $authRaw = Get-SAWAuthenticationMethods -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $authRaw | ConvertTo-SAWNormalizedAuthenticationMethods -Verbose:$VerbosePreference
+$authMethodsInventory = @($authRaw | ConvertTo-SAWAuthenticationMethodsInventory -Verbose:$VerbosePreference)
 
 Write-Verbose 'Invoke-SAWAssessment: collecting conditional access policies'
 $caRaw = Get-SAWConditionalAccess -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
@@ -413,7 +415,7 @@ else {
     Write-Verbose "Invoke-SAWAssessment: no reading guide found at $readingGuidePath - dashboard will render without the 'Reading This Report' tab"
 }
 
-$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -AuthMethodsInventory $authMethodsInventory -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

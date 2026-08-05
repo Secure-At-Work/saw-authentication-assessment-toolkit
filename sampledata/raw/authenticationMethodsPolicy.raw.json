@@ -22,7 +22,11 @@
       "id": "Fido2",
       "state": "disabled",
       "isAttestationEnforced": true,
-      "isSelfServiceRegistrationAllowed": false
+      "isSelfServiceRegistrationAllowed": false,
+      "includeTargets": [
+        { "id": "all_users", "targetType": "group", "isRegistrationRequired": false }
+      ],
+      "excludeTargets": []
     },
     {
       "@odata.type": "#microsoft.graph.microsoftAuthenticatorAuthenticationMethodConfiguration",
@@ -31,23 +35,39 @@
       "featureSettings": {
         "numberMatchingRequiredState": { "state": "enabled" },
         "displayLocationInformationRequiredState": { "state": "enabled" }
-      }
+      },
+      "includeTargets": [
+        { "id": "all_users", "targetType": "group", "isRegistrationRequired": true }
+      ],
+      "excludeTargets": []
     },
     {
       "@odata.type": "#microsoft.graph.smsAuthenticationMethodConfiguration",
       "id": "Sms",
-      "state": "enabled"
+      "state": "enabled",
+      "includeTargets": [
+        { "id": "all_users", "targetType": "group", "isRegistrationRequired": false }
+      ],
+      "excludeTargets": [
+        { "id": "20000000-0000-0000-0000-000000000001", "targetType": "group" }
+      ]
     },
     {
       "@odata.type": "#microsoft.graph.voiceAuthenticationMethodConfiguration",
       "id": "Voice",
-      "state": "enabled"
+      "state": "enabled",
+      "includeTargets": [
+        { "id": "all_users", "targetType": "group", "isRegistrationRequired": false }
+      ],
+      "excludeTargets": []
     },
     {
       "@odata.type": "#microsoft.graph.emailAuthenticationMethodConfiguration",
       "id": "Email",
       "state": "disabled",
-      "allowExternalIdToUseEmailOtp": "default"
+      "allowExternalIdToUseEmailOtp": "default",
+      "includeTargets": [],
+      "excludeTargets": []
     },
     {
       "@odata.type": "#microsoft.graph.temporaryAccessPassAuthenticationMethodConfiguration",
@@ -57,18 +77,26 @@
       "defaultLifetimeInMinutes": 60,
       "minimumLifetimeInMinutes": 60,
       "maximumLifetimeInMinutes": 480,
-      "isUsableOnce": true
+      "isUsableOnce": true,
+      "includeTargets": [
+        { "id": "20000000-0000-0000-0000-000000000002", "targetType": "group", "isRegistrationRequired": false }
+      ],
+      "excludeTargets": []
     },
     {
       "@odata.type": "#microsoft.graph.softwareOathAuthenticationMethodConfiguration",
       "id": "SoftwareOath",
-      "state": "disabled"
+      "state": "disabled",
+      "includeTargets": [],
+      "excludeTargets": []
     },
     {
       "@odata.type": "#microsoft.graph.x509CertificateAuthenticationMethodConfiguration",
       "id": "X509Certificate",
       "state": "disabled",
-      "certificateUserBindings": []
+      "certificateUserBindings": [],
+      "includeTargets": [],
+      "excludeTargets": []
     }
   ]
 }

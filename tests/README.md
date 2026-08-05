@@ -19,6 +19,7 @@ tests/
     Get-SAWTenantProfile.Tests.ps1
     ConvertTo-SAWMethodUsageRoster.Tests.ps1
     ConvertTo-SAWPolicyDisabledMethodRoster.Tests.ps1
+    ConvertTo-SAWAuthenticationMethodsInventory.Tests.ps1
   rules/
     Invoke-SAWRulesEngine.Tests.ps1
     Get-SAWBaselineOverrides.Tests.ps1

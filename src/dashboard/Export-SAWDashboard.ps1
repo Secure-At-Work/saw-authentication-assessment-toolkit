@@ -35,6 +35,13 @@ function Export-SAWDashboard {
         being vague about it. Purely cosmetic here (this function does no date math itself);
         should match whatever -DaysBack was actually passed to the Get-SAWSignInLogs call that
         fed ConvertTo-SAWMethodUsageRoster. Defaults to 90 to match that function's own default.
+    .PARAMETER AuthMethodsInventory
+        Optional output of ConvertTo-SAWAuthenticationMethodsInventory (one hashtable per
+        authentication method type). When supplied, renders an "Authentication Methods Policy
+        Inventory" section listing every method's enabled/disabled state, who's included/
+        excluded (counts only - no group/user name resolution, to avoid an extra Graph call),
+        and key settings in plain language - independent of the pass/fail checks in the rules
+        engine. Omitted entirely if empty/absent.
     .PARAMETER CaPolicyInventory
         Optional output of ConvertTo-SAWConditionalAccessInventory (one hashtable per CA
         policy). When supplied, renders a "Conditional Access Policy Inventory" section
@@ -121,6 +128,9 @@ function Export-SAWDashboard {
         [object[]]$UserRoster = @(),
 
         [int]$MethodUsageDaysBack = 90,
+
+        [AllowEmptyCollection()]
+        [object[]]$AuthMethodsInventory = @(),
 
         [AllowEmptyCollection()]
         [object[]]$CaPolicyInventory = @(),
@@ -523,6 +533,43 @@ $($rosterSectionsHtml -join "`n")
 "@
     }
 
+    # --- Authentication methods policy inventory ---
+    $authMethodStateBadgeClass = @{
+        'Enabled'  = 'bg-success'
+        'Disabled' = 'bg-secondary'
+    }
+
+    $authMethodsInventoryRowsHtml = foreach ($m in $AuthMethodsInventory) {
+        $badgeClass = $authMethodStateBadgeClass[$m.State]
+        if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
+        @"
+      <tr>
+        <td>$(ConvertTo-SAWHtmlEncoded $m.Setting)</td>
+        <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $m.State)</span></td>
+        <td>$(ConvertTo-SAWHtmlEncoded $m.TargetSummary)</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $m.SettingsSummary)</td>
+      </tr>
+"@
+    }
+
+    $authMethodsInventorySectionHtml = ''
+    if ($AuthMethodsInventory.Count -gt 0) {
+        $authMethodsInventorySectionHtml = @"
+  <h2 class="h4 mb-3">Authentication Methods Policy Inventory</h2>
+  <p class="text-body-secondary small">Every method as configured tenant-wide, independent of the pass/fail checks above. "Included" shows who can register/use the method (no group/user names resolved, to avoid an extra Graph call - counts only); "Excluded" is folded into that same column when present.</p>
+  <div class="table-responsive mb-4">
+    <table class="table table-striped table-hover align-middle">
+      <thead>
+        <tr><th>Method</th><th>State</th><th>Included / Excluded</th><th>Settings</th></tr>
+      </thead>
+      <tbody>
+$($authMethodsInventoryRowsHtml -join "`n")
+      </tbody>
+    </table>
+  </div>
+"@
+    }
+
     # --- Conditional Access policy inventory ---
     $caStateBadgeClass = @{
         'Enabled'                = 'bg-success'
@@ -805,6 +852,7 @@ $($findingsHtml -join "`n")
   </div>
 
 $rosterSectionHtml
+$authMethodsInventorySectionHtml
 $caInventorySectionHtml
   <h2 class="h4 mb-3">Detail by Category</h2>
   <ul class="nav nav-pills mb-3" role="tablist">
