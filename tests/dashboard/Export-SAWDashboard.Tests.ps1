@@ -120,6 +120,69 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '<span class="badge bg-secondary">Guest \(FIDO2 Not Supported\)</span>'
     }
 
+    It 'groups the roster into one <details> section per bucket, in Remove > Hunt > Guest > OK order' {
+        $rosterPath = Join-Path $TestDrive 'groupedroster\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+            @{ UserPrincipalName = 'remove.user@contoso.com'; DisplayName = 'Remove User'; IsAdmin = $false; Bucket = 'Remove'; MethodsRegistered = 'fido2, mobilePhone' }
+            @{ UserPrincipalName = 'hunt.user@contoso.com'; DisplayName = 'Hunt User'; IsAdmin = $false; Bucket = 'Hunt'; MethodsRegistered = '' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        # Exactly 3 sections (only non-empty buckets get one), each a <details> block.
+        (@([regex]::Matches($content, '<details class="card mb-3"'))).Count | Should -Be 3
+        # Order in the HTML follows bucket rank, not roster input order.
+        $removeIndex = $content.IndexOf('remove.user@contoso.com')
+        $huntIndex = $content.IndexOf('hunt.user@contoso.com')
+        $okIndex = $content.IndexOf('ok.user@contoso.com')
+        $removeIndex | Should -BeLessThan $huntIndex
+        $huntIndex | Should -BeLessThan $okIndex
+    }
+
+    It 'does not render a <details> section for an empty bucket' {
+        $rosterPath = Join-Path $TestDrive 'onlyokroster\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        (@([regex]::Matches($content, '<details class="card mb-3"'))).Count | Should -Be 1
+    }
+
+    It 'defaults Remove/Hunt/Guest sections to expanded and OK to collapsed' {
+        $rosterPath = Join-Path $TestDrive 'expandedstate\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'remove.user@contoso.com'; DisplayName = 'Remove User'; IsAdmin = $false; Bucket = 'Remove'; MethodsRegistered = 'fido2, mobilePhone' }
+            @{ UserPrincipalName = 'hunt.user@contoso.com'; DisplayName = 'Hunt User'; IsAdmin = $false; Bucket = 'Hunt'; MethodsRegistered = '' }
+            @{ UserPrincipalName = 'guest.user@contoso.com'; DisplayName = 'Guest User'; IsAdmin = $false; Bucket = 'Guest (FIDO2 Not Supported)'; MethodsRegistered = '' }
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        # 3 sections opened (Remove/Hunt/Guest), 1 not (OK) - matched on the literal tag shape
+        # rather than counting "open" substrings, since "open" also appears inside unrelated text.
+        (@([regex]::Matches($content, '<details class="card mb-3" open>'))).Count | Should -Be 3
+        (@([regex]::Matches($content, '<details class="card mb-3">'))).Count | Should -Be 1
+    }
+
+    It 'no longer shows a per-row Bucket column - the bucket is the section itself' {
+        $rosterPath = Join-Path $TestDrive 'nobucketcolumn\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Not -Match '<th>Bucket</th>'
+    }
+
     It 'shows a "Possible External Member" badge and explanatory note for a flagged user' {
         $rosterPath = Join-Path $TestDrive 'externalmember\index.html'
         $roster = @(

@@ -372,30 +372,72 @@ $($bodyRows -join "`n")
         }
     }
 
-    $rosterRowsHtml = foreach ($u in $UserRoster) {
-        $badgeClass = $rosterBadgeClass[$u.Bucket]
-        if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
+    function ConvertTo-SAWRosterRowHtml {
+        param($User)
         $adminBadge = ''
-        if ($u.IsAdmin) { $adminBadge = ' <span class="badge bg-dark">Admin</span>' }
+        if ($User.IsAdmin) { $adminBadge = ' <span class="badge bg-dark">Admin</span>' }
         $externalMemberBadge = ''
-        if ($u.IsPossibleExternalMember) {
+        if ($User.IsPossibleExternalMember) {
             $externalMemberBadge = ' <span class="badge bg-info text-dark" title="UPN contains &quot;#EXT#&quot; (Microsoft''s auto-generated shape for a B2B guest invitation) but userType is Member, not Guest - likely a guest converted to Member, or provisioned as Member via cross-tenant sync. Still externally-sourced; not authoritative, see docs/reading-the-report.md.">Possible External Member</span>'
         }
         $whfbOnlyBadge = ''
-        if ($u.IsWhfbOnly) {
+        if ($User.IsWhfbOnly) {
             $whfbOnlyBadge = ' <span class="badge bg-warning text-dark" title="Windows Hello for Business is bound to the specific device it was set up on - it cannot be carried to a different machine like a FIDO2 key or passkey can. This user''s only phishing-resistant method is WHfB, so they have no working phishing-resistant credential off that one device. Especially worth checking for admin accounts that don''t do routine interactive sign-in on a managed device.">WHfB-Only (Not Portable)</span>'
         }
         $unusedMethodsHtml = ''
-        if ($u.HasUnusedRegisteredMethod) {
-            $unusedMethodsHtml = " <span class=""badge bg-danger"" title=""Registered, but not observed as used in any successful sign-in step in the analysis window. Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - worth checking rather than assuming either way. Only a well-established subset of method types is evaluated for this, see docs/reading-the-report.md."">Not recently used: $(ConvertTo-SAWHtmlEncoded $u.UnusedRegisteredMethods)</span>"
+        if ($User.HasUnusedRegisteredMethod) {
+            $unusedMethodsHtml = " <span class=""badge bg-danger"" title=""Registered, but not observed as used in any successful sign-in step in the analysis window. Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - worth checking rather than assuming either way. Only a well-established subset of method types is evaluated for this, see docs/reading-the-report.md."">Not recently used: $(ConvertTo-SAWHtmlEncoded $User.UnusedRegisteredMethods)</span>"
         }
-        @"
+        return @"
       <tr>
-        <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $u.Bucket)</span></td>
-        <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge</td>
-        <td>$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
-        <td>$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)$unusedMethodsHtml</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $User.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $User.UserPrincipalName)</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $User.MethodsRegistered)$unusedMethodsHtml</td>
       </tr>
+"@
+    }
+
+    # Buckets shown as their own collapsible section (native <details>, no extra Bootstrap JS
+    # wiring needed) rather than one flat table with a Bucket column - the point of grouping is
+    # to work through "everyone in Hunt" as a batch, not scan a mixed list row by row. Remove/
+    # Hunt/Guest start expanded (actionable); OK starts collapsed (nothing to do, just noise
+    # otherwise). Order matches the existing bucket-rank sort (Remove > Hunt > Guest > OK).
+    $rosterBucketOrder = @('Remove', 'Hunt', 'Guest (FIDO2 Not Supported)', 'OK')
+    $rosterBucketDescriptions = @{
+        Remove                        = 'Has a phishing-resistant method AND a phone-based fallback still registered - the fallback enables a downgrade attack. Start with admins.'
+        Hunt                          = 'No phishing-resistant method registered yet - target these users with the registration campaign. Start with admins.'
+        'Guest (FIDO2 Not Supported)' = "Guest/B2B users can't register FIDO2/passkeys in Entra yet (Microsoft: planned end of 2026) - not an actionable gap, just tracked for awareness."
+        OK                            = 'Phishing-resistant method registered, no weak fallback in place. No action needed.'
+    }
+
+    $rosterSectionsHtml = foreach ($bucket in $rosterBucketOrder) {
+        $usersInBucket = @($UserRoster | Where-Object { $_.Bucket -eq $bucket })
+        if ($usersInBucket.Count -eq 0) { continue }
+
+        $badgeClass = $rosterBadgeClass[$bucket]
+        if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
+        $adminCount = @($usersInBucket | Where-Object { $_.IsAdmin }).Count
+        $openAttr = if ($bucket -eq 'OK') { '' } else { ' open' }
+        $bucketRowsHtml = ($usersInBucket | ForEach-Object { ConvertTo-SAWRosterRowHtml -User $_ }) -join "`n"
+
+        @"
+  <details class="card mb-3"$openAttr>
+    <summary class="card-header" style="cursor: pointer;">
+      <span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $bucket)</span>
+      <strong>$($usersInBucket.Count)</strong> user$(if ($usersInBucket.Count -ne 1) { 's' }) ($adminCount admin)
+      <span class="text-body-secondary small">- $(ConvertTo-SAWHtmlEncoded $rosterBucketDescriptions[$bucket])</span>
+    </summary>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover align-middle mb-0">
+        <thead>
+          <tr><th>User</th><th>UPN</th><th>Methods Registered</th></tr>
+        </thead>
+        <tbody>
+$bucketRowsHtml
+        </tbody>
+      </table>
+    </div>
+  </details>
 "@
     }
 
@@ -463,16 +505,7 @@ $unusedMethodNoteHtml
       </div></div>
     </div>
   </div>
-  <div class="table-responsive mb-4">
-    <table class="table table-striped table-hover align-middle">
-      <thead>
-        <tr><th>Bucket</th><th>User</th><th>UPN</th><th>Methods Registered</th></tr>
-      </thead>
-      <tbody>
-$($rosterRowsHtml -join "`n")
-      </tbody>
-    </table>
-  </div>
+$($rosterSectionsHtml -join "`n")
 "@
     }
 

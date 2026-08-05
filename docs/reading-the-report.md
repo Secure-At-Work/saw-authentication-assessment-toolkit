@@ -95,7 +95,9 @@ CA hygiene review that isn't captured by any single rule.
 
 ### 7. Security Info Registration Triage
 
-A per-user list, bucketed:
+A per-user list, grouped into one expandable/collapsible section per bucket - click a section's
+header to open or close it. Remove/Hunt/Guest start open (there's something to act on); OK
+starts closed, since there's nothing to do there and it's usually the longest list. The buckets:
 
 - **Hunt** - no phishing-resistant method (passkey/FIDO2/Windows Hello for Business) registered
   yet. These are the users to nudge toward registering one.

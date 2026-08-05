@@ -51,8 +51,11 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   grant controls in plain language - independent of the pass/fail CA checks)
 - A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
   who needs nudging toward a phishing-resistant method, and who has a phone-based fallback
-  method that should be removed to close off a downgrade-attack path), plus two badges layered
-  on top of (not overriding) that bucketing:
+  method that should be removed to close off a downgrade-attack path). Grouped into one
+  collapsible section per bucket (native `<details>`, no extra JS) so "everyone in Hunt" can be
+  worked through as a batch rather than scanning one long mixed table - Remove/Hunt/Guest start
+  expanded (actionable), OK starts collapsed (nothing to do). Plus two badges layered on top of
+  (not overriding) that bucketing:
   - **"Possible External Member"** for any user whose UPN has the `#EXT#` shape Microsoft
     auto-generates for B2B guest invitations but whose `userType` is Member, not Guest - likely a
     guest that was converted to Member, or provisioned as Member via cross-tenant sync. Still
