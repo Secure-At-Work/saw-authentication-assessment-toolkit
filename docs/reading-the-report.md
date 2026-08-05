@@ -91,7 +91,47 @@ during a remediation project, not just the point-in-time snapshot.
 This is the most actionable section, and the answer to "what do we actually do about this." See
 [From IST to SOLL](#from-ist-to-soll-the-work-plan-itself) below for how to use it.
 
-### 6. Security Info Registration Triage
+### 6. What Users Can Expect (IST vs. SOLL)
+
+Four real, Microsoft-documented end-to-end flows, each traced step by step against this
+tenant's actual settings - not another single-setting check, but "what does a user actually go
+through." Each flow shows an **IST** line (what's true today) and a **SOLL** line (the
+recommended target), followed by a numbered list of steps. Each step carries one of three
+badges:
+
+- **IST: happens today** (green) - this step currently occurs in this tenant, given its
+  collected settings.
+- **IST: does not happen today** (grey) - this step is currently blocked or unavailable, and why
+  is explained underneath.
+- **Fixed Microsoft behavior** (neutral) - not conditioned on any tenant setting; included for
+  context (e.g. a passkey registration requiring MFA within the last 5 minutes is true
+  everywhere, not something this tenant chose).
+
+The four flows:
+
+- **New User Bootstrap** - a new user's first sign-in with a Temporary Access Pass, through to a
+  later registration-campaign nudge (deliberately on a *different* sign-in, since Microsoft
+  never nudges someone in the same session they just registered a method in). Surfaces a real,
+  easy-to-miss limitation: if that same user is also in scope for the SSPR or MFA registration
+  policy, they can be redirected into a forced registration wizard that currently doesn't support
+  registering a passkey or phone sign-in directly - only outside that redirect can those be set
+  up.
+- **SSPR Eligibility & Two-Gate** - whether a standard user, and separately an administrator, can
+  actually register for and use self-service password reset. Admin accounts follow their own
+  built-in policy, independent of the general SSPR setting - see the SSPR002 explanation above
+  for the trap this can create.
+- **Existing User Re-Registration** - what happens after initial setup: managing security info
+  any time, the fixed 5-minute MFA-freshness rule for passkey changes, how the registration
+  campaign's snooze limit behaves, and whether periodic reconfirmation is configured.
+- **CA-Gated Registration** - how an enabled Conditional Access policy scoped to "Register
+  security information" reshapes every flow above: registration-campaign nudges are suppressed
+  entirely (not just delayed) for a blocked user, and a Temporary Access Pass-only user can be
+  fully locked out if that policy's authentication strength doesn't accept a TAP.
+
+Each flow links to the specific Microsoft Learn article it's grounded in - worth opening if a
+step's applicability looks surprising.
+
+### 7. Security Info Registration Triage
 
 A per-user list, grouped into one expandable/collapsible section per bucket - click a section's
 header to open or close it. Remove/Hunt/Guest start open (there's something to act on); OK
@@ -149,7 +189,7 @@ no badge here wasn't necessarily used recently, it just wasn't evaluated, since 
 registration data and sign-in log data use two different naming schemes with no documented
 one-to-one mapping between them.
 
-### 7. Authentication Methods Policy Inventory
+### 8. Authentication Methods Policy Inventory
 
 Every authentication method's tenant-wide policy configuration, in plain language: enabled/
 disabled state, who's included/excluded (counts only - no group/user names shown, to avoid an
@@ -158,14 +198,14 @@ and self-service registration, Temporary Access Pass's default lifetime and one-
 is independent of the pass/fail checks above - the full picture, useful for understanding *why*
 a check passed or failed, or for a general "what's actually configured" review.
 
-### 8. Conditional Access Policy Inventory
+### 9. Conditional Access Policy Inventory
 
 Every Conditional Access policy in the tenant, in plain language: name, state (on/off/report-
 only), who it targets, what it requires. This is independent of the pass/fail checks above - it's
 the full picture, useful for understanding *why* a check passed or failed, or for a general
 CA hygiene review that isn't captured by any single rule.
 
-### 9. Flat findings table
+### 10. Flat findings table
 
 Every individual check, its result, and its severity - the same data as the flat report, kept
 here too so you don't need to cross-reference two files while reading.

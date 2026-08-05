@@ -203,6 +203,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'rules' 'ConvertTo-SAWRemediationRoadmap.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Get-SAWHistoryTrend.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Get-SAWTimelineMilestones.ps1')
+. (Join-Path $PSScriptRoot 'rules' 'ConvertTo-SAWRegistrationFlowScenarios.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'ConvertTo-SAWMarkdownHtml.ps1')
@@ -402,6 +403,9 @@ if ($ssprEnabledUsersTotal -eq 0) {
 }
 $timelineMilestones = Get-SAWTimelineMilestones -ImpactMetrics $impactMetrics -NotApplicableReasons $notApplicableReasons -Verbose:$VerbosePreference
 
+Write-Verbose 'Invoke-SAWAssessment: building registration flow scenarios (IST vs. SOLL)'
+$flowScenarios = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authRaw -AuthorizationPolicyRaw $authorizationPolicyRaw -RegistrationRaw $registrationRaw -CaPolicyInventory $caPolicyInventory -Verbose:$VerbosePreference
+
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference
 
@@ -421,7 +425,7 @@ else {
     Write-Verbose "Invoke-SAWAssessment: no reading guide found at $readingGuidePath - dashboard will render without the 'Reading This Report' tab"
 }
 
-$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -AuthMethodsInventory $authMethodsInventory -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -AuthMethodsInventory $authMethodsInventory -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -FlowScenarios $flowScenarios -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

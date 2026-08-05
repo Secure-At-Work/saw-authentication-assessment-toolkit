@@ -94,6 +94,14 @@ function Export-SAWDashboard {
         description, and a link to its source. Color-coded by urgency (<=14 days = red,
         <=45 days = yellow, further out or already past = neutral). Omitted entirely if
         empty/absent.
+    .PARAMETER FlowScenarios
+        Optional output of ConvertTo-SAWRegistrationFlowScenarios (one hashtable per documented
+        flow, each with a Steps array). When supplied, renders a "What Users Can Expect (IST vs.
+        SOLL)" section: real, Microsoft-sourced end-to-end flows (new-user TAP bootstrap, SSPR
+        eligibility, existing-user re-registration, CA-gated registration), each step marked
+        applicable or not against this tenant's actual collected settings. Answers "what will an
+        end user actually experience" rather than a single setting's pass/fail state. Omitted
+        entirely if empty/absent.
     .PARAMETER ReadingGuideHtml
         Optional pre-rendered HTML fragment (e.g. docs/reading-the-report.md run through
         ConvertTo-SAWMarkdownHtml.ps1 by the caller) explaining what the assessment is and how
@@ -147,6 +155,9 @@ function Export-SAWDashboard {
 
         [AllowEmptyCollection()]
         [object[]]$TimelineMilestones = @(),
+
+        [AllowEmptyCollection()]
+        [object[]]$FlowScenarios = @(),
 
         [string]$ReadingGuideHtml = '',
 
@@ -746,6 +757,60 @@ $($timelineCardsHtml -join "`n")
 "@
     }
 
+    # --- What Users Can Expect: IST vs. SOLL flow scenarios (optional -
+    # ConvertTo-SAWRegistrationFlowScenarios output) ---
+    $flowScenariosSectionHtml = ''
+    if (@($FlowScenarios).Count -gt 0) {
+        $flowCardsHtml = foreach ($flow in $FlowScenarios) {
+            $applicableBadge = if ($flow.Applicable) {
+                '<span class="badge bg-success">Applies to this tenant</span>'
+            }
+            else {
+                '<span class="badge bg-secondary">Not applicable today</span>'
+            }
+
+            $stepsHtml = foreach ($step in $flow.Steps) {
+                $stepBadge = switch ($step.Applies) {
+                    $true { '<span class="badge bg-success">IST: happens today</span>' }
+                    $false { '<span class="badge bg-secondary">IST: does not happen today</span>' }
+                    default { '<span class="badge bg-light text-dark border">Fixed Microsoft behavior</span>' }
+                }
+                @"
+          <li class="list-group-item">
+            <div class="d-flex flex-wrap align-items-start gap-2 mb-1">
+              $stepBadge
+              <span>$(ConvertTo-SAWHtmlEncoded $step.Step)</span>
+            </div>
+            <p class="mb-0 text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $step.Detail)</p>
+          </li>
+"@
+            }
+
+            @"
+      <div class="card mb-3">
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div><strong>$(ConvertTo-SAWHtmlEncoded $flow.Category)</strong> - $(ConvertTo-SAWHtmlEncoded $flow.Title)</div>
+          $applicableBadge
+        </div>
+        <div class="card-body">
+          <p class="small mb-1"><strong>IST (today):</strong> $(ConvertTo-SAWHtmlEncoded $flow.ISTSummary)</p>
+          <p class="small mb-3"><strong>SOLL (target):</strong> $(ConvertTo-SAWHtmlEncoded $flow.SOLLSummary)</p>
+          <ol class="list-group list-group-numbered list-group-flush mb-2">
+$($stepsHtml -join "`n")
+          </ol>
+          <a href="$(ConvertTo-SAWHtmlEncoded $flow.SourceUrl)" target="_blank" rel="noopener noreferrer" class="small">Source</a>
+        </div>
+      </div>
+"@
+        }
+
+        $flowScenariosSectionHtml = @"
+  <h2 class="h4 mb-3">What Users Can Expect (IST vs. SOLL)</h2>
+  <p class="text-body-secondary small">Four real, Microsoft-documented end-to-end flows - not single-setting checks. Each step is marked against this tenant's actual collected settings: whether it happens today (IST), or is a fixed Microsoft behavior included for context. Read alongside the Remediation Roadmap above to see how a fix to one setting changes what an end user actually experiences.</p>
+$($flowCardsHtml -join "`n")
+"@
+    }
+
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $totalRules = $RuleResults.Count
 
@@ -846,6 +911,7 @@ $timelineSectionHtml
 
 $trendSectionHtml
 $roadmapSectionHtml
+$flowScenariosSectionHtml
   <h2 class="h4 mb-3">Risk Findings &amp; Recommendations</h2>
   <div class="list-group mb-4">
 $($findingsHtml -join "`n")

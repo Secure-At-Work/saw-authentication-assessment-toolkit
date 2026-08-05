@@ -28,6 +28,7 @@ tests/
     ConvertTo-SAWRemediationRoadmap.Tests.ps1
     Get-SAWHistoryTrend.Tests.ps1
     Get-SAWTimelineMilestones.Tests.ps1
+    ConvertTo-SAWRegistrationFlowScenarios.Tests.ps1
   dashboard/
     Export-SAWHtmlReport.Tests.ps1
     Export-SAWDashboard.Tests.ps1

@@ -134,6 +134,30 @@ tenant. Beyond the base 19 rules, the dashboard also has:
 - A **Remediation Roadmap** (see "From IST to SOLL" below) - not just a findings list, but an
   ordered, phased work plan showing what's safe to fix now versus what's blocked on an earlier
   phase still being open
+- **"What Users Can Expect (IST vs. SOLL)"** (`ConvertTo-SAWRegistrationFlowScenarios.ps1`) -
+  four real, Microsoft-documented end-to-end registration/authentication flows, each traced step
+  by step and marked applicable/not-applicable against this tenant's actual collected settings.
+  A single rule tells you whether one setting matches SOLL; this answers what an end user
+  actually experiences when several settings interact. The four flows, each grounded in a cited
+  Microsoft Learn article:
+  - **New User Bootstrap** - first sign-in with a Temporary Access Pass through to a later
+    registration-campaign nudge. Includes a documented limitation worth knowing: the forced
+    Interrupt-mode redirect a TAP user can be routed into (when in scope for SSPR/MFA
+    registration policy) doesn't currently support FIDO2 or phone sign-in registration - only
+    outside that redirect can those be registered directly.
+  - **SSPR Eligibility & Two-Gate** - whether/how a standard user, and separately an admin
+    (governed by its own built-in two-gate policy, independent of the general SSPR setting -
+    see SSPR002), can register for and use self-service password reset.
+  - **Existing User Re-Registration** - managing/refreshing security info after initial setup:
+    manage-mode changes, the 5-minute MFA-freshness requirement for passkey changes, snooze
+    mechanics, and optional periodic reconfirmation (`reconfirmationInDays`).
+  - **CA-Gated Registration** - how an enabled Conditional Access policy scoped to "Register
+    security information" changes all three flows above: registration campaign nudges are
+    suppressed entirely for blocked users, and a TAP-only user can be fully locked out if the
+    policy's authentication strength doesn't accept a TAP (cross-references CA004).
+  Sourced from `how-to-mfa-registration-campaign`, `concept-registration-mfa-sspr-combined`,
+  `howto-authentication-temporary-access-pass`, `concept-sspr-policy`, and
+  `policy-all-users-security-info-registration` on Microsoft Learn.
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
