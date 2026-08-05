@@ -39,6 +39,21 @@ function Export-SAWDashboard {
         phase shows its completion state, and each outstanding rule within it shows whether
         it's safe to work on now or Blocked on an earlier phase's rule still being open.
         Omitted entirely if empty/absent.
+    .PARAMETER TenantDisplayName
+        The assessed tenant's display name (typically Get-SAWTenantProfile's .DisplayName).
+        Shown, together with -TenantId and -RunTimestamp, in a banner at the very top of the
+        page and in the browser tab title - so it's unmistakable which environment and point in
+        time a given report/dashboard is for, especially with several open at once (different
+        tenants, or repeat runs of the same one). Omitted entirely from the banner if empty.
+    .PARAMETER TenantId
+        The assessed tenant's GUID (typically Get-SAWTenantProfile's .TenantId). Shown alongside
+        -TenantDisplayName in the banner. Omitted entirely if empty.
+    .PARAMETER RunTimestamp
+        This run's timestamp in the same yyyyMMdd-HHmmss form used to namespace report/history
+        output (e.g. "20260805-140901"), reformatted for display as "2026-08-05 14:09:01" in the
+        banner. A value that doesn't match that exact shape is shown as-is rather than dropped,
+        so a caller passing something else still gets useful (if unformatted) output instead of
+        silence. Omitted entirely from the banner if empty.
     .PARAMETER BaselineName
         Display name of the customer SOLL baseline that produced these results (typically a
         baseline preset's "name" field), shown in the navbar and Overview for traceability.
@@ -86,6 +101,12 @@ function Export-SAWDashboard {
         [Parameter(Mandatory)]
         [AllowEmptyCollection()]
         [object[]]$RuleResults,
+
+        [string]$TenantDisplayName = '',
+
+        [string]$TenantId = '',
+
+        [string]$RunTimestamp = '',
 
         [AllowEmptyCollection()]
         [object[]]$UserRoster = @(),
@@ -574,6 +595,40 @@ $($timelineCardsHtml -join "`n")
     $generated = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $totalRules = $RuleResults.Count
 
+    # --- Environment/point-in-time banner (tenant + run timestamp) ---
+    # Regex reformat rather than [datetime]::ParseExact - static method calls on non-core types
+    # are blocked under this machine's ConstrainedLanguage mode (see
+    # docs/powershell-coding-notes.md), and RunTimestamp's shape is fixed and known (produced by
+    # Get-Date -Format 'yyyyMMdd-HHmmss' in Invoke-SAWAssessment.ps1), so a plain regex is both
+    # safer and simpler than parsing it as a real datetime just to reformat it.
+    $runTimestampDisplay = $RunTimestamp
+    if ($RunTimestamp -match '^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$') {
+        $runTimestampDisplay = "$($Matches[1])-$($Matches[2])-$($Matches[3]) $($Matches[4]):$($Matches[5]):$($Matches[6])"
+    }
+
+    $titleTenantSuffix = ''
+    if ($TenantDisplayName) { $titleTenantSuffix += " - $(ConvertTo-SAWHtmlEncoded $TenantDisplayName)" }
+    if ($RunTimestamp) { $titleTenantSuffix += " - $(ConvertTo-SAWHtmlEncoded $runTimestampDisplay)" }
+
+    $envBannerHtml = ''
+    if ($TenantDisplayName -or $TenantId -or $RunTimestamp) {
+        $tenantLineHtml = ''
+        if ($TenantDisplayName -or $TenantId) {
+            $tenantIdHtml = if ($TenantId) { " <span class=""text-white-50"">($(ConvertTo-SAWHtmlEncoded $TenantId))</span>" } else { '' }
+            $tenantLineHtml = "<div><strong>Tenant:</strong> $(ConvertTo-SAWHtmlEncoded $TenantDisplayName)$tenantIdHtml</div>"
+        }
+        $runLineHtml = ''
+        if ($RunTimestamp) {
+            $runLineHtml = "<div><strong>Assessed:</strong> $(ConvertTo-SAWHtmlEncoded $runTimestampDisplay)</div>"
+        }
+        $envBannerHtml = @"
+  <div class="alert alert-dark d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" role="alert">
+    $tenantLineHtml
+    $runLineHtml
+  </div>
+"@
+    }
+
     # --- Assessment body (everything that existed before -ReadingGuideHtml was added) ---
     # Kept as its own fragment so it can be dropped in unwrapped (old behavior, when no guide
     # is supplied) or wrapped in a tab pane alongside the reading guide (new behavior) without
@@ -695,7 +750,7 @@ $ReadingGuideHtml
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Secure At Work - Authentication Assessment Dashboard</title>
+<title>Secure At Work - Authentication Assessment Dashboard$titleTenantSuffix</title>
 <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
 <style>
   body { padding-bottom: 3rem; }
@@ -721,6 +776,7 @@ $ReadingGuideHtml
 </nav>
 <div class="container-fluid">
 
+$envBannerHtml
 $mainContentHtml
 </div>
 

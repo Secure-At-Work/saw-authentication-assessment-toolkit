@@ -294,6 +294,43 @@ Describe 'Export-SAWDashboard' {
         $script:DashboardContent | Should -Not -Match 'nav-tabs'
     }
 
+    It 'omits the environment banner and title suffix when no tenant/timestamp info is supplied' {
+        # $script:DashboardContent was generated in BeforeAll with none of these params set.
+        $script:DashboardContent | Should -Not -Match 'alert-dark'
+        $script:DashboardContent | Should -Match '<title>Secure At Work - Authentication Assessment Dashboard</title>'
+    }
+
+    It 'shows tenant name, tenant ID, and a reformatted run timestamp in the banner and title' {
+        $path = Join-Path $TestDrive 'withenv\index.html'
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TenantDisplayName 'Contoso Ltd' -TenantId 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' -RunTimestamp '20260805-073551' -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'alert-dark'
+        $content | Should -Match 'Tenant:</strong> Contoso Ltd <span class="text-white-50">\(aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\)</span>'
+        $content | Should -Match 'Assessed:</strong> 2026-08-05 07:35:51'
+        $content | Should -Match '<title>Secure At Work - Authentication Assessment Dashboard - Contoso Ltd - 2026-08-05 07:35:51</title>'
+    }
+
+    It 'shows a run timestamp as-is when it does not match the expected yyyyMMdd-HHmmss shape' {
+        $path = Join-Path $TestDrive 'weirdtimestamp\index.html'
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -RunTimestamp 'not-a-real-timestamp' -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Assessed:</strong> not-a-real-timestamp'
+    }
+
+    It 'shows only the tenant line when TenantId/TenantDisplayName are supplied without a RunTimestamp' {
+        $path = Join-Path $TestDrive 'tenantonly\index.html'
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TenantDisplayName 'Contoso Ltd' -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Tenant:</strong> Contoso Ltd'
+        $content | Should -Not -Match 'Assessed:</strong>'
+    }
+
     It 'wraps the dashboard in Assessment / Reading This Report tabs when -ReadingGuideHtml is supplied' {
         $path = Join-Path $TestDrive 'with-guide\index.html'
 

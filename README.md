@@ -247,6 +247,15 @@ without needing internet access to render). Pass `-ReportPath`/`-DashboardPath` 
 pin a fixed location instead (e.g. for scripting/CI that always wants the latest run at a
 known path).
 
+**Both files carry an unmistakable "which environment, which point in time" banner** - a dark
+bar right at the top with the tenant's display name, tenant ID, and the run's timestamp
+(reformatted from the folder-naming `yyyyMMdd-HHmmss` to `yyyy-MM-dd HH:mm:ss`), and the same
+information in the browser tab `<title>`. Useful with more than one report open at once -
+different tenants, or repeat runs of the same one after a remediation round - since the tab bar
+alone tells them apart without needing to hover or click in. Omitted entirely (no empty banner)
+when tenant/timestamp weren't supplied, e.g. calling `Export-SAWDashboard.ps1`/
+`Export-SAWHtmlReport.ps1` directly outside the orchestrator.
+
 The dashboard also embeds [docs/reading-the-report.md](docs/reading-the-report.md) as its own
 **"Reading This Report"** tab, right alongside the **"Assessment"** tab - so the explainer of
 what IST/SOLL means and how to use the Remediation Roadmap travels with the dashboard file

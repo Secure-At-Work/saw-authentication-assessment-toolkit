@@ -104,6 +104,37 @@ Describe 'Export-SAWHtmlReport' {
         $content | Should -Match 'Entra Domain Services'
     }
 
+    It 'omits the environment banner and title suffix when no tenant/timestamp info is supplied' {
+        $outputPath = Join-Path $TestDrive 'noenv.html'
+
+        Export-SAWHtmlReport -RuleResults @() -OutputPath $outputPath | Out-Null
+
+        $content = Get-Content -Path $outputPath -Raw
+        $content | Should -Not -Match 'env-banner'
+        $content | Should -Match '<title>Secure At Work Authentication Assessment Report</title>'
+    }
+
+    It 'shows tenant name, tenant ID, and a reformatted run timestamp in the banner and title' {
+        $outputPath = Join-Path $TestDrive 'withenv.html'
+
+        Export-SAWHtmlReport -RuleResults @() -TenantDisplayName 'Contoso Ltd' -TenantId 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' -RunTimestamp '20260805-073551' -OutputPath $outputPath | Out-Null
+
+        $content = Get-Content -Path $outputPath -Raw
+        $content | Should -Match 'env-banner'
+        $content | Should -Match 'Tenant:</strong> Contoso Ltd \(aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\)'
+        $content | Should -Match 'Assessed:</strong> 2026-08-05 07:35:51'
+        $content | Should -Match '<title>Secure At Work Authentication Assessment Report - Contoso Ltd - 2026-08-05 07:35:51</title>'
+    }
+
+    It 'shows a run timestamp as-is when it does not match the expected yyyyMMdd-HHmmss shape' {
+        $outputPath = Join-Path $TestDrive 'weirdtimestamp.html'
+
+        Export-SAWHtmlReport -RuleResults @() -RunTimestamp 'not-a-real-timestamp' -OutputPath $outputPath | Out-Null
+
+        $content = Get-Content -Path $outputPath -Raw
+        $content | Should -Match 'Assessed:</strong> not-a-real-timestamp'
+    }
+
     It 'applies the correct color per status' {
         $outputPath = Join-Path $TestDrive 'colors.html'
         $results = @(
