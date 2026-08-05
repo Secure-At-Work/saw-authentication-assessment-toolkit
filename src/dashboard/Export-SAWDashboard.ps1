@@ -21,11 +21,20 @@ function Export-SAWDashboard {
     .PARAMETER RuleResults
         Output of Invoke-SAWRulesEngine.
     .PARAMETER UserRoster
-        Optional output of ConvertTo-SAWUserRegistrationRoster (one hashtable per user, with
-        Bucket = OK/Hunt/Remove). When supplied, renders a "Security Info Registration - User
-        Triage" section: who's fine, who needs hunting down to register a phishing-resistant
-        method, and who has a downgrade-risk fallback method to remove - already sorted
-        Remove > Hunt > OK, admins first within each bucket. Omitted entirely if empty/absent.
+        Optional output of ConvertTo-SAWUserRegistrationRoster, optionally further enriched by
+        ConvertTo-SAWMethodUsageRoster (one hashtable per user, with Bucket = OK/Hunt/Remove).
+        When supplied, renders a "Security Info Registration - User Triage" section: who's fine,
+        who needs hunting down to register a phishing-resistant method, and who has a
+        downgrade-risk fallback method to remove - already sorted Remove > Hunt > OK, admins
+        first within each bucket. Omitted entirely if empty/absent. If entries carry
+        HasUnusedRegisteredMethod/UnusedRegisteredMethods (from ConvertTo-SAWMethodUsageRoster),
+        a "Not recently used" badge is also shown per flagged registered method.
+    .PARAMETER MethodUsageDaysBack
+        The lookback window (in days) used when the caller computed HasUnusedRegisteredMethod -
+        shown in the section note so the "recently used" claim states its own window rather than
+        being vague about it. Purely cosmetic here (this function does no date math itself);
+        should match whatever -DaysBack was actually passed to the Get-SAWSignInLogs call that
+        fed ConvertTo-SAWMethodUsageRoster. Defaults to 90 to match that function's own default.
     .PARAMETER CaPolicyInventory
         Optional output of ConvertTo-SAWConditionalAccessInventory (one hashtable per CA
         policy). When supplied, renders a "Conditional Access Policy Inventory" section
@@ -110,6 +119,8 @@ function Export-SAWDashboard {
 
         [AllowEmptyCollection()]
         [object[]]$UserRoster = @(),
+
+        [int]$MethodUsageDaysBack = 90,
 
         [AllowEmptyCollection()]
         [object[]]$CaPolicyInventory = @(),
@@ -374,12 +385,16 @@ $($bodyRows -join "`n")
         if ($u.IsWhfbOnly) {
             $whfbOnlyBadge = ' <span class="badge bg-warning text-dark" title="Windows Hello for Business is bound to the specific device it was set up on - it cannot be carried to a different machine like a FIDO2 key or passkey can. This user''s only phishing-resistant method is WHfB, so they have no working phishing-resistant credential off that one device. Especially worth checking for admin accounts that don''t do routine interactive sign-in on a managed device.">WHfB-Only (Not Portable)</span>'
         }
+        $unusedMethodsHtml = ''
+        if ($u.HasUnusedRegisteredMethod) {
+            $unusedMethodsHtml = " <span class=""badge bg-danger"" title=""Registered, but not observed as used in any successful sign-in step in the analysis window. Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - worth checking rather than assuming either way. Only a well-established subset of method types is evaluated for this, see docs/reading-the-report.md."">Not recently used: $(ConvertTo-SAWHtmlEncoded $u.UnusedRegisteredMethods)</span>"
+        }
         @"
       <tr>
         <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $u.Bucket)</span></td>
         <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge</td>
         <td>$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
-        <td>$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)$unusedMethodsHtml</td>
       </tr>
 "@
     }
@@ -402,12 +417,22 @@ $($bodyRows -join "`n")
 "@
     }
 
+    $unusedMethodCount = @($UserRoster | Where-Object { $_.HasUnusedRegisteredMethod }).Count
+    $unusedMethodNoteHtml = ''
+    if ($unusedMethodCount -gt 0) {
+        $plural = if ($unusedMethodCount -eq 1) { '' } else { 's' }
+        $unusedMethodNoteHtml = @"
+  <p class="text-body-secondary small"><span class="badge bg-danger">Not recently used</span> ($unusedMethodCount user$plural below) - a registered method with no successful sign-in using it in the last $MethodUsageDaysBack day(s). Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - not a confirmed problem on its own, but worth checking rather than assuming either way. Only a well-established subset of method types is evaluated (see docs/reading-the-report.md); an absent method type isn't necessarily fine, it just wasn't checked.</p>
+"@
+    }
+
     $rosterSectionHtml = ''
     if ($UserRoster.Count -gt 0) {
         $rosterSectionHtml = @"
   <h2 class="h4 mb-3">Security Info Registration - User Triage</h2>
 $externalMemberNoteHtml
 $whfbOnlyNoteHtml
+$unusedMethodNoteHtml
   <div class="row g-3 mb-3">
     <div class="col-sm-6 col-lg-3">
       <div class="card stat-card red h-100"><div class="card-body">

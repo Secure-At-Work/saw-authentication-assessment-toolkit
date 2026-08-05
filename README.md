@@ -67,6 +67,18 @@ tenant. Beyond the base 19 rules, the dashboard also has:
     so a WHfB-only user has no working phishing-resistant credential off that one device. A real
     gap for admin accounts especially, since many admins don't do routine interactive sign-in on
     a managed device with their admin account at all.
+  - **"Not recently used: \<method\>"** - registration alone only says a method is *registered*,
+    not that it's actually usable. `ConvertTo-SAWMethodUsageRoster.ps1` cross-references
+    registered methods against sign-in `authenticationDetails` over a wider window
+    (`-MethodUsageDaysBack`, default 90 - independent of, and in addition to, the 7-day window
+    the legacy-auth/device-code checks use) and flags any registered method with no successful
+    sign-in step using it. Only a well-established subset of method types is evaluated (FIDO2,
+    WHfB, TAP, SMS/voice, Authenticator push/OTP, email, certificate) - `methodsRegistered` and
+    `authenticationDetails.authenticationMethod` are two different Graph vocabularies with no
+    documented crosswalk, so a method type with no confident mapping (passkey variants, for now)
+    is left unevaluated rather than risking a false "unused" claim. Pass `-MethodUsageDaysBack 0`
+    to skip this check entirely - it's a second, separately-windowed call to `/auditLogs/signIns`,
+    real extra Graph load worth being aware of on a very busy tenant.
 - SSPR registration coverage, the authentication methods registration campaign's state/target,
   and a composite "phishing-resistant registration bootstrap available" check (self-service
   FIDO2 or TAP)

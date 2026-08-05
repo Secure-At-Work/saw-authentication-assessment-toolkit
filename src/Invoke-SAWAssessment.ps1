@@ -72,6 +72,17 @@
 .PARAMETER SkipHistorySnapshot
     Skip writing the JSON history snapshot for this run. Use for one-off/exploratory runs you
     don't want counted in a tenant's drift history.
+.PARAMETER MethodUsageDaysBack
+    How many days of sign-in history to pull specifically for the "registered but not recently
+    used" check (see ConvertTo-SAWMethodUsageRoster.ps1) - independent of, and in addition to,
+    the sign-in log collection the legacy-auth/device-code checks already do (which stays at
+    its own 7-day default). Defaults to 90, deliberately wider than that default: a method
+    genuinely still in active use by an admin who signs in monthly would otherwise look
+    abandoned under a 7-day window. This is a second, separately-windowed call to
+    /auditLogs/signIns, not a reuse of the shorter one - real extra Graph load on top of
+    everything else this toolkit already collects, worth being aware of on a very busy tenant.
+    Pass 0 to skip this check entirely (no second sign-in log collection, roster ships without
+    the unused-method flag).
 .EXAMPLE
     pwsh -File src/Invoke-SAWAssessment.ps1 -UseSampleData -Verbose
 .EXAMPLE
@@ -133,7 +144,9 @@ param(
 
     [string]$HistoryPath,
 
-    [switch]$SkipHistorySnapshot
+    [switch]$SkipHistorySnapshot,
+
+    [int]$MethodUsageDaysBack = 90
 )
 
 # Checked first, before anything else in this script (including the dot-sourcing below) - see
@@ -172,6 +185,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWRegistration.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedRegistration.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWUserRegistrationRoster.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWMethodUsageRoster.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeys.ps1')
@@ -285,6 +299,15 @@ Write-Verbose 'Invoke-SAWAssessment: collecting sign-in logs'
 $signInsRaw = Get-SAWSignInLogs -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $signInsRaw | ConvertTo-SAWNormalizedSignInLogs -Verbose:$VerbosePreference
 
+if ($MethodUsageDaysBack -gt 0) {
+    Write-Verbose "Invoke-SAWAssessment: collecting sign-in logs for the registered-but-unused-method check (-MethodUsageDaysBack $MethodUsageDaysBack, separate from the 7-day default above)"
+    $methodUsageSignInsRaw = Get-SAWSignInLogs -UseSampleData:$UseSampleData -DaysBack $MethodUsageDaysBack -Verbose:$VerbosePreference
+    $userRoster = ConvertTo-SAWMethodUsageRoster -Roster $userRoster -SignInLogs $methodUsageSignInsRaw -Verbose:$VerbosePreference
+}
+else {
+    Write-Verbose 'Invoke-SAWAssessment: -MethodUsageDaysBack 0 - skipping the registered-but-unused-method check'
+}
+
 Write-Verbose 'Invoke-SAWAssessment: collecting directory audit logs'
 $auditsRaw = Get-SAWAuditLogs -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $auditsRaw | ConvertTo-SAWNormalizedAuditLogs -Verbose:$VerbosePreference
@@ -374,7 +397,7 @@ else {
     Write-Verbose "Invoke-SAWAssessment: no reading guide found at $readingGuidePath - dashboard will render without the 'Reading This Report' tab"
 }
 
-$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

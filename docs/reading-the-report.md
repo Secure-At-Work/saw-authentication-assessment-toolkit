@@ -129,6 +129,18 @@ admins don't do routine interactive sign-in on a managed Windows device with the
 (PIM activation from elsewhere, a jump box, browser-only workflows), so WHfB alone may not
 actually be usable when it counts.
 
+Finally, a registered method itself may carry a **"Not recently used"** badge. Being registered
+only means a method is available - it says nothing about whether anyone has actually used it.
+This badge means no successful sign-in in the last N days (shown in the section note, 90 by
+default) used that method: it could mean the device it lived on is gone, the user relies on
+something else day to day, or the registration is simply stale - not a confirmed problem on its
+own, but worth a quick check rather than assuming either way. Only a well-established subset of
+method types is checked for this (FIDO2, Windows Hello for Business, Temporary Access Pass,
+SMS/voice, Microsoft Authenticator push/OTP, email, certificate) - a registered method type with
+no badge here wasn't necessarily used recently, it just wasn't evaluated, since Microsoft Graph's
+registration data and sign-in log data use two different naming schemes with no documented
+one-to-one mapping between them.
+
 ### 8. Flat findings table
 
 Every individual check, its result, and its severity - the same data as the flat report, kept

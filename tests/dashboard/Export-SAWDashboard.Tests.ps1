@@ -178,6 +178,38 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Not -Match 'WHfB-Only'
     }
 
+    It 'shows a "Not recently used" badge naming the specific unused method(s), plus the configured lookback window in the note' {
+        $rosterPath = Join-Path $TestDrive 'unusedmethod\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'alice.admin@contoso.com'; DisplayName = 'Alice Admin'; IsAdmin = $true; IsGuest = $false; HasUnusedRegisteredMethod = $true; UnusedRegisteredMethods = 'fido2'; Bucket = 'OK'; MethodsRegistered = 'fido2, microsoftAuthenticatorPush' }
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; HasUnusedRegisteredMethod = $false; UnusedRegisteredMethods = ''; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -MethodUsageDaysBack 45 -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Match '<span class="badge bg-danger" title="[^"]*">Not recently used: fido2</span>'
+        # The badge is shown in the Methods Registered cell (contextually tied to the methods
+        # list it refers to), not next to the display name - so match against the registered
+        # methods it's attached to rather than the user's name.
+        $content | Should -Match 'fido2, microsoftAuthenticatorPush.*Not recently used: fido2'
+        $content | Should -Not -Match '<td>fido2</td>.*Not recently used'
+        $content | Should -Match 'last 45 day\(s\)'
+        $content | Should -Match '\(1 user below\)'
+    }
+
+    It 'omits the "Not recently used" note entirely when no user is flagged' {
+        $rosterPath = Join-Path $TestDrive 'nounusedmethod\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; HasUnusedRegisteredMethod = $false; UnusedRegisteredMethods = ''; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Not -Match 'Not recently used'
+    }
+
     It 'defaults the baseline label to "no customer-specific baseline" when -BaselineName is not supplied' {
         $script:DashboardContent | Should -Match 'no customer-specific baseline applied'
     }

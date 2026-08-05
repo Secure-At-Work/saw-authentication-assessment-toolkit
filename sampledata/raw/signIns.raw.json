@@ -12,7 +12,11 @@
       "isInteractive": true,
       "conditionalAccessStatus": "success",
       "status": { "errorCode": 0, "failureReason": null },
-      "authenticationRequirement": "multiFactorAuthentication"
+      "authenticationRequirement": "multiFactorAuthentication",
+      "authenticationDetails": [
+        { "authenticationMethod": "Password", "succeeded": true },
+        { "authenticationMethod": "Mobile app notification", "succeeded": true }
+      ]
     },
     {
       "id": "10000000-aaaa-0000-0000-000000000002",
@@ -38,7 +42,11 @@
       "isInteractive": true,
       "conditionalAccessStatus": "success",
       "status": { "errorCode": 0, "failureReason": null },
-      "authenticationRequirement": "multiFactorAuthentication"
+      "authenticationRequirement": "multiFactorAuthentication",
+      "authenticationDetails": [
+        { "authenticationMethod": "Password", "succeeded": true },
+        { "authenticationMethod": "Text message", "succeeded": true }
+      ]
     },
     {
       "id": "10000000-aaaa-0000-0000-000000000004",
