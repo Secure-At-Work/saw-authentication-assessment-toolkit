@@ -64,6 +64,11 @@ below. Each card shows:
   users aren't SSPR-registered yet. The label under the number always states exactly what's
   being counted, since some of these are necessarily proxies (Graph doesn't expose every
   distinction the deadline itself cares about) - read the label, not just the number.
+- For the SSPR-related deadlines specifically, a card can instead say **"Not applicable"** - this
+  means no user in the tenant has SSPR enabled at all, so those deadlines genuinely don't apply
+  here. Shown deliberately differently from "0 users impacted," which would otherwise look the
+  same whether it means "nobody's affected because everyone's already compliant" or "SSPR isn't
+  even in use" - two very different things worth being able to tell apart at a glance.
 - A link to Microsoft's own source for the date, since dates like these have moved before.
 
 Treat this section as "things to plan around," not "things this tenant is doing wrong."

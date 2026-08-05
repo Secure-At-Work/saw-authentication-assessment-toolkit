@@ -231,6 +231,18 @@ reuses data already collected for the registration/roster checks - no extra Grap
 milestone with no matching data source (like the passwordless password change entry above)
 simply omits the line rather than showing a fabricated "0 users impacted".
 
+The SSPR-related milestones specifically go one step further: **"0 users impacted" and "not
+applicable" are deliberately shown differently.** SSPR-enabled status is checked per user
+(`isSsprEnabled` from `userRegistrationDetails` - there's no tenant-wide SSPR policy endpoint,
+only this per-user effective state), so a user who doesn't have SSPR enabled is never counted as
+impacted by the SSPR nudge/enforcement deadlines. But if literally no user in the tenant has SSPR
+enabled at all, the card shows **"Not applicable - SSPR isn't enabled for any user in this
+tenant"** instead of "0 users impacted" - the same zero would otherwise look identical whether it
+means "fully compliant" or "doesn't apply here," which is a real difference worth keeping
+visible. `Get-SAWTimelineMilestones.ps1`'s `-NotApplicableReasons` param (keyed the same way as
+`-ImpactMetrics`) carries this distinction through and takes priority over any numeric count for
+the same key.
+
 ## Usage
 
 Offline, against the bundled sample tenant fixtures (no Graph connection needed):

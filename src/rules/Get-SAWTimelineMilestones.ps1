@@ -24,6 +24,15 @@ function Get-SAWTimelineMilestones {
         with no ImpactMetric (e.g. "passwordless password change" - no rule, no data source
         exists yet) or one whose key isn't in -ImpactMetrics simply gets UsersImpacted = $null,
         which the dashboard renders as "not computable" rather than a fabricated 0.
+
+        -NotApplicableReasons covers a different case from "not computable": the metric WAS
+        computed, but the underlying feature doesn't apply to this tenant at all - e.g. SSPR
+        isn't enabled for any user, so the SSPR-enforcement deadlines are moot regardless of
+        what the raw count says. Without this, "0 users impacted" would read identically whether
+        it means "fully compliant" or "doesn't apply here," which is a real difference worth
+        keeping distinct. When a milestone's ImpactMetric key is present in
+        -NotApplicableReasons, that reason wins over any numeric value in -ImpactMetrics -
+        NotApplicableReason gets set and UsersImpacted stays $null.
     .PARAMETER MilestonesPath
         Path to the timeline milestones JSON file. Defaults to config/timeline-milestones.json.
     .PARAMETER ReferenceDate
@@ -34,10 +43,15 @@ function Get-SAWTimelineMilestones {
         milestone declares in the JSON (e.g. @{ PhoneBasedMethodUsers = 12 }). Omit entirely for
         an impact-free view (every milestone's UsersImpacted is $null) - e.g. under
         -UseSampleData or when registration data wasn't collected for some other reason.
+    .PARAMETER NotApplicableReasons
+        Optional hashtable, keyed the same way as -ImpactMetrics, whose value is a short reason
+        string shown instead of a count (e.g. @{ SsprEnabledNotRegisteredUsers = "SSPR isn't
+        enabled for any user in this tenant" }). Takes priority over -ImpactMetrics for the same
+        key - a milestone flagged not-applicable never shows a numeric "impacted" count.
     .OUTPUTS
         Hashtable[] - one per milestone, ascending by Date, each with Date, Title, Description,
         RelatedRuleIDs, SourceUrl, DaysRemaining (negative if in the past), IsPast, UsersImpacted
-        (nullable), ImpactMetricLabel (nullable).
+        (nullable), ImpactMetricLabel (nullable), NotApplicableReason (nullable).
     #>
     [CmdletBinding()]
     param(
@@ -45,7 +59,9 @@ function Get-SAWTimelineMilestones {
 
         [datetime]$ReferenceDate = (Get-Date),
 
-        [hashtable]$ImpactMetrics = @{}
+        [hashtable]$ImpactMetrics = @{},
+
+        [hashtable]$NotApplicableReasons = @{}
     )
 
     if (-not (Test-Path -Path $MilestonesPath)) {
@@ -61,20 +77,25 @@ function Get-SAWTimelineMilestones {
         $daysRemaining = ($milestoneDate.Date - $today).Days
 
         $usersImpacted = $null
-        if ($m.ImpactMetric -and $ImpactMetrics.ContainsKey($m.ImpactMetric)) {
+        $notApplicableReason = $null
+        if ($m.ImpactMetric -and $NotApplicableReasons.ContainsKey($m.ImpactMetric)) {
+            $notApplicableReason = $NotApplicableReasons[$m.ImpactMetric]
+        }
+        elseif ($m.ImpactMetric -and $ImpactMetrics.ContainsKey($m.ImpactMetric)) {
             $usersImpacted = $ImpactMetrics[$m.ImpactMetric]
         }
 
         @{
-            Date              = $m.Date
-            Title             = $m.Title
-            Description       = $m.Description
-            RelatedRuleIDs    = @($m.RelatedRuleIDs)
-            SourceUrl         = $m.SourceUrl
-            DaysRemaining     = $daysRemaining
-            IsPast            = ($daysRemaining -lt 0)
-            UsersImpacted     = $usersImpacted
-            ImpactMetricLabel = $m.ImpactMetricLabel
+            Date                = $m.Date
+            Title               = $m.Title
+            Description         = $m.Description
+            RelatedRuleIDs      = @($m.RelatedRuleIDs)
+            SourceUrl           = $m.SourceUrl
+            DaysRemaining       = $daysRemaining
+            IsPast              = ($daysRemaining -lt 0)
+            UsersImpacted       = $usersImpacted
+            ImpactMetricLabel   = $m.ImpactMetricLabel
+            NotApplicableReason = $notApplicableReason
         }
     }
 

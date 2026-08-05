@@ -136,4 +136,37 @@ Describe 'Get-SAWTimelineMilestones' {
         $result[0].UsersImpacted | Should -Be 0
         $result[0].UsersImpacted | Should -Not -Be $null
     }
+
+    It 'sets NotApplicableReason and leaves UsersImpacted $null when the ImpactMetric key is in -NotApplicableReasons' {
+        New-SAWTestMilestonesFile -Path $script:milestonesPath -Milestones @(
+            @{ Date = '2026-09-07'; Title = 'SSPR enforcement'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; ImpactMetric = 'SsprEnabledNotRegisteredUsers'; ImpactMetricLabel = 'SSPR-enabled users not yet registered' }
+        )
+
+        $result = Get-SAWTimelineMilestones -MilestonesPath $script:milestonesPath -ReferenceDate ([datetime]'2026-08-04') -ImpactMetrics @{ SsprEnabledNotRegisteredUsers = 0 } -NotApplicableReasons @{ SsprEnabledNotRegisteredUsers = "SSPR isn't enabled for any user in this tenant" }
+
+        $result[0].UsersImpacted | Should -Be $null
+        $result[0].NotApplicableReason | Should -Be "SSPR isn't enabled for any user in this tenant"
+    }
+
+    It '-NotApplicableReasons takes priority over -ImpactMetrics for the same key even when the count is non-zero' {
+        New-SAWTestMilestonesFile -Path $script:milestonesPath -Milestones @(
+            @{ Date = '2026-09-07'; Title = 'SSPR enforcement'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; ImpactMetric = 'SsprEnabledNotRegisteredUsers'; ImpactMetricLabel = 'x' }
+        )
+
+        $result = Get-SAWTimelineMilestones -MilestonesPath $script:milestonesPath -ReferenceDate ([datetime]'2026-08-04') -ImpactMetrics @{ SsprEnabledNotRegisteredUsers = 5 } -NotApplicableReasons @{ SsprEnabledNotRegisteredUsers = 'not applicable' }
+
+        $result[0].UsersImpacted | Should -Be $null
+        $result[0].NotApplicableReason | Should -Be 'not applicable'
+    }
+
+    It 'leaves NotApplicableReason $null when -NotApplicableReasons is empty (default)' {
+        New-SAWTestMilestonesFile -Path $script:milestonesPath -Milestones @(
+            @{ Date = '2026-09-01'; Title = 'Phone users'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; ImpactMetric = 'PhoneBasedMethodUsers'; ImpactMetricLabel = 'phone users' }
+        )
+
+        $result = Get-SAWTimelineMilestones -MilestonesPath $script:milestonesPath -ReferenceDate ([datetime]'2026-08-04') -ImpactMetrics @{ PhoneBasedMethodUsers = 3 }
+
+        $result[0].NotApplicableReason | Should -Be $null
+        $result[0].UsersImpacted | Should -Be 3
+    }
 }

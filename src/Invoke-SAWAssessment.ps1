@@ -368,15 +368,26 @@ Write-Verbose 'Invoke-SAWAssessment: loading Microsoft rollout timeline'
 # caveat) - Graph's per-user isSsprRegistered doesn't distinguish an explicitly-registered
 # method from a directory-sourced one, so this is an upper bound, not an exact count.
 $phoneBasedMethodUsers = @($userRoster | Where-Object { $_.HasDowngradeRiskMethod }).Count
+$ssprEnabledUsersTotal = 0
 $ssprEnabledNotRegisteredUsers = 0
 foreach ($u in @($registrationRaw.value)) {
-    if ($u.isSsprEnabled -and -not $u.isSsprRegistered) { $ssprEnabledNotRegisteredUsers++ }
+    if ($u.isSsprEnabled) {
+        $ssprEnabledUsersTotal++
+        if (-not $u.isSsprRegistered) { $ssprEnabledNotRegisteredUsers++ }
+    }
 }
 $impactMetrics = @{
     PhoneBasedMethodUsers         = $phoneBasedMethodUsers
     SsprEnabledNotRegisteredUsers = $ssprEnabledNotRegisteredUsers
 }
-$timelineMilestones = Get-SAWTimelineMilestones -ImpactMetrics $impactMetrics -Verbose:$VerbosePreference
+# SSPR-enabled-for-nobody is a distinct state from "everyone who's enabled is already
+# registered" - both would otherwise show as "0 users impacted", which reads identically
+# whether it means "fully compliant" or "doesn't apply to this tenant at all".
+$notApplicableReasons = @{}
+if ($ssprEnabledUsersTotal -eq 0) {
+    $notApplicableReasons['SsprEnabledNotRegisteredUsers'] = "SSPR isn't enabled for any user in this tenant"
+}
+$timelineMilestones = Get-SAWTimelineMilestones -ImpactMetrics $impactMetrics -NotApplicableReasons $notApplicableReasons -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference

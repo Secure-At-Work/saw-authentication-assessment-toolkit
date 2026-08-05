@@ -647,8 +647,15 @@ $($phaseCardsHtml -join "`n")
             # with no ImpactMetric (no rule/data source exists yet, e.g. passwordless password
             # change) or no -ImpactMetrics supplied (e.g. -UseSampleData without registration
             # data) omits this line entirely rather than showing a fabricated "0 users impacted".
+            # NotApplicableReason is a distinct third state from both of those: the metric WAS
+            # computed, but the underlying feature doesn't apply to this tenant at all (e.g. SSPR
+            # isn't enabled for anyone) - "0 users impacted" would otherwise look identical to
+            # "fully compliant," which is a real difference worth keeping visible.
             $impactHtml = ''
-            if ($null -ne $m.UsersImpacted) {
+            if ($m.NotApplicableReason) {
+                $impactHtml = "<div class=""small fw-semibold mb-1 text-body-secondary"">Not applicable - $(ConvertTo-SAWHtmlEncoded $m.NotApplicableReason)</div>"
+            }
+            elseif ($null -ne $m.UsersImpacted) {
                 $impactLabel = if ($m.ImpactMetricLabel) { " ($(ConvertTo-SAWHtmlEncoded $m.ImpactMetricLabel))" } else { '' }
                 $impactHtml = "<div class=""small fw-semibold mb-1"">$($m.UsersImpacted) user(s) impacted$impactLabel</div>"
             }

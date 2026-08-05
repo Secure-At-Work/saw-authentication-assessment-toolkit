@@ -427,6 +427,36 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Not -Match 'user\(s\) impacted'
     }
 
+    It 'renders "Not applicable - <reason>" instead of a users-impacted count when NotApplicableReason is set' {
+        $path = Join-Path $TestDrive 'timeline-not-applicable\index.html'
+        $milestones = @(
+            @{ Date = '2026-09-07'; Title = 'SSPR Enforcement'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; DaysRemaining = 30; IsPast = $false; UsersImpacted = $null; ImpactMetricLabel = 'SSPR-enabled users not yet registered'; NotApplicableReason = "SSPR isn't enabled for any user in this tenant" }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TimelineMilestones $milestones -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        # The apostrophe is HTML-encoded (&#39;) by ConvertTo-SAWHtmlEncoded, so match around it
+        # rather than the raw string with a literal apostrophe.
+        $content | Should -Match 'Not applicable - SSPR isn&#39;t enabled for any user in this tenant'
+        # Must not also show a numeric impacted line for this card - N/A and a count are
+        # mutually exclusive, even though the underlying UsersImpacted here happens to be $null.
+        $content | Should -Not -Match 'user\(s\) impacted \(SSPR-enabled'
+    }
+
+    It 'prefers NotApplicableReason over a numeric UsersImpacted when (implausibly) both are set' {
+        $path = Join-Path $TestDrive 'timeline-na-precedence\index.html'
+        $milestones = @(
+            @{ Date = '2026-09-07'; Title = 'SSPR Enforcement'; Description = 'x'; RelatedRuleIDs = @(); SourceUrl = ''; DaysRemaining = 30; IsPast = $false; UsersImpacted = 5; ImpactMetricLabel = 'x'; NotApplicableReason = 'not applicable here' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -TimelineMilestones $milestones -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match 'Not applicable - not applicable here'
+        $content | Should -Not -Match '5 user\(s\) impacted'
+    }
+
     It 'renders "0 user(s) impacted" when UsersImpacted is exactly 0, not omitted like $null' {
         $path = Join-Path $TestDrive 'timeline-zero-impact\index.html'
         $milestones = @(
