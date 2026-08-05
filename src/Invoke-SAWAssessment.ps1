@@ -186,6 +186,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedRegistration.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWUserRegistrationRoster.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWMethodUsageRoster.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWPolicyDisabledMethodRoster.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeys.ps1')
@@ -286,6 +287,10 @@ Write-Verbose 'Invoke-SAWAssessment: collecting user registration details'
 $registrationRaw = Get-SAWRegistration -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $registrationRaw | ConvertTo-SAWNormalizedRegistration -Verbose:$VerbosePreference
 $userRoster = $registrationRaw | ConvertTo-SAWUserRegistrationRoster -Verbose:$VerbosePreference
+# Cross-references registered methods against the tenant policy already collected above (no
+# extra Graph call) - a registered method whose policy toggle is now Disabled cannot be used
+# to sign in anymore, a stronger and more deterministic signal than "not recently used".
+$userRoster = ConvertTo-SAWPolicyDisabledMethodRoster -Roster $userRoster -AuthenticationMethodsPolicy $authRaw -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: collecting temporary access pass configuration'
 $tapRaw = Get-SAWTemporaryAccessPass -UseSampleData:$UseSampleData -Verbose:$VerbosePreference

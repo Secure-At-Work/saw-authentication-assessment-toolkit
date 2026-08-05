@@ -70,6 +70,17 @@ tenant. Beyond the base 19 rules, the dashboard also has:
     so a WHfB-only user has no working phishing-resistant credential off that one device. A real
     gap for admin accounts especially, since many admins don't do routine interactive sign-in on
     a managed device with their admin account at all.
+  - **"Disabled by policy: \<method\>"** - stronger and more deterministic than "not recently
+    used" below: `ConvertTo-SAWPolicyDisabledMethodRoster.ps1` cross-references each registered
+    method against the tenant's own `authenticationMethodsPolicy` (already collected, no extra
+    Graph call) and flags any registered method whose tenant-wide toggle is currently Disabled -
+    that credential *cannot* be used to sign in anymore, not just "probably stale," so it's safe
+    to clean up. `mobilePhone`/`alternateMobilePhone` map to both SMS and Voice (flagged if
+    either is disabled, since registration data doesn't say which channel a user actually
+    relies on); `officePhone` maps to Voice only. Windows Hello for Business is never flagged -
+    there's no tenant-level toggle for it in `authenticationMethodsPolicy` at all (it's governed
+    by device/WHfB policy, a different API), so there's nothing to check it against; passkey
+    variants aren't mapped yet either, for the same "don't guess" reason.
   - **"Not recently used: \<method\>"** - registration alone only says a method is *registered*,
     not that it's actually usable. `ConvertTo-SAWMethodUsageRoster.ps1` cross-references
     registered methods against sign-in `authenticationDetails` over a wider window

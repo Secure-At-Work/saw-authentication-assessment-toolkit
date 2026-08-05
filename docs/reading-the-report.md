@@ -136,6 +136,14 @@ admins don't do routine interactive sign-in on a managed Windows device with the
 (PIM activation from elsewhere, a jump box, browser-only workflows), so WHfB alone may not
 actually be usable when it counts.
 
+A registered method may also carry a **"Disabled by policy"** badge - a stronger claim than "not
+recently used" below: the tenant's own authentication methods policy currently has that method
+type turned off entirely, so the registration structurally cannot be used to sign in anymore,
+not just "probably abandoned." Safe to clean up. Windows Hello for Business is never flagged
+here specifically because there's no tenant-level on/off toggle for it to check against (it's
+governed by a different, device-level policy) - its absence from this badge doesn't mean it's
+fine, just that this particular check can't see it.
+
 Finally, a registered method itself may carry a **"Not recently used"** badge. Being registered
 only means a method is available - it says nothing about whether anyone has actually used it.
 This badge means no successful sign-in in the last N days (shown in the section note, 90 by

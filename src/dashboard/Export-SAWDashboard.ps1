@@ -388,11 +388,15 @@ $($bodyRows -join "`n")
         if ($User.HasUnusedRegisteredMethod) {
             $unusedMethodsHtml = " <span class=""badge bg-danger"" title=""Registered, but not observed as used in any successful sign-in step in the analysis window. Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - worth checking rather than assuming either way. Only a well-established subset of method types is evaluated for this, see docs/reading-the-report.md."">Not recently used: $(ConvertTo-SAWHtmlEncoded $User.UnusedRegisteredMethods)</span>"
         }
+        $policyDisabledMethodsHtml = ''
+        if ($User.HasPolicyDisabledMethod) {
+            $policyDisabledMethodsHtml = " <span class=""badge bg-dark"" title=""Registered, but the tenant's authentication methods policy currently has this method type Disabled - this credential cannot be used to sign in anymore, not just unused. Safe to clean up. Windows Hello for Business and passkey variants aren't evaluated here (no tenant policy toggle exists for WHfB; passkey isn't mapped yet), see docs/reading-the-report.md."">Disabled by policy: $(ConvertTo-SAWHtmlEncoded $User.PolicyDisabledMethods)</span>"
+        }
         return @"
       <tr>
         <td>$(ConvertTo-SAWHtmlEncoded $User.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge</td>
         <td>$(ConvertTo-SAWHtmlEncoded $User.UserPrincipalName)</td>
-        <td>$(ConvertTo-SAWHtmlEncoded $User.MethodsRegistered)$unusedMethodsHtml</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $User.MethodsRegistered)$unusedMethodsHtml$policyDisabledMethodsHtml</td>
       </tr>
 "@
     }
@@ -468,6 +472,15 @@ $bucketRowsHtml
 "@
     }
 
+    $policyDisabledMethodCount = @($UserRoster | Where-Object { $_.HasPolicyDisabledMethod }).Count
+    $policyDisabledMethodNoteHtml = ''
+    if ($policyDisabledMethodCount -gt 0) {
+        $plural = if ($policyDisabledMethodCount -eq 1) { '' } else { 's' }
+        $policyDisabledMethodNoteHtml = @"
+  <p class="text-body-secondary small"><span class="badge bg-dark">Disabled by policy</span> ($policyDisabledMethodCount user$plural below) - a registered method whose tenant-wide authentication methods policy toggle is currently Disabled. Unlike "Not recently used" above, this isn't a proxy - the credential structurally cannot be used to sign in anymore, so it's safe to clean up. Windows Hello for Business and passkey variants aren't evaluated here (no tenant policy toggle exists for WHfB; passkey isn't mapped yet), see docs/reading-the-report.md.</p>
+"@
+    }
+
     $rosterSectionHtml = ''
     if ($UserRoster.Count -gt 0) {
         $rosterSectionHtml = @"
@@ -475,6 +488,7 @@ $bucketRowsHtml
 $externalMemberNoteHtml
 $whfbOnlyNoteHtml
 $unusedMethodNoteHtml
+$policyDisabledMethodNoteHtml
   <div class="row g-3 mb-3">
     <div class="col-sm-6 col-lg-3">
       <div class="card stat-card red h-100"><div class="card-body">

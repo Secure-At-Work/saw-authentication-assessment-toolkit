@@ -241,6 +241,34 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Not -Match 'WHfB-Only'
     }
 
+    It 'shows a "Disabled by policy" badge naming the specific method(s), plus an explanatory note' {
+        $rosterPath = Join-Path $TestDrive 'policydisabled\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'a.user@contoso.com'; DisplayName = 'A User'; IsAdmin = $false; IsGuest = $false; HasPolicyDisabledMethod = $true; PolicyDisabledMethods = 'mobilePhone'; Bucket = 'OK'; MethodsRegistered = 'fido2, mobilePhone' }
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; HasPolicyDisabledMethod = $false; PolicyDisabledMethods = ''; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Match '<span class="badge bg-dark" title="[^"]*">Disabled by policy: mobilePhone</span>'
+        $content | Should -Match 'fido2, mobilePhone.*Disabled by policy: mobilePhone'
+        $content | Should -Not -Match '<td>fido2</td>.*Disabled by policy'
+        $content | Should -Match '\(1 user below\)'
+    }
+
+    It 'omits the "Disabled by policy" note entirely when no user is flagged' {
+        $rosterPath = Join-Path $TestDrive 'nopolicydisabled\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; HasPolicyDisabledMethod = $false; PolicyDisabledMethods = ''; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Not -Match 'Disabled by policy'
+    }
+
     It 'shows a "Not recently used" badge naming the specific unused method(s), plus the configured lookback window in the note' {
         $rosterPath = Join-Path $TestDrive 'unusedmethod\index.html'
         $roster = @(
