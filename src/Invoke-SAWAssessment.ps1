@@ -377,11 +377,18 @@ $trend = Get-SAWHistoryTrend -HistoryPath $HistoryPath -TenantSlug $tenantSlug -
 Write-Verbose 'Invoke-SAWAssessment: loading Microsoft rollout timeline'
 # Reuses data already collected for the roster/registration checks above - no extra Graph
 # calls. PhoneBasedMethodUsers matches the roster's own downgrade-risk detection exactly
-# (mobilePhone/alternateMobilePhone/officePhone). SsprEnabledNotRegisteredUsers is a proxy for
+# (mobilePhone/alternateMobilePhone/officePhone) - "has a phone-based method registered at all",
+# the right population for the 2026-09-01 auto-enablement milestone (Microsoft's own criterion
+# there is "enabled for SMS or Voice", independent of what else is registered). SmsVoiceOnlyMfaUsers
+# is deliberately narrower - only users with NO other registered method - matching Microsoft's
+# distinct criterion for the 2027-02-01 mandatory, no-opt-out blocking prompt ("whose only
+# available MFA method is SMS or voice"), see IsSmsVoiceOnlyMfa in
+# ConvertTo-SAWUserRegistrationRoster.ps1. SsprEnabledNotRegisteredUsers is a proxy for
 # "relying on directory-sourced contact info" (see ImpactMetricLabel in the JSON for the
 # caveat) - Graph's per-user isSsprRegistered doesn't distinguish an explicitly-registered
 # method from a directory-sourced one, so this is an upper bound, not an exact count.
 $phoneBasedMethodUsers = @($userRoster | Where-Object { $_.HasDowngradeRiskMethod }).Count
+$smsVoiceOnlyMfaUsers = @($userRoster | Where-Object { $_.IsSmsVoiceOnlyMfa }).Count
 $ssprEnabledUsersTotal = 0
 $ssprEnabledNotRegisteredUsers = 0
 foreach ($u in @($registrationRaw.value)) {
@@ -392,6 +399,7 @@ foreach ($u in @($registrationRaw.value)) {
 }
 $impactMetrics = @{
     PhoneBasedMethodUsers         = $phoneBasedMethodUsers
+    SmsVoiceOnlyMfaUsers          = $smsVoiceOnlyMfaUsers
     SsprEnabledNotRegisteredUsers = $ssprEnabledNotRegisteredUsers
 }
 # SSPR-enabled-for-nobody is a distinct state from "everyone who's enabled is already

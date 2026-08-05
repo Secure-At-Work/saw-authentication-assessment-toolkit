@@ -13,11 +13,11 @@
         {
             "Date": "2026-09-01",
             "Title": "Automatic Passkey Enablement For SMS/Voice Users",
-            "Description": "Microsoft auto-enables passkeys for users currently enabled for SMS or Voice and flips the registration campaign to 'Microsoft managed' for them. See AUTH006 to check/opt out of this timing.",
+            "Description": "Microsoft auto-enables passkeys and flips the registration campaign to 'Microsoft managed' (targeting passkeys) for every user currently enabled for SMS or Voice in the authentication methods policy - based on policy scope, not on what else they have registered. A user who already has a passkey/WHfB/other phishing-resistant method registered is not exempt from this: Microsoft's own docs note such users 'may still receive prompts to register passkeys on eligible devices' (the per-device/browser nudge-suppression logic only skips devices where a qualifying local passkey is already present). Not blocking, and AUTH006's opt-out (passkeyDynamicMigration) defers it. See AUTH006.",
             "RelatedRuleIDs": ["AUTH006", "AUTH002", "AUTH003"],
             "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement",
             "ImpactMetric": "PhoneBasedMethodUsers",
-            "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered"
+            "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered (upper-bound proxy for tenant-wide policy scope - Graph doesn't expose per-user AMP-scope evaluation directly, only what's registered)"
         },
         {
             "Date": "2026-09-07",
@@ -45,11 +45,11 @@
         {
             "Date": "2027-02-01",
             "Title": "Microsoft-Provided SMS/Voice Retirement (No Opt-Out)",
-            "Description": "Microsoft-provided SMS and voice delivery retires outright. There is no opt-out for this date - AUTH006's opt-out only defers the 2026-09-01 automatic enablement above, not this one. Users whose only MFA method is SMS/Voice will be blocked with a mandatory passkey registration prompt.",
+            "Description": "Microsoft-provided SMS and voice delivery retires outright. There is no opt-out for this date - AUTH006's opt-out only defers the 2026-09-01 automatic enablement above, not this one. Narrower criterion than that milestone: only users whose ONLY available MFA method is SMS/Voice (no Authenticator, no passkey, nothing else registered) will be blocked with a mandatory passkey registration prompt - a user who also has another method registered is unaffected by this specific date, even though they'd still count toward the 2026-09-01 impact number above.",
             "RelatedRuleIDs": ["AUTH002", "AUTH003", "AUTH006"],
             "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement",
-            "ImpactMetric": "PhoneBasedMethodUsers",
-            "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered"
+            "ImpactMetric": "SmsVoiceOnlyMfaUsers",
+            "ImpactMetricLabel": "users whose only registered MFA method is SMS/Voice (no other method, phishing-resistant or otherwise)"
         }
     ]
 }

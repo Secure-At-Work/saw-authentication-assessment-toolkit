@@ -73,12 +73,28 @@ function ConvertTo-SAWUserRegistrationRoster {
         this is a flag layered on top of the existing bucket, not a bucket override: WHfB is
         still a legitimate phishing-resistant method for the OK/Hunt/Remove bucketing itself,
         this just surfaces the portability gap separately.
+
+        SMS/Voice-only detection: distinct from - and narrower than - HasDowngradeRiskMethod
+        above. HasDowngradeRiskMethod fires whenever a phone-based method is registered AT ALL,
+        even alongside a stronger method (that's the Remove bucket's whole point). IsSmsVoiceOnlyMfa
+        fires only when a phone-based method (mobilePhone/alternateMobilePhone/officePhone) is
+        the user's ONLY registered method - nothing else, not even a weaker non-phishing-resistant
+        one like Authenticator OTP. This matches Microsoft's own criterion for the 2027-02-01
+        SMS/Voice retirement's mandatory, no-opt-out blocking passkey prompt: "users whose only
+        available MFA method is SMS or voice will be required to register a passkey during
+        sign-in to continue accessing their account" - confirmed against
+        https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement.
+        A user with SMS AND Authenticator registered is unaffected by that specific Feb 2027
+        requirement even though HasDowngradeRiskMethod is also true for them - this flag is what
+        distinguishes the two. A user with zero registered methods at all is not flagged here
+        either (methods.Count must be greater than zero) - that's a distinct, worse problem
+        (no MFA registered at all, see REG001/REG002), not "still relying on SMS/Voice".
     .PARAMETER RawResponse
         The object returned by Get-SAWRegistration (has a .value array of user records).
     .OUTPUTS
         Hashtable[] - one per user, with UserPrincipalName, DisplayName, IsAdmin, IsGuest,
         IsPossibleExternalMember, IsWhfbOnly, Bucket, HasPhishingResistantMethod,
-        HasDowngradeRiskMethod, MethodsRegistered.
+        HasDowngradeRiskMethod, IsSmsVoiceOnlyMfa, MethodsRegistered.
     #>
     [CmdletBinding()]
     param(
@@ -134,6 +150,17 @@ function ConvertTo-SAWUserRegistrationRoster {
                 }
             }
 
+            $isSmsVoiceOnlyMfa = $false
+            if ($methods.Count -gt 0) {
+                $isSmsVoiceOnlyMfa = $true
+                foreach ($method in $methods) {
+                    if ($downgradeRiskMethods -notcontains $method) {
+                        $isSmsVoiceOnlyMfa = $false
+                        break
+                    }
+                }
+            }
+
             if ($hasPhishingResistant -and $hasDowngradeRisk) {
                 $bucket = 'Remove'
             }
@@ -157,6 +184,7 @@ function ConvertTo-SAWUserRegistrationRoster {
                 Bucket                     = $bucket
                 HasPhishingResistantMethod = $hasPhishingResistant
                 HasDowngradeRiskMethod     = $hasDowngradeRisk
+                IsSmsVoiceOnlyMfa          = $isSmsVoiceOnlyMfa
                 MethodsRegistered          = ($methods -join ', ')
             }
         }

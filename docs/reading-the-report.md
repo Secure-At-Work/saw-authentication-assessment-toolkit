@@ -59,11 +59,22 @@ below. Each card shows:
 
 - A live **"N days left"** countdown, color-coded by urgency (red inside 14 days, yellow inside
   45, grey once the date has passed).
-- Where computable, **"N user(s) impacted"** - e.g. how many users currently have a phone-based
-  method registered and will be affected by the SMS/Voice changes, or how many SSPR-enabled
-  users aren't SSPR-registered yet. The label under the number always states exactly what's
-  being counted, since some of these are necessarily proxies (Graph doesn't expose every
-  distinction the deadline itself cares about) - read the label, not just the number.
+- Where computable, **"N user(s) impacted"**. The label under the number always states exactly
+  what's being counted, since some of these are necessarily proxies (Graph doesn't expose every
+  distinction the deadline itself cares about) - read the label, not just the number. The two
+  SMS/Voice-related dates deliberately use two *different* counts, because Microsoft's own
+  eligibility criteria for them are different:
+  - **2026-09-01** (auto-enablement, not blocking) counts everyone with a phone-based method
+    (SMS/Voice) currently **registered at all** - even someone who already has a passkey too.
+    Microsoft's own docs confirm a user with a stronger method isn't automatically exempt from
+    this date: they can still be nudged on a device/browser where they don't yet have a local
+    passkey.
+  - **2027-02-01** (mandatory, blocking, no opt-out) counts only users whose phone-based method
+    is their **only** registered MFA method - nobody else. This is a narrower, usually smaller
+    number than the one above, and it's the one that actually matters for "who gets fully
+    blocked on this date." If the two numbers ever come out equal, that's worth a second look -
+    either every phone-based user genuinely has nothing else registered, or something's off.
+  - Or, for the SSPR-related deadlines, how many SSPR-enabled users aren't SSPR-registered yet.
 - For the SSPR-related deadlines specifically, a card can instead say **"Not applicable"** - this
   means no user in the tenant has SSPR enabled at all, so those deadlines genuinely don't apply
   here. Shown deliberately differently from "0 users impacted," which would otherwise look the
@@ -168,6 +179,16 @@ no working phishing-resistant credential at all. This matters most for admin acc
 admins don't do routine interactive sign-in on a managed Windows device with their admin account
 (PIM activation from elsewhere, a jump box, browser-only workflows), so WHfB alone may not
 actually be usable when it counts.
+
+A user may also carry a **"SMS/Voice-Only MFA"** badge - always inside the Hunt bucket, since
+having a phishing-resistant method already would put them in OK or Remove instead. This badge is
+narrower than it might look: it only appears when SMS/Voice is the user's **only** registered
+MFA method, nothing else at all. It's the precise population Microsoft's 2027-02-01 SMS/Voice
+retirement blocks with a mandatory, no-opt-out passkey registration prompt (see Upcoming
+Microsoft Deadlines above) - a user with SMS registered alongside, say, Authenticator push is
+not in this population, even though they'd still count toward the broader 2026-09-01 milestone's
+impact number. Highest-priority group to reach out to before that date, since they have no
+fallback at all once it lands.
 
 A registered method may also carry a **"Disabled by policy"** badge - a stronger claim than "not
 recently used" below: the tenant's own authentication methods policy currently has that method

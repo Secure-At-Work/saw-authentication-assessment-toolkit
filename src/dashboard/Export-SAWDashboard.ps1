@@ -405,6 +405,10 @@ $($bodyRows -join "`n")
         if ($User.IsWhfbOnly) {
             $whfbOnlyBadge = ' <span class="badge bg-warning text-dark" title="Windows Hello for Business is bound to the specific device it was set up on - it cannot be carried to a different machine like a FIDO2 key or passkey can. This user''s only phishing-resistant method is WHfB, so they have no working phishing-resistant credential off that one device. Especially worth checking for admin accounts that don''t do routine interactive sign-in on a managed device.">WHfB-Only (Not Portable)</span>'
         }
+        $smsVoiceOnlyBadge = ''
+        if ($User.IsSmsVoiceOnlyMfa) {
+            $smsVoiceOnlyBadge = ' <span class="badge bg-danger" title="SMS/Voice is this user''s ONLY registered MFA method - nothing else at all. This is exactly the population Microsoft''s 2027-02-01 SMS/Voice retirement blocks with a mandatory, no-opt-out passkey registration prompt (see Upcoming Microsoft Deadlines). Narrower than the general phone-based-fallback badge below: a user with SMS AND another method is not in this population.">SMS/Voice-Only MFA</span>'
+        }
         $unusedMethodsHtml = ''
         if ($User.HasUnusedRegisteredMethod) {
             $unusedMethodsHtml = " <span class=""badge bg-danger"" title=""Registered, but not observed as used in any successful sign-in step in the analysis window. Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - worth checking rather than assuming either way. Only a well-established subset of method types is evaluated for this, see docs/reading-the-report.md."">Not recently used: $(ConvertTo-SAWHtmlEncoded $User.UnusedRegisteredMethods)</span>"
@@ -415,7 +419,7 @@ $($bodyRows -join "`n")
         }
         return @"
       <tr>
-        <td>$(ConvertTo-SAWHtmlEncoded $User.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $User.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge$smsVoiceOnlyBadge</td>
         <td>$(ConvertTo-SAWHtmlEncoded $User.UserPrincipalName)</td>
         <td>$(ConvertTo-SAWHtmlEncoded $User.MethodsRegistered)$unusedMethodsHtml$policyDisabledMethodsHtml</td>
       </tr>
@@ -484,6 +488,15 @@ $bucketRowsHtml
 "@
     }
 
+    $smsVoiceOnlyCount = @($UserRoster | Where-Object { $_.IsSmsVoiceOnlyMfa }).Count
+    $smsVoiceOnlyNoteHtml = ''
+    if ($smsVoiceOnlyCount -gt 0) {
+        $plural = if ($smsVoiceOnlyCount -eq 1) { '' } else { 's' }
+        $smsVoiceOnlyNoteHtml = @"
+  <p class="text-body-secondary small"><span class="badge bg-danger">SMS/Voice-Only MFA</span> ($smsVoiceOnlyCount user$plural below) - SMS/Voice is this user's ONLY registered MFA method, nothing else. This is exactly the population Microsoft's 2027-02-01 SMS/Voice retirement blocks with a mandatory, no-opt-out passkey registration prompt (see Upcoming Microsoft Deadlines) - narrower than the general phone-based-fallback case, since a user with SMS plus another method is unaffected by that specific date.</p>
+"@
+    }
+
     $unusedMethodCount = @($UserRoster | Where-Object { $_.HasUnusedRegisteredMethod }).Count
     $unusedMethodNoteHtml = ''
     if ($unusedMethodCount -gt 0) {
@@ -508,6 +521,7 @@ $bucketRowsHtml
   <h2 class="h4 mb-3">Security Info Registration - User Triage</h2>
 $externalMemberNoteHtml
 $whfbOnlyNoteHtml
+$smsVoiceOnlyNoteHtml
 $unusedMethodNoteHtml
 $policyDisabledMethodNoteHtml
   <div class="row g-3 mb-3">

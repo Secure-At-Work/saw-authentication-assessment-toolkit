@@ -369,6 +369,58 @@ Describe 'ConvertTo-SAWUserRegistrationRoster' {
         }
     }
 
+    Context 'SMS/Voice-only MFA detection (2027-02-01 milestone population)' {
+        It 'flags a user whose only registered method is mobilePhone' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('mobilePhone'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsSmsVoiceOnlyMfa | Should -BeTrue
+        }
+
+        It 'flags a user whose only registered method is officePhone' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('officePhone'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsSmsVoiceOnlyMfa | Should -BeTrue
+        }
+
+        It 'does not flag a user with mobilePhone AND a stronger method registered - narrower than HasDowngradeRiskMethod' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('mobilePhone', 'microsoftAuthenticatorPush'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsSmsVoiceOnlyMfa | Should -BeFalse
+            $result.HasDowngradeRiskMethod | Should -BeTrue
+        }
+
+        It 'does not flag a user with mobilePhone AND a phishing-resistant method registered (Remove bucket)' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('mobilePhone', 'fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsSmsVoiceOnlyMfa | Should -BeFalse
+            $result.Bucket | Should -Be 'Remove'
+        }
+
+        It 'does not flag a user with no methods registered at all - distinct from "relies on SMS/Voice"' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @())) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsSmsVoiceOnlyMfa | Should -BeFalse
+        }
+
+        It 'does not flag a user with only a non-phone, non-phishing-resistant method' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('microsoftAuthenticatorPush'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsSmsVoiceOnlyMfa | Should -BeFalse
+        }
+    }
+
     It 'sorts Remove > Hunt > Guest (FIDO2 Not Supported) > OK, admins first within each bucket' {
         $raw = @{
             value = @(

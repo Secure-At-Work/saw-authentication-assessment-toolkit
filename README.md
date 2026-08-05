@@ -234,11 +234,21 @@ tagged either safe to work on now or `Blocked - waiting on <RuleID>`.
 ## Passkey rollout and lockout-risk checks
 
 Microsoft is retiring its own SMS/Voice authentication delivery on a fixed timeline
-([Microsoft Learn](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement)):
-starting **2026-09-01**, Microsoft automatically enables passkeys for users currently enabled
-for SMS or Voice and moves the registration campaign to "Microsoft managed"; on **2027-02-01**,
-Microsoft-provided SMS/Voice delivery retires outright, with **no opt-out at all** for that
-date.
+([Microsoft Learn](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement)),
+and the two dates use **different eligibility criteria** worth not conflating:
+
+- **2026-09-01** - Microsoft auto-enables passkeys and flips the registration campaign to
+  "Microsoft managed" (targeting passkeys) for every user currently *enabled for SMS or Voice in
+  the authentication methods policy* - policy scope, not registration state. A user who already
+  has a passkey/WHfB/other phishing-resistant method registered is not automatically exempt:
+  Microsoft's own docs note such users "may still receive prompts to register passkeys on
+  eligible devices" (the nudge is only suppressed per-device/browser where a qualifying local
+  passkey is already present, not tenant-wide). Not blocking; AUTH006's opt-out defers it.
+- **2027-02-01** - Microsoft-provided SMS/Voice delivery retires outright, with **no opt-out at
+  all**. This date's population is narrower and different: only users whose **only** available
+  MFA method is SMS/Voice (nothing else registered at all) get a mandatory, blocking passkey
+  registration prompt. A user with SMS *and* Authenticator registered is unaffected by this
+  specific date, even though they're still in scope for the broader 2026-09-01 rollout above.
 
 - **AUTH006 - Passkey Dynamic Migration Not Opted Out.** The only tenant-level control over
   the *timing* of the first date is `authenticationMethodsPolicy.optOutSettings.
@@ -278,11 +288,20 @@ just does the date math. Not every entry is checkable yet: the Message Center it
 won't exist until release, so it's tracked here for awareness only, with no corresponding rule.
 
 Where a milestone maps to a real population in this tenant, its card also shows **"N user(s)
-impacted"** - e.g. how many users still have a phone-based method registered (relevant to both
-the 2026-09-01 automatic passkey enablement and the 2027-02-01 SMS/Voice retirement), or how
-many SSPR-enabled users aren't yet SSPR-registered (a proxy for "relying on directory-sourced
-contact info," since Graph doesn't expose whether a registered method was explicit or
-directory-sourced - the card's own label always states exactly what's being counted). This
+impacted"**, and the two SMS/Voice dates deliberately use two different, separately-computed
+metrics matching their different eligibility criteria above: `PhoneBasedMethodUsers` for
+2026-09-01 (`HasDowngradeRiskMethod` in the roster - anyone with a phone-based method registered
+at all, an upper-bound proxy for policy scope), and the narrower `SmsVoiceOnlyMfaUsers` for
+2027-02-01 (`IsSmsVoiceOnlyMfa` in the roster - only users with *no other* method registered).
+These two numbers are expected to differ, and usually will (the first is always >= the second) -
+seeing them the same is a red flag that either everyone truly is SMS/Voice-only, or something's
+off with registration data. Affected users also get a dedicated **"SMS/Voice-Only MFA"** badge
+in the Security Info Registration Triage table below, distinct from the general phone-fallback
+case already covered by the Remove bucket. The same "N user(s) impacted" treatment applies to
+the SSPR deadlines too, showing how many SSPR-enabled users aren't yet SSPR-registered (a proxy
+for "relying on directory-sourced contact info," since Graph doesn't expose whether a registered
+method was explicit or directory-sourced) - the card's own label always states exactly what's
+being counted. This
 reuses data already collected for the registration/roster checks - no extra Graph calls. A
 milestone with no matching data source (like the passwordless password change entry above)
 simply omits the line rather than showing a fabricated "0 users impacted".
