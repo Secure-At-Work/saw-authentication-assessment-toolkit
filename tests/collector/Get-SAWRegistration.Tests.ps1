@@ -334,6 +334,41 @@ Describe 'ConvertTo-SAWUserRegistrationRoster' {
         }
     }
 
+    Context 'WHfB-only (not portable) detection' {
+        It 'flags a user whose only phishing-resistant method is Windows Hello for Business' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('windowsHelloForBusiness'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsWhfbOnly | Should -BeTrue
+            $result.Bucket | Should -Be 'OK'
+        }
+
+        It 'does not flag a user who has WHfB alongside a portable method (FIDO2)' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('windowsHelloForBusiness', 'fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsWhfbOnly | Should -BeFalse
+        }
+
+        It 'does not flag a user with only a portable phishing-resistant method (no WHfB at all)' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsWhfbOnly | Should -BeFalse
+        }
+
+        It 'does not flag a user with no phishing-resistant method at all' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('microsoftAuthenticatorPush'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsWhfbOnly | Should -BeFalse
+        }
+    }
+
     It 'sorts Remove > Hunt > Guest (FIDO2 Not Supported) > OK, admins first within each bucket' {
         $raw = @{
             value = @(

@@ -119,6 +119,16 @@ provisioned as Member via cross-tenant synchronization. Either way it's still an
 sourced identity, just not one the Guest bucket above catches. It's a heuristic based on the
 UPN's shape, not a confirmed fact - worth a quick check with the customer if it shows up.
 
+A user may also carry a **"WHfB-Only (Not Portable)"** badge. Windows Hello for Business is
+bound to the specific Windows device it was set up on - unlike a FIDO2 security key or a
+passkey, it can't be carried to a different machine. A user flagged here has a phishing-
+resistant method registered (so they still land in OK/Remove normally, same as anyone else with
+one), but WHfB is the *only* kind they have - meaning off that one device, they effectively have
+no working phishing-resistant credential at all. This matters most for admin accounts: many
+admins don't do routine interactive sign-in on a managed Windows device with their admin account
+(PIM activation from elsewhere, a jump box, browser-only workflows), so WHfB alone may not
+actually be usable when it counts.
+
 ### 8. Flat findings table
 
 Every individual check, its result, and its severity - the same data as the flat report, kept

@@ -150,6 +150,34 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Not -Match 'Possible External Member'
     }
 
+    It 'shows a "WHfB-Only (Not Portable)" badge and explanatory note for a flagged user' {
+        $rosterPath = Join-Path $TestDrive 'whfbonly\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'henry.admin@contoso.com'; DisplayName = 'Henry Admin'; IsAdmin = $true; IsGuest = $false; IsWhfbOnly = $true; Bucket = 'OK'; MethodsRegistered = 'windowsHelloForBusiness' }
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; IsWhfbOnly = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Match '<span class="badge bg-warning text-dark" title="[^"]*">WHfB-Only \(Not Portable\)</span>'
+        $content | Should -Match 'Henry Admin.*WHfB-Only \(Not Portable\)'
+        $content | Should -Not -Match 'Ok User.*WHfB-Only'
+        $content | Should -Match '\(1 user below\)'
+    }
+
+    It 'omits the "WHfB-Only" note entirely when no user is flagged' {
+        $rosterPath = Join-Path $TestDrive 'nowhfbonly\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; IsWhfbOnly = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Not -Match 'WHfB-Only'
+    }
+
     It 'defaults the baseline label to "no customer-specific baseline" when -BaselineName is not supplied' {
         $script:DashboardContent | Should -Match 'no customer-specific baseline applied'
     }

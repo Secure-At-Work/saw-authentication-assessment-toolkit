@@ -370,10 +370,14 @@ $($bodyRows -join "`n")
         if ($u.IsPossibleExternalMember) {
             $externalMemberBadge = ' <span class="badge bg-info text-dark" title="UPN contains &quot;#EXT#&quot; (Microsoft''s auto-generated shape for a B2B guest invitation) but userType is Member, not Guest - likely a guest converted to Member, or provisioned as Member via cross-tenant sync. Still externally-sourced; not authoritative, see docs/reading-the-report.md.">Possible External Member</span>'
         }
+        $whfbOnlyBadge = ''
+        if ($u.IsWhfbOnly) {
+            $whfbOnlyBadge = ' <span class="badge bg-warning text-dark" title="Windows Hello for Business is bound to the specific device it was set up on - it cannot be carried to a different machine like a FIDO2 key or passkey can. This user''s only phishing-resistant method is WHfB, so they have no working phishing-resistant credential off that one device. Especially worth checking for admin accounts that don''t do routine interactive sign-in on a managed device.">WHfB-Only (Not Portable)</span>'
+        }
         @"
       <tr>
         <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $u.Bucket)</span></td>
-        <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge$externalMemberBadge</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge</td>
         <td>$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
         <td>$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)</td>
       </tr>
@@ -389,11 +393,21 @@ $($bodyRows -join "`n")
 "@
     }
 
+    $whfbOnlyCount = @($UserRoster | Where-Object { $_.IsWhfbOnly }).Count
+    $whfbOnlyNoteHtml = ''
+    if ($whfbOnlyCount -gt 0) {
+        $plural = if ($whfbOnlyCount -eq 1) { '' } else { 's' }
+        $whfbOnlyNoteHtml = @"
+  <p class="text-body-secondary small"><span class="badge bg-warning text-dark">WHfB-Only (Not Portable)</span> ($whfbOnlyCount user$plural below) - Windows Hello for Business is bound to the device it was set up on, unlike a FIDO2 key or passkey. Relying on WHfB alone is a real gap for admin accounts especially, since many admins don't do routine interactive sign-in on a managed device with their admin account at all - worth confirming these users actually have a working phishing-resistant option off their primary device.</p>
+"@
+    }
+
     $rosterSectionHtml = ''
     if ($UserRoster.Count -gt 0) {
         $rosterSectionHtml = @"
   <h2 class="h4 mb-3">Security Info Registration - User Triage</h2>
 $externalMemberNoteHtml
+$whfbOnlyNoteHtml
   <div class="row g-3 mb-3">
     <div class="col-sm-6 col-lg-3">
       <div class="card stat-card red h-100"><div class="card-body">

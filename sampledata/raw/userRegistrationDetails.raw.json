@@ -135,6 +135,21 @@
       "isPasswordlessCapable": false,
       "methodsRegistered": ["microsoftAuthenticatorPush"],
       "systemPreferredAuthenticationMethod": "microsoftAuthenticatorPush"
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000010",
+      "userPrincipalName": "henry.admin@contoso.com",
+      "userDisplayName": "Henry Admin",
+      "userType": "member",
+      "isAdmin": true,
+      "isSsprRegistered": true,
+      "isSsprEnabled": true,
+      "isSsprCapable": true,
+      "isMfaRegistered": true,
+      "isMfaCapable": true,
+      "isPasswordlessCapable": true,
+      "methodsRegistered": ["windowsHelloForBusiness"],
+      "systemPreferredAuthenticationMethod": "windowsHelloForBusiness"
     }
   ]
 }

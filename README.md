@@ -51,15 +51,22 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   grant controls in plain language - independent of the pass/fail CA checks)
 - A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
   who needs nudging toward a phishing-resistant method, and who has a phone-based fallback
-  method that should be removed to close off a downgrade-attack path), plus a **"Possible
-  External Member"** badge for any user whose UPN has the `#EXT#` shape Microsoft
-  auto-generates for B2B guest invitations but whose `userType` is Member, not Guest - likely a
-  guest that was converted to Member, or provisioned as Member via cross-tenant sync. Still
-  externally-sourced either way; flagged rather than silently indistinguishable from a genuine
-  internal member. A UPN-shape heuristic, not authoritative - `userRegistrationDetails` has no
-  stronger signal to confirm it, and it deliberately doesn't change the user's bucket (whether
-  Microsoft's guest FIDO2 restriction still applies after a userType conversion isn't something
-  this toolkit can determine from Graph data alone) - worth verifying with the customer.
+  method that should be removed to close off a downgrade-attack path), plus two badges layered
+  on top of (not overriding) that bucketing:
+  - **"Possible External Member"** for any user whose UPN has the `#EXT#` shape Microsoft
+    auto-generates for B2B guest invitations but whose `userType` is Member, not Guest - likely a
+    guest that was converted to Member, or provisioned as Member via cross-tenant sync. Still
+    externally-sourced either way; flagged rather than silently indistinguishable from a genuine
+    internal member. A UPN-shape heuristic, not authoritative - `userRegistrationDetails` has no
+    stronger signal to confirm it, and it deliberately doesn't change the user's bucket (whether
+    Microsoft's guest FIDO2 restriction still applies after a userType conversion isn't something
+    this toolkit can determine from Graph data alone) - worth verifying with the customer.
+  - **"WHfB-Only (Not Portable)"** for any user whose only phishing-resistant method is Windows
+    Hello for Business, with no FIDO2 key or passkey alongside it. WHfB is bound to the specific
+    device it was set up on - unlike FIDO2/passkeys, it can't be carried to a different machine,
+    so a WHfB-only user has no working phishing-resistant credential off that one device. A real
+    gap for admin accounts especially, since many admins don't do routine interactive sign-in on
+    a managed device with their admin account at all.
 - SSPR registration coverage, the authentication methods registration campaign's state/target,
   and a composite "phishing-resistant registration bootstrap available" check (self-service
   FIDO2 or TAP)

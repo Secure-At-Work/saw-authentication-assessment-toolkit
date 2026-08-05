@@ -59,12 +59,26 @@ function ConvertTo-SAWUserRegistrationRoster {
         conversion isn't something this toolkit can determine from Graph data alone, so the
         normal bucket (based on their actual registered methods) still applies; this is an
         additional flag layered on top, not a bucket override.
+
+        WHfB-only detection: Windows Hello for Business is bound to the specific device it was
+        set up on - unlike FIDO2 security keys or passkeys, it cannot be carried to a different
+        machine. A user whose only phishing-resistant method is WHfB effectively has no working
+        phishing-resistant credential the moment they're not on that one device - a real risk
+        for admin accounts specifically, since many admins don't do routine interactive sign-in
+        on a managed Windows device with their admin account at all (PIM activation from a
+        different context, a jump box, browser-only workflows). IsWhfbOnly flags any user (not
+        just admins - the mechanism isn't admin-specific, though the operational impact usually
+        is) who has a phishing-resistant method but WHfB is the only kind of phishing-resistant
+        method present - i.e. no FIDO2/passkey alongside it. Same as IsPossibleExternalMember,
+        this is a flag layered on top of the existing bucket, not a bucket override: WHfB is
+        still a legitimate phishing-resistant method for the OK/Hunt/Remove bucketing itself,
+        this just surfaces the portability gap separately.
     .PARAMETER RawResponse
         The object returned by Get-SAWRegistration (has a .value array of user records).
     .OUTPUTS
         Hashtable[] - one per user, with UserPrincipalName, DisplayName, IsAdmin, IsGuest,
-        IsPossibleExternalMember, Bucket, HasPhishingResistantMethod, HasDowngradeRiskMethod,
-        MethodsRegistered.
+        IsPossibleExternalMember, IsWhfbOnly, Bucket, HasPhishingResistantMethod,
+        HasDowngradeRiskMethod, MethodsRegistered.
     #>
     [CmdletBinding()]
     param(
@@ -73,13 +87,13 @@ function ConvertTo-SAWUserRegistrationRoster {
     )
 
     begin {
-        $phishingResistantMethods = @(
+        $portablePhishingResistantMethods = @(
             'fido2',
             'passKeyDeviceBound',
             'passKeyDeviceBoundAuthenticator',
-            'passKeyDeviceBoundWindowsHello',
-            'windowsHelloForBusiness'
+            'passKeyDeviceBoundWindowsHello'
         )
+        $phishingResistantMethods = $portablePhishingResistantMethods + @('windowsHelloForBusiness')
         $downgradeRiskMethods = @('mobilePhone', 'alternateMobilePhone', 'officePhone')
 
         $roster = @()
@@ -102,6 +116,15 @@ function ConvertTo-SAWUserRegistrationRoster {
                     break
                 }
             }
+
+            $hasPortablePhishingResistant = $false
+            foreach ($method in $methods) {
+                if ($portablePhishingResistantMethods -contains $method) {
+                    $hasPortablePhishingResistant = $true
+                    break
+                }
+            }
+            $isWhfbOnly = $hasPhishingResistant -and (-not $hasPortablePhishingResistant)
 
             $hasDowngradeRisk = $false
             foreach ($method in $methods) {
@@ -130,6 +153,7 @@ function ConvertTo-SAWUserRegistrationRoster {
                 IsAdmin                    = [bool]$user.isAdmin
                 IsGuest                    = $isGuest
                 IsPossibleExternalMember   = $isPossibleExternalMember
+                IsWhfbOnly                 = $isWhfbOnly
                 Bucket                     = $bucket
                 HasPhishingResistantMethod = $hasPhishingResistant
                 HasDowngradeRiskMethod     = $hasDowngradeRisk
