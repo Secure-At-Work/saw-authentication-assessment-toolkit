@@ -299,6 +299,41 @@ Describe 'ConvertTo-SAWUserRegistrationRoster' {
         }
     }
 
+    Context 'possible external member detection' {
+        It 'flags a member user whose UPN has the #EXT# shape as a possible external member' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'member' -UserPrincipalName 'former.guest_partner.com#EXT#@contoso.onmicrosoft.com' -MethodsRegistered @('fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsPossibleExternalMember | Should -BeTrue
+        }
+
+        It 'does not flag a genuine guest (userType guest) even with the #EXT# UPN shape - IsGuest already covers that case' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'guest' -UserPrincipalName 'guest.partner_fabrikam.com#EXT#@contoso.onmicrosoft.com' -MethodsRegistered @('fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsPossibleExternalMember | Should -BeFalse
+        }
+
+        It 'does not flag an ordinary internal member UPN' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'member' -UserPrincipalName 'alice@contoso.com' -MethodsRegistered @('fido2'))) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.IsPossibleExternalMember | Should -BeFalse
+        }
+
+        It 'does not move a possible external member out of their normal bucket (heuristic flag only, not a bucket override)' {
+            $raw = @{ value = @((New-SAWTestUser -UserType 'member' -UserPrincipalName 'former.guest_partner.com#EXT#@contoso.onmicrosoft.com' -MethodsRegistered @())) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.Bucket | Should -Be 'Hunt'
+            $result.IsPossibleExternalMember | Should -BeTrue
+        }
+    }
+
     It 'sorts Remove > Hunt > Guest (FIDO2 Not Supported) > OK, admins first within each bucket' {
         $raw = @{
             value = @(

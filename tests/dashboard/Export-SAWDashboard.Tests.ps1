@@ -120,6 +120,36 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '<span class="badge bg-secondary">Guest \(FIDO2 Not Supported\)</span>'
     }
 
+    It 'shows a "Possible External Member" badge and explanatory note for a flagged user' {
+        $rosterPath = Join-Path $TestDrive 'externalmember\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'former.guest_partner.com#EXT#@contoso.onmicrosoft.com'; DisplayName = 'Former Guest'; IsAdmin = $false; IsGuest = $false; IsPossibleExternalMember = $true; Bucket = 'Hunt'; MethodsRegistered = '' }
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; IsPossibleExternalMember = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Match '<span class="badge bg-info text-dark" title="[^"]*">Possible External Member</span>'
+        $content | Should -Match 'Former Guest.*Possible External Member'
+        # The unflagged user's row should not carry the badge.
+        $content | Should -Not -Match 'Ok User.*Possible External Member'
+        # Section-level explanatory note, singular count wording.
+        $content | Should -Match '\(1 user below\)'
+    }
+
+    It 'omits the "Possible External Member" note entirely when no user is flagged' {
+        $rosterPath = Join-Path $TestDrive 'noexternalmember\index.html'
+        $roster = @(
+            @{ UserPrincipalName = 'ok.user@contoso.com'; DisplayName = 'Ok User'; IsAdmin = $false; IsGuest = $false; IsPossibleExternalMember = $false; Bucket = 'OK'; MethodsRegistered = 'fido2' }
+        )
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -UserRoster $roster -OutputPath $rosterPath | Out-Null
+        $content = Get-Content -Path $rosterPath -Raw
+
+        $content | Should -Not -Match 'Possible External Member'
+    }
+
     It 'defaults the baseline label to "no customer-specific baseline" when -BaselineName is not supplied' {
         $script:DashboardContent | Should -Match 'no customer-specific baseline applied'
     }

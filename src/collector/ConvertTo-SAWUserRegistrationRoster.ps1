@@ -42,11 +42,29 @@ function ConvertTo-SAWUserRegistrationRoster {
         Buckets sort Remove > Hunt > Guest (FIDO2 Not Supported) > OK, admins first within
         each bucket, since admin accounts are the highest-priority targets for both
         registration campaigns and downgrade-risk cleanup.
+
+        Possible external member detection: a UPN containing "#EXT#" (e.g.
+        guest.partner_fabrikam.com#EXT#@contoso.onmicrosoft.com) is Microsoft's own
+        auto-generated shape for a B2B guest invitation - no other flow produces it. If such a
+        UPN shows up with userType = member rather than guest, that's a strong signal the
+        account was originally a guest and either got converted to Member by an admin (a real,
+        if unusual, supported action), or was provisioned as Member by cross-tenant
+        synchronization (B2B Direct Connect) rather than as a guest. Either way it's still an
+        externally-sourced identity - IsPossibleExternalMember flags this so it's visible rather
+        than silently indistinguishable from a genuine internal member. This is a UPN-shape
+        heuristic, not authoritative: Get-SAWRegistration's userRegistrationDetails source has no
+        other field (no creationType, identities, or cross-tenant signal) to confirm it outright.
+        Deliberately does NOT move these users into the Guest bucket or its FIDO2-not-supported
+        carve-out - whether Microsoft's guest FIDO2 restriction still applies after a userType
+        conversion isn't something this toolkit can determine from Graph data alone, so the
+        normal bucket (based on their actual registered methods) still applies; this is an
+        additional flag layered on top, not a bucket override.
     .PARAMETER RawResponse
         The object returned by Get-SAWRegistration (has a .value array of user records).
     .OUTPUTS
         Hashtable[] - one per user, with UserPrincipalName, DisplayName, IsAdmin, IsGuest,
-        Bucket, HasPhishingResistantMethod, HasDowngradeRiskMethod, MethodsRegistered.
+        IsPossibleExternalMember, Bucket, HasPhishingResistantMethod, HasDowngradeRiskMethod,
+        MethodsRegistered.
     #>
     [CmdletBinding()]
     param(
@@ -75,6 +93,7 @@ function ConvertTo-SAWUserRegistrationRoster {
             $methods = $user.methodsRegistered
             if (-not $methods) { $methods = @() }
             $isGuest = ($user.userType -eq 'guest')
+            $isPossibleExternalMember = (-not $isGuest) -and ($user.userPrincipalName -match '(?i)#EXT#@')
 
             $hasPhishingResistant = $false
             foreach ($method in $methods) {
@@ -110,6 +129,7 @@ function ConvertTo-SAWUserRegistrationRoster {
                 DisplayName                = $user.userDisplayName
                 IsAdmin                    = [bool]$user.isAdmin
                 IsGuest                    = $isGuest
+                IsPossibleExternalMember   = $isPossibleExternalMember
                 Bucket                     = $bucket
                 HasPhishingResistantMethod = $hasPhishingResistant
                 HasDowngradeRiskMethod     = $hasDowngradeRisk

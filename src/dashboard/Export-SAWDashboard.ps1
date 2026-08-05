@@ -366,13 +366,26 @@ $($bodyRows -join "`n")
         if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
         $adminBadge = ''
         if ($u.IsAdmin) { $adminBadge = ' <span class="badge bg-dark">Admin</span>' }
+        $externalMemberBadge = ''
+        if ($u.IsPossibleExternalMember) {
+            $externalMemberBadge = ' <span class="badge bg-info text-dark" title="UPN contains &quot;#EXT#&quot; (Microsoft''s auto-generated shape for a B2B guest invitation) but userType is Member, not Guest - likely a guest converted to Member, or provisioned as Member via cross-tenant sync. Still externally-sourced; not authoritative, see docs/reading-the-report.md.">Possible External Member</span>'
+        }
         @"
       <tr>
         <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $u.Bucket)</span></td>
-        <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge$externalMemberBadge</td>
         <td>$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
         <td>$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)</td>
       </tr>
+"@
+    }
+
+    $possibleExternalMemberCount = @($UserRoster | Where-Object { $_.IsPossibleExternalMember }).Count
+    $externalMemberNoteHtml = ''
+    if ($possibleExternalMemberCount -gt 0) {
+        $plural = if ($possibleExternalMemberCount -eq 1) { '' } else { 's' }
+        $externalMemberNoteHtml = @"
+  <p class="text-body-secondary small"><span class="badge bg-info text-dark">Possible External Member</span> ($possibleExternalMemberCount user$plural below) - UPN has the "#EXT#" shape Microsoft auto-generates for B2B guest invitations, but userType is Member rather than Guest. Likely a guest that was converted to Member, or provisioned as Member via cross-tenant sync - either way still externally-sourced. A UPN-shape heuristic, not authoritative (Graph's registration data has no stronger signal to confirm it) - worth verifying with the customer.</p>
 "@
     }
 
@@ -380,6 +393,7 @@ $($bodyRows -join "`n")
     if ($UserRoster.Count -gt 0) {
         $rosterSectionHtml = @"
   <h2 class="h4 mb-3">Security Info Registration - User Triage</h2>
+$externalMemberNoteHtml
   <div class="row g-3 mb-3">
     <div class="col-sm-6 col-lg-3">
       <div class="card stat-card red h-100"><div class="card-body">

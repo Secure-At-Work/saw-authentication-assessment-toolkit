@@ -111,6 +111,14 @@ A per-user list, bucketed:
 Admin accounts are always listed first within each bucket, since they're the highest-priority
 targets either way.
 
+A user may also carry a **"Possible External Member"** badge alongside their bucket. This flags
+a UPN with the `#EXT#` shape Microsoft auto-generates for B2B guest invitations (e.g.
+`name_partnerdomain.com#EXT#@yourtenant.onmicrosoft.com`) whose account type is Member rather
+than Guest - most likely a guest that was converted to Member at some point, or an account
+provisioned as Member via cross-tenant synchronization. Either way it's still an externally-
+sourced identity, just not one the Guest bucket above catches. It's a heuristic based on the
+UPN's shape, not a confirmed fact - worth a quick check with the customer if it shows up.
+
 ### 8. Flat findings table
 
 Every individual check, its result, and its severity - the same data as the flat report, kept

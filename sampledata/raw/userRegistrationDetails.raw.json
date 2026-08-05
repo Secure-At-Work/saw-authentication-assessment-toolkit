@@ -120,6 +120,21 @@
       "isPasswordlessCapable": false,
       "methodsRegistered": ["microsoftAuthenticatorPush"],
       "systemPreferredAuthenticationMethod": "microsoftAuthenticatorPush"
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000009",
+      "userPrincipalName": "former.guest_northwind.com#EXT#@contoso.onmicrosoft.com",
+      "userDisplayName": "Former Guest (Converted to Member)",
+      "userType": "member",
+      "isAdmin": false,
+      "isSsprRegistered": true,
+      "isSsprEnabled": true,
+      "isSsprCapable": true,
+      "isMfaRegistered": true,
+      "isMfaCapable": true,
+      "isPasswordlessCapable": false,
+      "methodsRegistered": ["microsoftAuthenticatorPush"],
+      "systemPreferredAuthenticationMethod": "microsoftAuthenticatorPush"
     }
   ]
 }
