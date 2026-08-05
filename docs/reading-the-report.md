@@ -170,6 +170,19 @@ CA hygiene review that isn't captured by any single rule.
 Every individual check, its result, and its severity - the same data as the flat report, kept
 here too so you don't need to cross-reference two files while reading.
 
+One entry worth calling out specifically: **"Admins Excluded From User SSPR Policy When Admin
+SSPR Is Disabled"**. Administrator accounts get self-service password reset through their own
+built-in policy, entirely separate from the general SSPR configuration end users are subject to
+- so an admin showing as SSPR-enabled while the tenant's general SSPR setting looks "off" is
+normal, not a bug. This check only fires when admin SSPR has been *explicitly disabled*
+tenant-wide (a deliberate, admin-only lockdown) but at least one admin is still in scope of the
+regular user-facing SSPR policy. Left that way, Microsoft's own documentation confirms that admin
+gets stuck: still prompted to register for SSPR, but shown a message that they can't actually
+register any method, since admin SSPR is off regardless of what the user policy says. The fix is
+to explicitly exclude administrators from the user-facing SSPR policy once admin SSPR is turned
+off. This check shows Grey whenever admin SSPR is enabled (the default) - there's nothing to
+exclude admins from in that case.
+
 ## From IST to SOLL: the work plan itself
 
 A list of findings tells you *what's* wrong. It doesn't tell you *what order* to fix things in -

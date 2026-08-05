@@ -1,0 +1,11 @@
+{
+    "RuleID": "SSPR002",
+    "Category": "Registration",
+    "Setting": "Admins Excluded From User SSPR Policy When Admin SSPR Is Disabled",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
+    "DependsOn": [],
+    "Recommendation": "The tenant's authorization policy has allowedToUseSSPR set to false, disabling self-service password reset for administrator accounts - but at least one admin still shows as enabled for the regular user-facing SSPR policy (isSsprEnabled=true). Per Microsoft's own documentation, this leaves that admin stuck: they are still prompted to register for SSPR, but see a message indicating they can't register any methods, since admin SSPR is disabled at the tenant level regardless of what the user policy says. Explicitly exclude administrator accounts (or the specific admin roles affected) from the user-facing SSPR/registration policy scope to avoid this broken, confusing experience. See https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy#administrator-reset-policy-differences. This check is Grey (not applicable) whenever admin SSPR is enabled - the default - since the exclusion question only matters once admin SSPR has been explicitly turned off."
+}

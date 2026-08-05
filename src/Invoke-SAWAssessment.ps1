@@ -177,6 +177,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWTenantProfile.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWAuthenticationMethodsInventory.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuthorizationPolicy.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthorizationPolicy.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedAuthenticationMethods.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWConditionalAccess.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedConditionalAccess.ps1')
@@ -293,6 +295,10 @@ $userRoster = $registrationRaw | ConvertTo-SAWUserRegistrationRoster -Verbose:$V
 # extra Graph call) - a registered method whose policy toggle is now Disabled cannot be used
 # to sign in anymore, a stronger and more deterministic signal than "not recently used".
 $userRoster = ConvertTo-SAWPolicyDisabledMethodRoster -Roster $userRoster -AuthenticationMethodsPolicy $authRaw -Verbose:$VerbosePreference
+
+Write-Verbose 'Invoke-SAWAssessment: collecting authorization policy (admin SSPR toggle)'
+$authorizationPolicyRaw = Get-SAWAuthorizationPolicy -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
+$normalized += ConvertTo-SAWNormalizedAuthorizationPolicy -AuthorizationPolicy $authorizationPolicyRaw -RegistrationRaw $registrationRaw -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: collecting temporary access pass configuration'
 $tapRaw = Get-SAWTemporaryAccessPass -UseSampleData:$UseSampleData -Verbose:$VerbosePreference

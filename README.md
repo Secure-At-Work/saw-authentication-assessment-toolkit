@@ -104,6 +104,19 @@ tenant. Beyond the base 19 rules, the dashboard also has:
 - SSPR registration coverage, the authentication methods registration campaign's state/target,
   and a composite "phishing-resistant registration bootstrap available" check (self-service
   FIDO2 or TAP)
+- **Admin SSPR exclusion check (SSPR002)** - `Get-SAWAuthorizationPolicy.ps1` reads
+  `allowedToUseSSPR` on `/policies/authorizationPolicy`, a separate, easy-to-miss control from
+  the SSPR settings above: by default, admin accounts get SSPR through their own built-in
+  "two-gate" policy (two methods required, no security questions) independent of the tenant's
+  general SSPR configuration for end users - so an admin showing `isSsprEnabled: true` while the
+  general SSPR toggle looks "off" is expected, not a bug. `allowedToUseSSPR` is the real switch
+  that turns admin SSPR off entirely, and Microsoft's own docs warn about a real trap: disabling
+  it *without* also excluding admins from the user-facing SSPR policy leaves those admins stuck
+  - still prompted to register, but shown a message that they can't register any methods.
+  SSPR002 only fires (Red) when `allowedToUseSSPR` is explicitly `false` **and** at least one
+  admin still shows `isSsprEnabled: true`; it's Grey (not applicable) whenever admin SSPR is
+  enabled, the default. See
+  [concept-sspr-policy#administrator-reset-policy-differences](https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy#administrator-reset-policy-differences).
 - A composite "privileged access protection in place" check (compliant device OR a
   phishing-resistant auth strength required for admins - not a single hard-coded control)
 - A **configurable, auto-detected customer SOLL baseline** (see below - hybrid vs. cloud-native
