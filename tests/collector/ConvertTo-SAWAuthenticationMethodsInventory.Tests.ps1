@@ -116,13 +116,53 @@ Describe 'ConvertTo-SAWAuthenticationMethodsInventory' {
         @($result).Count | Should -Be 0
     }
 
-    It 'processes the real bundled sample fixture without error and returns 8 methods' {
+    It 'processes the real bundled sample fixture without error and returns 8 methods plus System-Preferred Authentication' {
         $realPath = "$PSScriptRoot/../../sampledata/raw/authenticationMethodsPolicy.raw.json"
         $policy = Get-Content -Path $realPath -Raw | ConvertFrom-Json
 
         $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
 
-        $result.Count | Should -Be 8
+        $result.Count | Should -Be 9
         ($result | Where-Object { $_.Setting -eq 'FIDO2' }).State | Should -Be 'Disabled'
+    }
+
+    Context 'System-Preferred Authentication row' {
+        It 'reports Disabled with no sign-in order change' {
+            $policy = @{ systemCredentialPreferences = @{ state = 'disabled'; includeTargets = @(); excludeTargets = @() } }
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
+            $row.State | Should -Be 'Disabled'
+            $row.SettingsSummary | Should -Be 'No change to sign-in order'
+        }
+
+        It 'reports second-factor-only scope when state is enabled' {
+            $policy = @{ systemCredentialPreferences = @{ state = 'enabled'; includeTargets = @(@{ id = 'all_users'; targetType = 'group' }); excludeTargets = @() } }
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
+            $row.State | Should -Be 'Enabled (second factor only)'
+            $row.TargetSummary | Should -Be 'All users'
+        }
+
+        It 'reports Microsoft managed (first + second factor) when state is default' {
+            $policy = @{ systemCredentialPreferences = @{ state = 'default'; includeTargets = @(); excludeTargets = @() } }
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
+            $row.State | Should -Match 'Microsoft managed'
+        }
+
+        It 'treats a completely absent systemCredentialPreferences the same as default (Microsoft managed)' {
+            $policy = @{}
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
+            $row.State | Should -Match 'Microsoft managed'
+        }
     }
 }

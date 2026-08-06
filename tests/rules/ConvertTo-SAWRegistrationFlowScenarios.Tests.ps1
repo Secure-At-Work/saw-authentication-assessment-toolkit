@@ -10,7 +10,8 @@ BeforeAll {
             [string]$CampaignState = 'enabled',
             [string]$CampaignTargetMethod = 'fido2',
             [Nullable[bool]]$EnforceAfterSnoozes = $true,
-            [Nullable[int]]$ReconfirmationInDays = $null
+            [Nullable[int]]$ReconfirmationInDays = $null,
+            [string]$SystemPreferredState = 'disabled'
         )
         return @{
             reconfirmationInDays = $ReconfirmationInDays
@@ -20,6 +21,11 @@ BeforeAll {
                     enforceRegistrationAfterAllowedSnoozes = $EnforceAfterSnoozes
                     includeTargets = @(@{ targetedAuthenticationMethod = $CampaignTargetMethod })
                 }
+            }
+            systemCredentialPreferences = @{
+                state = $SystemPreferredState
+                includeTargets = @()
+                excludeTargets = @()
             }
             authenticationMethodConfigurations = @(
                 @{ id = 'TemporaryAccessPass'; state = if ($TapEnabled) { 'enabled' } else { 'disabled' } },
@@ -146,6 +152,60 @@ Describe 'ConvertTo-SAWRegistrationFlowScenarios' {
         $caGated = $result | Where-Object { $_.FlowID -eq 'CAGATED' }
         $caGated.Applicable | Should -Be $true
         $caGated.ISTSummary | Should -Match 'Require MFA for Security Info Registration'
+    }
+
+    Context 'System-Preferred Authentication steps' {
+        It 'marks the Bootstrap system-preferred step as not applying when the state is disabled' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -SystemPreferredState 'disabled'
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $bootstrap = $result | Where-Object { $_.FlowID -eq 'BOOTSTRAP' }
+            ($bootstrap.Steps | Where-Object { $_.Step -like '*System-Preferred Authentication may start presenting*' }).Applies | Should -Be $false
+        }
+
+        It 'marks the Bootstrap and Re-Registration system-preferred steps as applying when the state is enabled' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -SystemPreferredState 'enabled'
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $bootstrap = $result | Where-Object { $_.FlowID -eq 'BOOTSTRAP' }
+            $rereg = $result | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
+
+            ($bootstrap.Steps | Where-Object { $_.Step -like '*System-Preferred Authentication may start presenting*' }).Applies | Should -Be $true
+            ($rereg.Steps | Where-Object { $_.Step -like 'BEFORE any of the below*' }).Applies | Should -Be $true
+        }
+
+        It 'treats an absent systemCredentialPreferences the same as default (Microsoft managed, applies)' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy
+            $authPolicy.Remove('systemCredentialPreferences')
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $rereg = $result | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
+            $step = $rereg.Steps | Where-Object { $_.Step -like 'BEFORE any of the below*' }
+            $step.Applies | Should -Be $true
+            $step.Detail | Should -Match 'Microsoft managed'
+        }
+
+        It 'marks the CA-Gated first-factor note as a fixed Microsoft behavior (Applies is null), not tenant-conditioned' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $caGated = $result | Where-Object { $_.FlowID -eq 'CAGATED' }
+            $step = $caGated.Steps | Where-Object { $_.Step -like 'Conditional Access does NOT override*' }
+            $step | Should -Not -BeNullOrEmpty
+            $null -eq $step.Applies | Should -Be $true
+        }
     }
 
     It 'ignores a disabled CA policy that targets security info registration' {

@@ -16,6 +16,13 @@
       "snoozeDurationInDays": 1
     }
   },
+  "systemCredentialPreferences": {
+    "state": "enabled",
+    "includeTargets": [
+      { "id": "all_users", "targetType": "group" }
+    ],
+    "excludeTargets": []
+  },
   "authenticationMethodConfigurations": [
     {
       "@odata.type": "#microsoft.graph.fido2AuthenticationMethodConfiguration",

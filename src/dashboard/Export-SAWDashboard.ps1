@@ -417,11 +417,13 @@ $($bodyRows -join "`n")
         if ($User.HasPolicyDisabledMethod) {
             $policyDisabledMethodsHtml = " <span class=""badge bg-dark"" title=""Registered, but the tenant's authentication methods policy currently has this method type Disabled - this credential cannot be used to sign in anymore, not just unused. Safe to clean up. Windows Hello for Business and passkey variants aren't evaluated here (no tenant policy toggle exists for WHfB; passkey isn't mapped yet), see docs/reading-the-report.md."">Disabled by policy: $(ConvertTo-SAWHtmlEncoded $User.PolicyDisabledMethods)</span>"
         }
+        $systemPreferredDisplay = if ($User.SystemPreferredMethod) { $User.SystemPreferredMethod } else { '-' }
         return @"
       <tr>
         <td>$(ConvertTo-SAWHtmlEncoded $User.DisplayName)$adminBadge$externalMemberBadge$whfbOnlyBadge$smsVoiceOnlyBadge</td>
         <td>$(ConvertTo-SAWHtmlEncoded $User.UserPrincipalName)</td>
         <td>$(ConvertTo-SAWHtmlEncoded $User.MethodsRegistered)$unusedMethodsHtml$policyDisabledMethodsHtml</td>
+        <td class="text-body-secondary small" title="What System-Preferred Authentication would currently present first at sign-in for this user, if that tenant-wide setting is active - see the Authentication Methods Policy Inventory section. Doesn't affect this user's OK/Hunt/Remove bucket.">$(ConvertTo-SAWHtmlEncoded $systemPreferredDisplay)</td>
       </tr>
 "@
     }
@@ -459,7 +461,7 @@ $($bodyRows -join "`n")
     <div class="table-responsive">
       <table class="table table-striped table-hover align-middle mb-0">
         <thead>
-          <tr><th>User</th><th>UPN</th><th>Methods Registered</th></tr>
+          <tr><th>User</th><th>UPN</th><th>Methods Registered</th><th>System-Preferred</th></tr>
         </thead>
         <tbody>
 $bucketRowsHtml

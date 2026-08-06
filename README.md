@@ -57,6 +57,22 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   typed `includeTargets`, and `all_users` is the well-known id for the built-in default target.
   No group/user display-name resolution is done (counts and the all_users/specific distinction
   only), to avoid an extra Graph call this toolkit doesn't otherwise need.
+  - The inventory also carries a **System-Preferred Authentication** row - a distinct policy
+  (`systemCredentialPreferences`) from everything else on this page: it controls what gets
+  *presented* at sign-in for a credential the user already has, not what gets nudged for
+  registration. Genuinely three different behaviors, not on/off - confirmed against
+  [Microsoft's concept article](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication):
+  `disabled` = no change; `enabled` = the strongest-registered-method ranking applies to the
+  second factor only; `default`/absent = "Microsoft managed", applying to **both** first and
+  second factor - the more far-reaching behavior sitting behind the *unset* state rather than an
+  explicit opt-in, and gradually rolling out through 2026-08 (see the matching timeline
+  milestone), so a tenant reading `default` today may not yet actually be experiencing it. Not a
+  rules-engine pass/fail finding, for the same reason the registration campaign's `default` state
+  isn't treated as attestable elsewhere in this codebase. The per-user
+  `systemPreferredAuthenticationMethod` Graph already returns is also passed through onto each
+  roster entry (`SystemPreferredMethod`) as context, and the four **What Users Can Expect (IST
+  vs. SOLL)** flows below fold its influence directly into the Bootstrap, Re-Registration, and
+  CA-Gated scenarios - since it changes what a specific user actually sees, not just a setting.
 - A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
   who needs nudging toward a phishing-resistant method, and who has a phone-based fallback
   method that should be removed to close off a downgrade-attack path). Grouped into one

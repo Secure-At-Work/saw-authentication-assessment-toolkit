@@ -89,12 +89,22 @@ function ConvertTo-SAWUserRegistrationRoster {
         distinguishes the two. A user with zero registered methods at all is not flagged here
         either (methods.Count must be greater than zero) - that's a distinct, worse problem
         (no MFA registered at all, see REG001/REG002), not "still relying on SMS/Voice".
+        SystemPreferredMethod passes through userRegistrationDetails.systemPreferredAuthenticationMethod
+        as-is (nullable - Graph returns null when the system hasn't yet determined a preference
+        for that user, e.g. no MFA-capable method registered). This is what Microsoft's
+        System-Preferred Authentication feature (systemCredentialPreferences on
+        authenticationMethodsPolicy - a distinct tenant-wide setting from everything else
+        collected here, see ConvertTo-SAWAuthenticationMethodsInventory.ps1) would currently
+        present first at sign-in for this specific user, if that tenant-wide feature is active
+        for them. Included here purely as visible context for a person reading the triage table -
+        it doesn't affect bucketing, since which method a tenant prefers to present first doesn't
+        change whether the user's underlying registration is itself in a good state.
     .PARAMETER RawResponse
         The object returned by Get-SAWRegistration (has a .value array of user records).
     .OUTPUTS
         Hashtable[] - one per user, with UserPrincipalName, DisplayName, IsAdmin, IsGuest,
         IsPossibleExternalMember, IsWhfbOnly, Bucket, HasPhishingResistantMethod,
-        HasDowngradeRiskMethod, IsSmsVoiceOnlyMfa, MethodsRegistered.
+        HasDowngradeRiskMethod, IsSmsVoiceOnlyMfa, SystemPreferredMethod, MethodsRegistered.
     #>
     [CmdletBinding()]
     param(
@@ -185,6 +195,7 @@ function ConvertTo-SAWUserRegistrationRoster {
                 HasPhishingResistantMethod = $hasPhishingResistant
                 HasDowngradeRiskMethod     = $hasDowngradeRisk
                 IsSmsVoiceOnlyMfa          = $isSmsVoiceOnlyMfa
+                SystemPreferredMethod      = $user.systemPreferredAuthenticationMethod
                 MethodsRegistered          = ($methods -join ', ')
             }
         }

@@ -17,7 +17,9 @@ BeforeAll {
             [string]$UserPrincipalName = 'user@contoso.com',
             [string]$DisplayName = 'Test User',
             [string[]]$MethodsRegistered = @(),
-            [string]$UserType = 'member'
+            [string]$UserType = 'member',
+            [AllowNull()]
+            [string]$SystemPreferredAuthenticationMethod = $null
         )
         return @{
             isAdmin              = $IsAdmin
@@ -28,6 +30,7 @@ BeforeAll {
             userDisplayName      = $DisplayName
             methodsRegistered    = $MethodsRegistered
             userType             = $UserType
+            systemPreferredAuthenticationMethod = $SystemPreferredAuthenticationMethod
         }
     }
 }
@@ -418,6 +421,24 @@ Describe 'ConvertTo-SAWUserRegistrationRoster' {
             $result = $raw | ConvertTo-SAWUserRegistrationRoster
 
             $result.IsSmsVoiceOnlyMfa | Should -BeFalse
+        }
+    }
+
+    Context 'System-Preferred Authentication pass-through' {
+        It 'passes through systemPreferredAuthenticationMethod as-is' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @('fido2') -SystemPreferredAuthenticationMethod 'fido2')) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.SystemPreferredMethod | Should -Be 'fido2'
+        }
+
+        It 'passes through a null value when the system has no preference yet' {
+            $raw = @{ value = @((New-SAWTestUser -MethodsRegistered @() -SystemPreferredAuthenticationMethod $null)) }
+
+            $result = $raw | ConvertTo-SAWUserRegistrationRoster
+
+            $result.SystemPreferredMethod | Should -BeNullOrEmpty
         }
     }
 

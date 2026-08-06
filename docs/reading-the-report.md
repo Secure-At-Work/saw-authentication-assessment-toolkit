@@ -126,18 +126,26 @@ The four flows:
   easy-to-miss limitation: if that same user is also in scope for the SSPR or MFA registration
   policy, they can be redirected into a forced registration wizard that currently doesn't support
   registering a passkey or phone sign-in directly - only outside that redirect can those be set
-  up.
+  up. Last step: once the user has more than one method registered, System-Preferred
+  Authentication can start presenting the newest one first on a *later* sign-in.
 - **SSPR Eligibility & Two-Gate** - whether a standard user, and separately an administrator, can
   actually register for and use self-service password reset. Admin accounts follow their own
   built-in policy, independent of the general SSPR setting - see the SSPR002 explanation above
   for the trap this can create.
 - **Existing User Re-Registration** - what happens after initial setup: managing security info
   any time, the fixed 5-minute MFA-freshness rule for passkey changes, how the registration
-  campaign's snooze limit behaves, and whether periodic reconfirmation is configured.
+  campaign's snooze limit behaves, and whether periodic reconfirmation is configured. First
+  step: at *ordinary* sign-in (not registration), System-Preferred Authentication may already be
+  presenting this user's strongest registered method first - not necessarily the one they're
+  used to - which is worth knowing before assuming a "why did my sign-in screen change" question
+  is a problem rather than this setting working as configured.
 - **CA-Gated Registration** - how an enabled Conditional Access policy scoped to "Register
   security information" reshapes every flow above: registration-campaign nudges are suppressed
   entirely (not just delayed) for a blocked user, and a Temporary Access Pass-only user can be
-  fully locked out if that policy's authentication strength doesn't accept a TAP.
+  fully locked out if that policy's authentication strength doesn't accept a TAP. Also notes a
+  fixed Microsoft behavior worth knowing: Conditional Access is validated only for the second
+  factor and never overrides what System-Preferred Authentication presents at the first factor -
+  the two settings don't interact the way they might seem to.
 
 Each flow links to the specific Microsoft Learn article it's grounded in - worth opening if a
 step's applicability looks surprising.
@@ -218,6 +226,19 @@ extra Graph call this toolkit doesn't otherwise need), and key settings (e.g. FI
 and self-service registration, Temporary Access Pass's default lifetime and one-time-use). This
 is independent of the pass/fail checks above - the full picture, useful for understanding *why*
 a check passed or failed, or for a general "what's actually configured" review.
+
+The last row, **System-Preferred Authentication**, is a different kind of setting from everything
+above it: it controls what gets *presented* at sign-in for a credential the user already has -
+not what gets nudged for registration. It genuinely has three distinct behaviors, not a simple
+on/off: **Disabled** (no change to sign-in order), **Enabled** (the strongest registered method
+is presented first, but only for the second factor - first-factor sign-in is unchanged), and
+**Microsoft managed** (the same ranking applied to *both* first and second factor - counterintuitively
+the behavior behind the *unset/default* state rather than something an admin has to opt into).
+Microsoft is gradually rolling the Microsoft-managed behavior out through August 2026, so a
+tenant showing "Microsoft managed" here may not yet actually be experiencing it - see the matching
+card in Upcoming Microsoft Deadlines. Because this changes what a specific user sees at sign-in,
+its influence is also woven directly into the "What Users Can Expect (IST vs. SOLL)" flows above,
+rather than only appearing here as a policy setting.
 
 ### 9. Conditional Access Policy Inventory
 

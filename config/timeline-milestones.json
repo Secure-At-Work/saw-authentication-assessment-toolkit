@@ -43,6 +43,13 @@
             "SourceUrl": "https://mc.merill.net/message/MC1437671"
         },
         {
+            "Date": "2026-08-31",
+            "Title": "System-Preferred Authentication (Microsoft Managed) Gradual Rollout Completes",
+            "Description": "Not a hard cutover date - Microsoft's own docs state the Microsoft-managed behavior (system-preferred authentication applied to BOTH first and second factor, not just second factor) 'is being gradually deployed to tenants through August 2026'. Shown here as the last day of that window as an upper-bound estimate. System-Preferred Authentication is a distinct policy (systemCredentialPreferences) from the registration campaign covered elsewhere here - it controls what gets PRESENTED at sign-in for an already-registered credential, not what gets nudged for registration. Once fully rolled out, a tenant that has never touched this setting (state 'default') starts presenting the strongest registered method (ranked: TAP, then passkey, then CBA, then Authenticator, then others) at BOTH first and second factor, which can be a surprising change in what users see at sign-in if nobody was told to expect it. See the Authentication Methods Policy Inventory section for this tenant's actual configured state.",
+            "RelatedRuleIDs": [],
+            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication"
+        },
+        {
             "Date": "2027-02-01",
             "Title": "Microsoft-Provided SMS/Voice Retirement (No Opt-Out)",
             "Description": "Microsoft-provided SMS and voice delivery retires outright. There is no opt-out for this date - AUTH006's opt-out only defers the 2026-09-01 automatic enablement above, not this one. Narrower criterion than that milestone: only users whose ONLY available MFA method is SMS/Voice (no Authenticator, no passkey, nothing else registered) will be blocked with a mandatory passkey registration prompt - a user who also has another method registered is unaffected by this specific date, even though they'd still count toward the 2026-09-01 impact number above.",

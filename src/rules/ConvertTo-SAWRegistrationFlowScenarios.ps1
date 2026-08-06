@@ -31,6 +31,20 @@ function ConvertTo-SAWRegistrationFlowScenarios {
         Each step's Applies value is $true/$false when it's genuinely conditioned on a collected
         setting, or $null when it's a fixed Microsoft behavior included for context (e.g. the
         5-minute MFA freshness requirement for passkey registration, which isn't configurable).
+
+        System-Preferred Authentication (systemCredentialPreferences on authenticationMethodsPolicy)
+        is woven into Flows 1, 3, and 4 below - it's a distinct tenant-wide setting from
+        everything else this function reasons about (it governs what gets PRESENTED at sign-in
+        for an already-registered credential, not what gets nudged for registration), but it
+        directly changes what a user actually sees, so it belongs in the trace. Per
+        https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication:
+        state 'disabled' -> no change; state 'enabled' -> the strongest-registered-method ranking
+        applies to the second factor only; state 'default'/absent -> "Microsoft managed", ranking
+        applies to BOTH first and second factor (the more far-reaching behavior, gradually
+        rolling out through 2026-08, so a tenant reading 'default' may not yet actually be
+        experiencing it). Conditional Access is validated only for second-factor authentication
+        and does not override this first-factor selection - authentication happens first, then
+        Conditional Access evaluates authorization.
     .PARAMETER AuthenticationMethodsPolicyRaw
         The object returned by Get-SAWAuthenticationMethods (has .authenticationMethodConfigurations
         and .registrationEnforcement.authenticationMethodsRegistrationCampaign).
@@ -83,6 +97,14 @@ function ConvertTo-SAWRegistrationFlowScenarios {
 
     $reconfirmationDays = $AuthenticationMethodsPolicyRaw.reconfirmationInDays
 
+    $sysPrefState = [string]$AuthenticationMethodsPolicyRaw.systemCredentialPreferences.state
+    if ([string]::IsNullOrEmpty($sysPrefState)) { $sysPrefState = 'default' }
+    $sysPrefDisabled = ($sysPrefState -eq 'disabled')
+    $sysPrefScopeLabel = switch ($sysPrefState) {
+        'enabled' { 'second-factor sign-in only (first factor is unchanged)' }
+        default   { 'BOTH first and second factor - "Microsoft managed", gradually rolling out through 2026-08' }
+    }
+
     $users = @($RegistrationRaw.value)
     $ssprEnabledCount = @($users | Where-Object { $_.isSsprEnabled }).Count
     $ssprEnabledAtAll = $ssprEnabledCount -gt 0
@@ -109,6 +131,7 @@ function ConvertTo-SAWRegistrationFlowScenarios {
             @{ Step = 'User registers a passkey (FIDO2) directly via Security Info'; Applies = $fido2SelfService; Detail = if ($fido2SelfService) { 'FIDO2 self-service registration is allowed - a TAP-signed-in user can register a passkey themselves.' } else { 'FIDO2 self-service registration is off (or FIDO2 itself is disabled) - a TAP-signed-in user cannot self-register a passkey; an admin must provision one via a custom client/Graph, or the user is left with weaker methods.' } }
             @{ Step = 'User registers Microsoft Authenticator via TAP'; Applies = $authenticatorEnabled; Detail = if ($authenticatorEnabled) { 'Authenticator is enabled tenant-wide, so this is available as an alternative to passkey registration.' } else { 'Authenticator is disabled tenant-wide.' } }
             @{ Step = "On a LATER sign-in (not the same session), the registration campaign nudges the user toward $campaignTargetLabel if not yet set up"; Applies = $campaignActive; Detail = if ($campaignActive) { "Registration campaign state is '$campaignState'. Users are never nudged in the same session they just registered a method in - the nudge appears on the next MFA attempt after that." } else { 'Registration campaign is disabled - no automatic nudge follows initial TAP-based setup; the user stays on whatever they registered during onboarding unless manually followed up on.' } }
+            @{ Step = "Once the user has more than one method registered, System-Preferred Authentication may start presenting the newly-registered method first at their NEXT sign-in, ahead of whatever they used before"; Applies = (-not $sysPrefDisabled); Detail = if ($sysPrefDisabled) { 'System-Preferred Authentication is disabled - the user keeps using whatever method they sign in with by choice; nothing is presented preferentially.' } else { "Applies to $sysPrefScopeLabel. A distinct setting from the registration campaign above - this one changes what's presented for a credential the user ALREADY has, not what gets nudged for registration." } }
         )
     }
 
@@ -140,6 +163,7 @@ function ConvertTo-SAWRegistrationFlowScenarios {
         SOLLSummary = 'A registration campaign actively targeting the strongest available method (passkey), plus periodic reconfirmation so stale registrations surface on their own rather than only being caught by an assessment like this one.'
         SourceUrl  = 'https://learn.microsoft.com/entra/identity/authentication/concept-registration-mfa-sspr-combined'
         Steps      = @(
+            @{ Step = 'BEFORE any of the below: at ordinary sign-in (not registration), System-Preferred Authentication may present the user''s strongest registered method first - not necessarily the one they''re used to or set as default'; Applies = (-not $sysPrefDisabled); Detail = if ($sysPrefDisabled) { 'System-Preferred Authentication is disabled - the user''s own default/last-used method continues to be presented, unchanged.' } else { "Applies to $sysPrefScopeLabel. The user can always select `"Sign in another way`" to fall back to a different registered method - this changes what's offered first, not what's available." } }
             @{ Step = 'User visits Security Info (mysignins.microsoft.com/security-info) any time to add, change, or delete a method - "manage mode", no interrupt required'; Applies = $true; Detail = 'Always available regardless of tenant configuration; the only gate is completing MFA first if the user already has a method that can serve as MFA.' }
             @{ Step = 'Adding or modifying a passkey (FIDO2) requires the user to have completed MFA within the last 5 minutes'; Applies = $null; Detail = 'Fixed Microsoft Entra session-freshness requirement, not a tenant-configurable setting - included here since it is a common source of "why am I asked to sign in again" support tickets.' }
             @{ Step = "A registration campaign nudge for $campaignTargetLabel appears on the user's next MFA attempt if the targeted method is not present for their current device/browser"; Applies = $campaignActive; Detail = if ($campaignActive) { if ($enforceAfterSnoozes -eq $true) { 'Limited snoozes: after 3 skips, registration becomes required.' } elseif ($enforceAfterSnoozes -eq $false) { 'Unlimited snoozes: users may indefinitely postpone and never actually register.' } else { 'Snooze-limit behavior not explicitly set; Microsoft managed defaults apply.' } } else { 'Registration campaign is disabled - no proactive nudge occurs; re-registration only happens if the user initiates it themselves.' } }
@@ -164,6 +188,7 @@ function ConvertTo-SAWRegistrationFlowScenarios {
             @{ Step = 'The registration campaign nudge (Flows 1 and 3 above) does not appear for a user blocked from the registration page by this policy'; Applies = $securityInfoRegGated -and $campaignActive; Detail = 'Documented Microsoft behavior: the campaign nudge is suppressed entirely, not deferred, for a user who cannot reach the page.' }
             @{ Step = 'A Temporary Access Pass-only user (no phishing-resistant method registered yet) can be fully locked out if the policy demands an authentication strength TAP does not satisfy'; Applies = $securityInfoRegGated; Detail = 'See CA004 (Security Info Registration Reachable With Only A Temporary Access Pass) for whether this tenant''s specific policy configuration triggers that lockout.' }
             @{ Step = 'Starting 2026-07-06, this same policy scope additionally applies during Windows Hello for Business and macOS Platform SSO credential registration, which it did not evaluate before'; Applies = $null; Detail = 'A fixed Microsoft rollout date, not a tenant setting - see the Upcoming Microsoft Deadlines section.' }
+            @{ Step = 'Conditional Access does NOT override which method System-Preferred Authentication presents at first-factor sign-in - it is validated only for the second factor'; Applies = $null; Detail = 'Fixed Microsoft behavior: authentication happens first, then Conditional Access evaluates authorization. A CA policy gating registration governs whether the page is reachable at all, not what credential the user is prompted with to get there.' }
         )
     }
 
