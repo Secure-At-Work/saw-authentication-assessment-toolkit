@@ -23,31 +23,55 @@ function ConvertTo-SAWAuthenticationMethodsInventory {
         an arbitrary group id to a name, and this toolkit does not request that scope for this
         purpose), same "keep the footprint small" choice as the CA inventory.
 
-        Also appends one extra row, not sourced from authenticationMethodConfigurations, for
-        systemCredentialPreferences - the policy that controls which already-registered method
-        is presented FIRST at sign-in (distinct from the registration campaign above, which
-        controls what gets nudged for registration, not what's presented for an existing
-        credential). This genuinely has three different behaviors, not a simple on/off, per
-        https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication:
-        Graph state 'disabled' -> no change to sign-in order; state 'enabled' -> the
-        strongest-registered-method ranking applies to the second factor only, first-factor
-        sign-in is unchanged; state 'default' (or the field absent entirely) -> "Microsoft
-        managed", which applies the ranking to BOTH first and second factor - the more
-        far-reaching behavior, counterintuitively sitting behind the "default"/unset state
-        rather than an explicit opt-in. Microsoft's own docs are inconsistent about this exact
-        point: an older resource reference page states the default value is "disabled", while
-        the current concept article states "By default, system-preferred authentication is
-        Microsoft managed for all users" and separately notes the Microsoft-managed behavior is
-        "being gradually deployed to tenants through August 2026" - so a tenant reading 'default'
-        today may or may not actually be experiencing it yet. This inventory row surfaces the
-        literal configured state rather than resolving that ambiguity; it deliberately isn't a
-        pass/fail rules-engine finding for the same reason the registration campaign's 'default'
-        state isn't treated as an attestable control elsewhere in this codebase.
+        Also appends two extra rows, not sourced from authenticationMethodConfigurations:
+
+        - **Registration Campaign** (registrationEnforcement.authenticationMethodsRegistrationCampaign)
+          - what gets nudged for registration after a successful MFA attempt. Three real states,
+          not a simple on/off, per
+          https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign:
+          Graph state 'disabled' -> no nudge at all; state 'enabled' -> the admin's own configured
+          target method/snooze settings apply, shown verbatim; state 'default' (or the field
+          absent) -> "Microsoft managed", where Microsoft incrementally rolls out its own
+          recommended defaults (currently documented as: target method passkeys rather than
+          Authenticator, 1-day snooze, unlimited snoozes, targeting all MFA-capable users) - but
+          see the MICROSOFT-MANAGED ROLLOUT TIMING note below, since this codebase's own resource
+          reference page for this same field contradicts the how-to article and states the
+          default value is "disabled", not "Microsoft managed".
+        - **System-Preferred Authentication** (systemCredentialPreferences) - the policy that
+          controls which already-registered method is presented FIRST at sign-in (distinct from
+          the registration campaign above, which controls what gets nudged for registration, not
+          what's presented for an existing credential). Also three real states, per
+          https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication:
+          Graph state 'disabled' -> no change to sign-in order; state 'enabled' -> the
+          strongest-registered-method ranking applies to the second factor only, first-factor
+          sign-in is unchanged; state 'default' (or the field absent entirely) -> "Microsoft
+          managed", which applies the ranking to BOTH first and second factor - the more
+          far-reaching behavior, counterintuitively sitting behind the "default"/unset state
+          rather than an explicit opt-in.
+
+        MICROSOFT-MANAGED ROLLOUT TIMING: for both rows above, Microsoft's own documentation is
+        internally inconsistent about what the "default" state actually means today - an older
+        resource reference page for each field literally states the default value is "disabled",
+        while the newer how-to/concept article for each feature describes "Microsoft managed" as
+        an actively-rolling-out set of new defaults, on Microsoft's own batch schedule, not the
+        tenant's. Microsoft communicating a start date for a "Microsoft managed" behavior change
+        (e.g. "gradually deployed... through August 2026") is not the same as every tenant
+        already having it: tenants are migrated in batches on a schedule this toolkit has no way
+        to observe, so a tenant reading "Microsoft managed" today may be on the old behavior, the
+        new behavior, or partway through the transition, regardless of what today's date is
+        relative to Microsoft's announced start. Both rows surface the literal configured state
+        plus the documented target-state description, explicitly labeled as Microsoft's stated
+        *intent* for that setting rather than a confirmed *current* per-tenant fact - and
+        deliberately aren't pass/fail rules-engine findings, for the same reason.
     .PARAMETER RawPolicy
         The object returned by Get-SAWAuthenticationMethods (has
         .authenticationMethodConfigurations, an array of per-method config objects).
     .OUTPUTS
         Hashtable[] - one per method, with Setting, State, TargetSummary, SettingsSummary.
+        The Registration Campaign and System-Preferred Authentication rows also carry
+        RolloutNote (nullable) - set only when State is "Microsoft managed", flagging that the
+        SettingsSummary description is Microsoft's stated intent, not a confirmed current fact
+        for this specific tenant (see the MICROSOFT-MANAGED ROLLOUT TIMING note above).
     #>
     [CmdletBinding()]
     param(
@@ -146,20 +170,64 @@ function ConvertTo-SAWAuthenticationMethodsInventory {
             }
         }
 
+        # --- Registration Campaign (not a method configuration - see .DESCRIPTION) ---
+        $campaign = $RawPolicy.registrationEnforcement.authenticationMethodsRegistrationCampaign
+        $campaignState = [string]$campaign.state
+        if ([string]::IsNullOrEmpty($campaignState)) { $campaignState = 'default' }
+
+        $campaignRolloutNote = $null
+        switch ($campaignState) {
+            'disabled' {
+                $campaignStateLabel = 'Disabled'
+                $campaignSettings = 'No registration nudge occurs'
+            }
+            'enabled' {
+                $campaignStateLabel = 'Enabled'
+                $targetMethod = (@($campaign.includeTargets) | Where-Object { $_ } | Select-Object -First 1).targetedAuthenticationMethod
+                $targetLabel = switch ($targetMethod) {
+                    'fido2' { 'passkey (FIDO2)' }
+                    'microsoftAuthenticator' { 'Microsoft Authenticator' }
+                    default { 'not yet targeted' }
+                }
+                $snoozeDays = if ($null -ne $campaign.snoozeDurationInDays) { $campaign.snoozeDurationInDays } else { 'default' }
+                $snoozeLimit = if ($campaign.enforceRegistrationAfterAllowedSnoozes -eq $true) { 'limited (required after 3 skips)' } elseif ($campaign.enforceRegistrationAfterAllowedSnoozes -eq $false) { 'unlimited' } else { 'not set' }
+                $campaignSettings = "Target: $targetLabel; Snooze: $snoozeDays day(s); Snooze limit: $snoozeLimit"
+            }
+            default {
+                $campaignStateLabel = 'Microsoft managed'
+                $campaignSettings = "Microsoft's stated intent for this state: target passkeys (FIDO2) rather than Authenticator, 1-day snooze, unlimited snoozes, targeting all MFA-capable users - see the rollout-timing note"
+                $campaignRolloutNote = 'Microsoft-managed rollout: this tenant may still be on the prior default, mid-transition, or already on Microsoft''s current recommended settings - timing is Microsoft''s batch schedule, not something this toolkit can observe. Re-check this row rather than assuming the description above already applies.'
+            }
+        }
+
+        @{
+            Setting         = 'Registration Campaign'
+            State           = $campaignStateLabel
+            TargetSummary   = Get-SAWMethodTargetSummary $campaign
+            SettingsSummary = $campaignSettings
+            RolloutNote     = $campaignRolloutNote
+        }
+
         # --- System-Preferred Authentication (not a method configuration - see .DESCRIPTION) ---
         $sysPref = $RawPolicy.systemCredentialPreferences
         $sysPrefState = [string]$sysPref.state
         if ([string]::IsNullOrEmpty($sysPrefState)) { $sysPrefState = 'default' }
 
-        $sysPrefStateLabel = switch ($sysPrefState) {
-            'disabled' { 'Disabled' }
-            'enabled'  { 'Enabled (second factor only)' }
-            default    { 'Microsoft managed (first + second factor - rolling out through 2026-08)' }
-        }
-        $sysPrefSettings = switch ($sysPrefState) {
-            'disabled' { 'No change to sign-in order' }
-            'enabled'  { 'Strongest registered method presented first for MFA only; first-factor sign-in unchanged' }
-            default    { 'Strongest registered method presented first for BOTH first and second factor' }
+        $sysPrefRolloutNote = $null
+        switch ($sysPrefState) {
+            'disabled' {
+                $sysPrefStateLabel = 'Disabled'
+                $sysPrefSettings = 'No change to sign-in order'
+            }
+            'enabled' {
+                $sysPrefStateLabel = 'Enabled (second factor only)'
+                $sysPrefSettings = 'Strongest registered method presented first for MFA only; first-factor sign-in unchanged'
+            }
+            default {
+                $sysPrefStateLabel = 'Microsoft managed'
+                $sysPrefSettings = "Microsoft's stated intent for this state: strongest registered method presented first for BOTH first and second factor - see the rollout-timing note"
+                $sysPrefRolloutNote = 'Microsoft-managed rollout: Microsoft''s own docs describe this being "gradually deployed to tenants through August 2026" - this tenant may not yet be experiencing it even if that date has passed. Re-check this row rather than assuming the description above already applies.'
+            }
         }
 
         @{
@@ -167,6 +235,7 @@ function ConvertTo-SAWAuthenticationMethodsInventory {
             State           = $sysPrefStateLabel
             TargetSummary   = Get-SAWMethodTargetSummary $sysPref
             SettingsSummary = $sysPrefSettings
+            RolloutNote     = $sysPrefRolloutNote
         }
     }
 }

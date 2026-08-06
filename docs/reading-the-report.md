@@ -227,18 +227,35 @@ and self-service registration, Temporary Access Pass's default lifetime and one-
 is independent of the pass/fail checks above - the full picture, useful for understanding *why*
 a check passed or failed, or for a general "what's actually configured" review.
 
-The last row, **System-Preferred Authentication**, is a different kind of setting from everything
-above it: it controls what gets *presented* at sign-in for a credential the user already has -
-not what gets nudged for registration. It genuinely has three distinct behaviors, not a simple
-on/off: **Disabled** (no change to sign-in order), **Enabled** (the strongest registered method
-is presented first, but only for the second factor - first-factor sign-in is unchanged), and
-**Microsoft managed** (the same ranking applied to *both* first and second factor - counterintuitively
-the behavior behind the *unset/default* state rather than something an admin has to opt into).
-Microsoft is gradually rolling the Microsoft-managed behavior out through August 2026, so a
-tenant showing "Microsoft managed" here may not yet actually be experiencing it - see the matching
-card in Upcoming Microsoft Deadlines. Because this changes what a specific user sees at sign-in,
-its influence is also woven directly into the "What Users Can Expect (IST vs. SOLL)" flows above,
-rather than only appearing here as a policy setting.
+The last two rows, **Registration Campaign** and **System-Preferred Authentication**, are a
+different kind of setting from the 8 method rows above them - and easy to confuse with each
+other. Registration Campaign controls what gets *nudged for registration*; System-Preferred
+Authentication controls what gets *presented at sign-in* for a credential the user already has.
+Both genuinely have three distinct behaviors, not a simple on/off:
+
+- **Disabled** - no campaign nudge / no change to sign-in order.
+- **Enabled** - the admin's own configured settings apply exactly as configured (target method,
+  snooze duration and limit for the campaign; second-factor-only ranking for System-Preferred
+  Authentication).
+- **Microsoft managed** - Microsoft's own recommended defaults apply instead, incrementally
+  rolled out on Microsoft's own schedule. Counterintuitively, this sits behind the *unset/default*
+  state rather than something an admin explicitly opts into.
+
+**When either row shows "Microsoft managed," it carries two badges, not one** - a blue state
+badge naming the setting, and a separate amber **"Rollout timing not confirmed"** badge next to
+it. They mean different things on purpose: the blue badge is what's *configured*; the amber one
+is a warning that Microsoft communicating a start date for a Microsoft-managed change (e.g.
+"gradually deployed... through August 2026") does **not** mean every tenant already has the new
+behavior by that date. Tenants are migrated in batches on a schedule this toolkit has no way to
+observe - a tenant could be on the old defaults, the new ones, or partway through the transition,
+regardless of what today's date is relative to Microsoft's announcement. The Settings column's
+description for a Microsoft-managed row is Microsoft's stated *intent*, not a confirmed fact for
+this specific tenant right now - hover the amber badge for the full explanation, and check the
+admin center directly if the exact current behavior matters in the moment. Neither row is a
+rules-engine pass/fail finding, for the same reason. Because System-Preferred Authentication
+changes what a specific user sees at sign-in, its influence is also woven directly into the "What
+Users Can Expect (IST vs. SOLL)" flows above, rather than only appearing here as a policy
+setting.
 
 ### 9. Conditional Access Policy Inventory
 

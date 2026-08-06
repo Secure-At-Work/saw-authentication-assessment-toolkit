@@ -57,21 +57,28 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   typed `includeTargets`, and `all_users` is the well-known id for the built-in default target.
   No group/user display-name resolution is done (counts and the all_users/specific distinction
   only), to avoid an extra Graph call this toolkit doesn't otherwise need.
-  - The inventory also carries a **System-Preferred Authentication** row - a distinct policy
-  (`systemCredentialPreferences`) from everything else on this page: it controls what gets
-  *presented* at sign-in for a credential the user already has, not what gets nudged for
-  registration. Genuinely three different behaviors, not on/off - confirmed against
-  [Microsoft's concept article](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication):
-  `disabled` = no change; `enabled` = the strongest-registered-method ranking applies to the
-  second factor only; `default`/absent = "Microsoft managed", applying to **both** first and
-  second factor - the more far-reaching behavior sitting behind the *unset* state rather than an
-  explicit opt-in, and gradually rolling out through 2026-08 (see the matching timeline
-  milestone), so a tenant reading `default` today may not yet actually be experiencing it. Not a
-  rules-engine pass/fail finding, for the same reason the registration campaign's `default` state
-  isn't treated as attestable elsewhere in this codebase. The per-user
-  `systemPreferredAuthenticationMethod` Graph already returns is also passed through onto each
-  roster entry (`SystemPreferredMethod`) as context, and the four **What Users Can Expect (IST
-  vs. SOLL)** flows below fold its influence directly into the Bootstrap, Re-Registration, and
+  - The inventory also carries two rows beyond the 8 method types, each genuinely three-state
+  (Disabled / Enabled / **Microsoft managed**), not on/off: **Registration Campaign**
+  (`registrationEnforcement.authenticationMethodsRegistrationCampaign` - what gets *nudged for
+  registration*) and **System-Preferred Authentication** (`systemCredentialPreferences` - what
+  gets *presented at sign-in* for a credential the user already has; a distinct setting from the
+  campaign, easy to conflate). For both, Graph's `default` state maps to the admin center's
+  "Microsoft managed" option - confirmed against
+  [the registration campaign how-to](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+  and [the System-Preferred concept article](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication).
+  **When a row shows "Microsoft managed," it carries a distinct `bg-info` state badge plus a
+  separate amber "Rollout timing not confirmed" badge** - the two are deliberately different
+  colors/claims: the first says what's *configured*, the second flags that Microsoft's own docs
+  describe "Microsoft managed" as an incrementally-rolled-out set of defaults on Microsoft's own
+  batch schedule, not the tenant's. Microsoft announcing a start date (e.g. "gradually deployed...
+  through August 2026") does not mean every tenant already has the new behavior by that date -
+  this toolkit has no way to observe which batch a given tenant is in, so the Settings column's
+  description for a Microsoft-managed row is labeled as Microsoft's stated *intent*, not a
+  confirmed current fact, with the badge's tooltip spelling that out. Neither row is a rules-engine
+  pass/fail finding, for the same reason. The per-user `systemPreferredAuthenticationMethod`
+  Graph already returns is also passed through onto each roster entry (`SystemPreferredMethod`)
+  as context, and the four **What Users Can Expect (IST vs. SOLL)** flows below fold
+  System-Preferred Authentication's influence directly into the Bootstrap, Re-Registration, and
   CA-Gated scenarios - since it changes what a specific user actually sees, not just a setting.
 - A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
   who needs nudging toward a phishing-resistant method, and who has a phone-based fallback

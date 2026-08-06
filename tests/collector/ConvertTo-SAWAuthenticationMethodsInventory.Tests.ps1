@@ -116,14 +116,63 @@ Describe 'ConvertTo-SAWAuthenticationMethodsInventory' {
         @($result).Count | Should -Be 0
     }
 
-    It 'processes the real bundled sample fixture without error and returns 8 methods plus System-Preferred Authentication' {
+    It 'processes the real bundled sample fixture without error and returns 8 methods plus Registration Campaign plus System-Preferred Authentication' {
         $realPath = "$PSScriptRoot/../../sampledata/raw/authenticationMethodsPolicy.raw.json"
         $policy = Get-Content -Path $realPath -Raw | ConvertFrom-Json
 
         $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
 
-        $result.Count | Should -Be 9
+        $result.Count | Should -Be 10
         ($result | Where-Object { $_.Setting -eq 'FIDO2' }).State | Should -Be 'Disabled'
+    }
+
+    Context 'Registration Campaign row' {
+        It 'reports Disabled with no nudge' {
+            $policy = @{ registrationEnforcement = @{ authenticationMethodsRegistrationCampaign = @{ state = 'disabled' } } }
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'Registration Campaign' }
+            $row.State | Should -Be 'Disabled'
+            $row.SettingsSummary | Should -Be 'No registration nudge occurs'
+            $row.RolloutNote | Should -BeNullOrEmpty
+        }
+
+        It 'reports the admin-configured target/snooze settings verbatim when Enabled' {
+            $policy = @{ registrationEnforcement = @{ authenticationMethodsRegistrationCampaign = @{
+                state = 'enabled'
+                snoozeDurationInDays = 3
+                enforceRegistrationAfterAllowedSnoozes = $true
+                includeTargets = @(@{ targetedAuthenticationMethod = 'fido2' })
+            } } }
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'Registration Campaign' }
+            $row.State | Should -Be 'Enabled'
+            $row.SettingsSummary | Should -Be 'Target: passkey (FIDO2); Snooze: 3 day(s); Snooze limit: limited (required after 3 skips)'
+            $row.RolloutNote | Should -BeNullOrEmpty
+        }
+
+        It 'reports Microsoft managed with a RolloutNote when state is default' {
+            $policy = @{ registrationEnforcement = @{ authenticationMethodsRegistrationCampaign = @{ state = 'default' } } }
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'Registration Campaign' }
+            $row.State | Should -Be 'Microsoft managed'
+            $row.RolloutNote | Should -Not -BeNullOrEmpty
+        }
+
+        It 'treats a completely absent registrationEnforcement the same as default (Microsoft managed)' {
+            $policy = @{}
+
+            $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+            $row = $result | Where-Object { $_.Setting -eq 'Registration Campaign' }
+            $row.State | Should -Be 'Microsoft managed'
+            $row.RolloutNote | Should -Not -BeNullOrEmpty
+        }
     }
 
     Context 'System-Preferred Authentication row' {
@@ -154,6 +203,7 @@ Describe 'ConvertTo-SAWAuthenticationMethodsInventory' {
 
             $row = $result | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
             $row.State | Should -Match 'Microsoft managed'
+            $row.RolloutNote | Should -Not -BeNullOrEmpty
         }
 
         It 'treats a completely absent systemCredentialPreferences the same as default (Microsoft managed)' {
@@ -163,6 +213,18 @@ Describe 'ConvertTo-SAWAuthenticationMethodsInventory' {
 
             $row = $result | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
             $row.State | Should -Match 'Microsoft managed'
+            $row.RolloutNote | Should -Not -BeNullOrEmpty
+        }
+
+        It 'does not set RolloutNote for the non-Microsoft-managed states' {
+            $disabledPolicy = @{ systemCredentialPreferences = @{ state = 'disabled' } }
+            $enabledPolicy = @{ systemCredentialPreferences = @{ state = 'enabled' } }
+
+            $disabledRow = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $disabledPolicy) | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
+            $enabledRow = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $enabledPolicy) | Where-Object { $_.Setting -eq 'System-Preferred Authentication' }
+
+            $disabledRow.RolloutNote | Should -BeNullOrEmpty
+            $enabledRow.RolloutNote | Should -BeNullOrEmpty
         }
     }
 }

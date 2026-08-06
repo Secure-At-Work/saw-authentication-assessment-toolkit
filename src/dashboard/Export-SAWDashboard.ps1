@@ -564,20 +564,36 @@ $($rosterSectionsHtml -join "`n")
 
     # --- Authentication methods policy inventory ---
     $authMethodStateBadgeClass = @{
-        'Enabled'  = 'bg-success'
-        'Disabled' = 'bg-secondary'
+        'Enabled'                          = 'bg-success'
+        'Disabled'                         = 'bg-secondary'
+        'Enabled (second factor only)'     = 'bg-success'
+        'Microsoft managed'                = 'bg-info text-dark'
     }
+
+    $rolloutNoteCount = @($AuthMethodsInventory | Where-Object { $_.RolloutNote }).Count
 
     $authMethodsInventoryRowsHtml = foreach ($m in $AuthMethodsInventory) {
         $badgeClass = $authMethodStateBadgeClass[$m.State]
         if (-not $badgeClass) { $badgeClass = 'bg-secondary' }
+        $rolloutBadge = ''
+        if ($m.RolloutNote) {
+            $rolloutBadge = " <span class=""badge bg-warning text-dark"" title=""$(ConvertTo-SAWHtmlEncoded $m.RolloutNote)"">Rollout timing not confirmed</span>"
+        }
         @"
       <tr>
         <td>$(ConvertTo-SAWHtmlEncoded $m.Setting)</td>
-        <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $m.State)</span></td>
+        <td><span class="badge $badgeClass">$(ConvertTo-SAWHtmlEncoded $m.State)</span>$rolloutBadge</td>
         <td>$(ConvertTo-SAWHtmlEncoded $m.TargetSummary)</td>
         <td>$(ConvertTo-SAWHtmlEncoded $m.SettingsSummary)</td>
       </tr>
+"@
+    }
+
+    $rolloutNoteExplainerHtml = ''
+    if ($rolloutNoteCount -gt 0) {
+        $plural = if ($rolloutNoteCount -eq 1) { '' } else { 's' }
+        $rolloutNoteExplainerHtml = @"
+  <p class="text-body-secondary small"><span class="badge bg-warning text-dark">Rollout timing not confirmed</span> ($rolloutNoteCount row$plural below) - this setting is at Microsoft's "Microsoft managed" state. Microsoft communicating a start date for a Microsoft-managed behavior change is not the same as every tenant already having it: tenants are migrated in batches on Microsoft's own schedule, invisible to this toolkit. The Settings column describes Microsoft's stated <em>intent</em> for this state, not a confirmed current fact for this specific tenant - hover the badge for detail, and re-check the admin center directly if the exact current behavior matters right now.</p>
 "@
     }
 
@@ -586,6 +602,7 @@ $($rosterSectionsHtml -join "`n")
         $authMethodsInventorySectionHtml = @"
   <h2 class="h4 mb-3">Authentication Methods Policy Inventory</h2>
   <p class="text-body-secondary small">Every method as configured tenant-wide, independent of the pass/fail checks above. "Included" shows who can register/use the method (no group/user names resolved, to avoid an extra Graph call - counts only); "Excluded" is folded into that same column when present.</p>
+$rolloutNoteExplainerHtml
   <div class="table-responsive mb-4">
     <table class="table table-striped table-hover align-middle">
       <thead>
