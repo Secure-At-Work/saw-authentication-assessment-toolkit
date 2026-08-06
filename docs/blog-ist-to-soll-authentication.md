@@ -59,8 +59,10 @@ specific groups), and method-specific settings that change what the method actua
   multi-use)
 - **Microsoft Authenticator**: number matching required, location shown in the approval prompt
 - **The registration campaign** (`registrationEnforcement.authenticationMethodsRegistrationCampaign`):
-  state, which method it targets (`microsoftAuthenticator` or `fido2`), snooze duration, and
-  whether snoozes are limited (forced registration after three skips) or unlimited
+  state (a genuine three-way Disabled/Enabled/Microsoft-managed, not on/off), which method it
+  targets (`microsoftAuthenticator` or `fido2`), snooze duration, and whether snoozes are limited
+  (forced registration after three skips) or unlimited. See Part 2 for why "Microsoft managed"
+  specifically deserves its own paragraph.
 - **System-Preferred Authentication** (`systemCredentialPreferences`): a genuinely separate
   setting from everything above it, easy to conflate with the registration campaign but
   controlling something different — not what gets *nudged for registration*, but what gets
@@ -173,6 +175,19 @@ transfer. A user is never nudged in the same session they just registered a meth
 nudge is silently suppressed for anyone blocked from reaching the registration page by a
 Conditional Access policy — which is exactly why the CA trap below matters: a lockout there isn't
 loud, it's just an absence of a prompt nobody notices.
+
+The campaign's own state is itself three-valued, not on/off — `disabled`, `enabled` (the admin's
+own configured target/snooze settings apply exactly as set), or `default` (which the admin center
+labels "Microsoft managed": Microsoft's own recommended defaults apply instead — currently
+documented as targeting passkeys over Authenticator, a 1-day snooze, unlimited snoozes, and
+targeting every MFA-capable user). Worth flagging explicitly: **Microsoft's own reference docs for
+this exact field contradict each other** — the resource reference page states the default value is
+`disabled`, while the how-to article describes "Microsoft managed" as an actively-rolling-out set
+of new defaults. And even taking the how-to article at face value, a start date Microsoft
+announces isn't a guarantee: tenants are migrated onto the new defaults in batches on Microsoft's
+own schedule, invisible from the tenant side. A tenant reading "Microsoft managed" today could be
+on the old behavior, the new one, or partway through — regardless of how long ago Microsoft's
+announced date has passed.
 
 ### The Temporary Access Pass as bootstrap mechanism
 
@@ -426,10 +441,13 @@ bottom:
   setting is active — visible context, not a bucketing factor.
 - **Authentication Methods Policy Inventory** and **Conditional Access Policy Inventory** — the
   full plain-language picture behind every pass/fail check, independent of the rules engine, for
-  understanding *why* a check landed where it did. The methods inventory's last row is
-  System-Preferred Authentication's actual configured state (Disabled / Enabled / Microsoft
-  managed) — not a pass/fail rule, deliberately, given the rollout-timing ambiguity described in
-  Part 2.
+  understanding *why* a check landed where it did. Two rows beyond the 8 method types cover
+  Registration Campaign and System-Preferred Authentication, each with their actual configured
+  state (Disabled / Enabled / Microsoft managed) — neither is a pass/fail rule, deliberately,
+  given the rollout-timing ambiguity described in Part 2. Whenever either shows "Microsoft
+  managed," it carries a second, distinctly-colored badge — **"Rollout timing not confirmed"** —
+  separate from the state badge itself, so that uncertainty is visible at a glance rather than
+  buried in a paragraph only someone hovering would find.
 - **The flat findings table** — every individual check, its result, and its severity, for
   cross-referencing without a second file.
 
