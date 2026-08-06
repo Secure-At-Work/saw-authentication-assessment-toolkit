@@ -264,14 +264,16 @@ function Export-SAWDashboard {
       </div></div>
     </div>
     <div class="col-lg-4">
-      <div class="table-responsive" style="max-height: 300px;">
-        <table class="table table-sm table-striped align-middle">
-          <thead><tr><th>Run</th><th>Baseline</th><th>G/Y/R/Grey</th></tr></thead>
-          <tbody>
+      <div class="card h-100"><div class="card-body">
+        <div class="table-responsive" style="max-height: 300px;">
+          <table class="table table-sm table-striped align-middle mb-0">
+            <thead><tr><th>Run</th><th>Baseline</th><th>G/Y/R/Grey</th></tr></thead>
+            <tbody>
 $($trendRowsHtml -join "`n")
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+        </div>
+      </div></div>
     </div>
   </div>
 "@
