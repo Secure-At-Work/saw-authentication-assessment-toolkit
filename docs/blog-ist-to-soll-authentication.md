@@ -1,16 +1,15 @@
-# From IST to SOLL: A Complete Field Guide to Modernizing Entra ID Authentication
-
-*Using Microsoft's SMS/Voice retirement as the forcing function, with the Secure At Work
-Authentication Assessment Toolkit as the instrument.*
+# From IST to SOLL: A Field Guide to Modernizing Entra ID Authentication
 
 Microsoft has set a hard timeline for retiring SMS and voice call as sign-in methods in
 Microsoft Entra ID, and passkeys become the default authentication experience along the way.
-That announcement is what usually starts this conversation with a customer, but SMS/Voice
-retirement is really just one deadline sitting inside a much bigger picture: what your tenant's
-authentication configuration actually *is* today (**IST**), how all of its moving parts actually
-interact with each other, and what a deliberately chosen target state (**SOLL**) looks like for
-your specific tenant. This post covers all three, in full, using the same framework and the same
-tool we use in real engagements.
+That announcement is what usually starts this conversation, but SMS/Voice retirement is really
+just one deadline sitting inside a much bigger picture: what your tenant's authentication
+configuration actually *is* today (**IST**), how all of its moving parts actually interact with
+each other, and what a deliberately chosen target state (**SOLL**) looks like for your specific
+tenant, plus the order you need to move through to get there safely. This post covers all of
+that. (We use the Secure At Work Authentication Assessment Toolkit to run this kind of
+assessment against real tenants; it's mentioned where relevant, but the guidance below applies
+whether or not you're using it.)
 
 ## Why this is harder than it looks
 
@@ -33,17 +32,13 @@ policy requiring MFA means nothing if the users it targets have never registered
 stronger than SMS. A registration campaign targeting passkeys does nothing if FIDO2 self-service
 registration is switched off. An admin SSPR policy that's deliberately disabled can silently
 strand admins with a broken registration prompt if nobody remembered to exclude them from the
-general user policy. Understanding the tenant means reading all eight surfaces together, and
-that's exactly the gap the Secure At Work Authentication Assessment Toolkit closes: a read-only
-tool that collects all eight, cross-references them, and reports the result as a single
-dashboard: current state, target state, and the gap between them.
+general user policy. Understanding the tenant means reading all eight surfaces together.
 
 ## Part 1: Inventorying IST: what to collect, and why each piece matters
 
 "IST" (German/Dutch for "as-is") is simply the tenant's actual current configuration, collected
 without judgment before any comparison against a target happens. Here's what a complete
-inventory actually requires, mapped to what the toolkit collects and why each piece earns its
-place.
+inventory requires, and why each piece earns its place.
 
 ### Authentication Methods Policy
 
@@ -64,19 +59,17 @@ specific groups), and method-specific settings that change what the method actua
   (forced registration after three skips) or unlimited. See Part 2 for why "Microsoft managed"
   specifically deserves its own paragraph.
 - **System-Preferred Authentication** (`systemCredentialPreferences`): a genuinely separate
-  setting from everything above it, easy to conflate with the registration campaign but
-  controlling something different: not what gets *nudged for registration*, but what gets
-  *presented at sign-in* for a credential the user already has. Covered in full in Part 2, since
-  its effect on the user is significant enough to earn its own mechanic, not just a bullet.
+  setting, easy to conflate with the registration campaign but controlling something different:
+  not what gets *nudged for registration*, but what gets *presented at sign-in* for a credential
+  the user already has. Covered in full in Part 2.
 - **`policyMigrationState`**: whether the tenant has actually finished migrating off the legacy
   per-user MFA policy and legacy SSPR policy onto this one. Deceptively easy to assume is a
   solved problem simply because those legacy policies can no longer be *edited*. See Part 3 for
   why that's a real, checkable gap, not just historical housekeeping.
 
-This is the schema-verified part: target scoping is confirmed against Microsoft's own Graph API
-reference rather than guessed. `excludeTargets` lives on the base
+Target scoping matters here more than it looks: `excludeTargets` lives on the base
 `authenticationMethodConfiguration` type common to every method, while each method has its own
-typed `includeTargets`.
+typed `includeTargets`. Get the two confused and you'll misread who a policy actually covers.
 
 ### Conditional Access policies
 
@@ -102,27 +95,23 @@ unused.
 The single richest data source in the whole inventory: for every user,
 `userRegistrationDetails` reports `isAdmin`, `isMfaRegistered`, `isSsprEnabled`,
 `isSsprRegistered`, and, crucially, `methodsRegistered`, the actual list of methods that
-specific person has set up. Almost everything downstream is derived from this one dataset:
+specific person has set up. This is what tells you, per user, whether they:
 
-- **Bucketing every user** into **OK** (has a phishing-resistant method, no weak fallback),
-  **Hunt** (no phishing-resistant method yet, needs nudging), **Remove** (has a phishing-resistant
-  method *and* a phone-based fallback still registered, a live downgrade-attack surface, since an
-  attacker can force the weaker method even though a stronger one exists), or **Guest (FIDO2 Not
-  Supported)** (external users, called out separately because Microsoft doesn't yet support
-  passkey registration for guest accounts; nudging them toward something they can't act on isn't
-  useful advice).
-- Layered badges on top of that bucketing, each catching a distinct real-world gap: **WHfB-Only
-  (Not Portable)** (a user's only phishing-resistant method is Windows Hello for Business, which
-  is bound to one device, a real problem for admins who don't do routine interactive sign-in from
-  a managed machine), **Possible External Member** (a UPN with the `#EXT#` B2B-guest shape but a
-  Member account type, likely converted from guest, still worth a second look), **Disabled by
-  policy** (a registered method whose tenant-wide toggle is now off, so the credential
-  structurally can't be used anymore and is safe to clean up), **Not recently used** (registered,
-  but no successful sign-in using it in the lookback window, a proxy for staleness, not a
-  certainty), and **SMS/Voice-Only MFA** (this user's *only* registered method is a phone-based
-  one, the precise population Microsoft's February 2027 blocking enforcement targets, distinct
-  from the broader group who merely still have SMS/Voice registered alongside something
-  stronger).
+- Have **no phishing-resistant method at all** and need active nudging toward one.
+- Have a phishing-resistant method **and** still have a phone-based fallback registered
+  alongside it, a live downgrade-attack surface: an attacker can force the weaker fallback even
+  though a stronger method exists, so the fallback should be removed once it's no longer needed.
+- Are a guest/external user, worth tracking separately since Microsoft doesn't yet support
+  passkey registration for guest accounts, so nudging them toward one isn't actionable advice.
+- Have their *only* phishing-resistant method be Windows Hello for Business, which is bound to
+  one device: a real problem for admins who don't do routine interactive sign-in from a managed
+  machine.
+- Have a registered method that the tenant's own policy has since disabled (structurally can't
+  be used anymore, safe to clean up), or one that hasn't been used in a successful sign-in in a
+  long time (a proxy for staleness, worth a second look).
+- Have SMS/Voice as their *only* registered method: the precise population Microsoft's February
+  2027 blocking enforcement targets, and worth prioritizing ahead of everyone else relying on
+  SMS/Voice alongside something stronger.
 
 ### The authorization policy: the admin SSPR trap
 
@@ -138,24 +127,21 @@ policy says.
 
 ### Sign-in and audit logs
 
-Two separate windows serve two separate purposes. A short window (7 days by default) checks for
-successful legacy authentication or device-code-flow sign-ins, both of which bypass modern
-Conditional Access controls entirely and are a red flag wherever they still succeed. A second,
-deliberately wider window (90 days by default, configurable) checks whether *registered* methods
-are actually being *used*: registration alone doesn't mean a method still works, the device it
-lived on might be gone. Audit logs separately catch unexpected credential changes on break-glass
-accounts and CA policy modifications made by applications rather than people, both classic
-incident indicators.
+Two separate windows serve two separate purposes. A short window (7 days is a reasonable
+default) checks for successful legacy authentication or device-code-flow sign-ins, both of which
+bypass modern Conditional Access controls entirely and are a red flag wherever they still
+succeed. A second, deliberately wider window (90 days is a reasonable default) checks whether
+*registered* methods are actually being *used*: registration alone doesn't mean a method still
+works, the device it lived on might be gone. Audit logs separately catch unexpected credential
+changes on break-glass accounts and CA policy modifications made by applications rather than
+people, both classic incident indicators.
 
 ### Tenant profile
 
 `organization.onPremisesSyncEnabled` determines whether this tenant is hybrid (synced with
 on-premises Active Directory, current or former) or cloud-native. This single fact changes what
 "good" means for the rest of the inventory: a hybrid tenant may legitimately still need
-passwords and SSPR for longer than a cloud-native, passwordless-first one. The toolkit also
-checks for an `AAD DC Administrators` group as a proxy signal for Microsoft Entra Domain Services
-usage (a separate Azure Resource Manager surface this Graph-only tool can't reach directly, so
-it's shown as a caveated note, not a finding).
+passwords and SSPR for longer than a cloud-native, passwordless-first one.
 
 ## Part 2: How it all actually works together
 
@@ -178,8 +164,8 @@ nudge is silently suppressed for anyone blocked from reaching the registration p
 Conditional Access policy, which is exactly why the CA trap below matters: a lockout there isn't
 loud, it's just an absence of a prompt nobody notices.
 
-The campaign's own state is itself three-valued, not on/off: `disabled`, `enabled` (the admin's
-own configured target/snooze settings apply exactly as set), or `default` (which the admin center
+The campaign's own state is itself three-valued, not on/off: `disabled`, `enabled` (your own
+configured target/snooze settings apply exactly as set), or `default` (which the admin center
 labels "Microsoft managed": Microsoft's own recommended defaults apply instead, currently
 documented as targeting passkeys over Authenticator, a 1-day snooze, unlimited snoozes, and
 targeting every MFA-capable user). Worth flagging explicitly: **Microsoft's own reference docs
@@ -189,7 +175,8 @@ actively-rolling-out set of new defaults. And even taking the how-to article at 
 start date Microsoft announces isn't a guarantee: tenants are migrated onto the new defaults in
 batches on Microsoft's own schedule, invisible from the tenant side. A tenant reading "Microsoft
 managed" today could be on the old behavior, the new one, or partway through, regardless of how
-long ago Microsoft's announced date has passed.
+long ago Microsoft's announced date has passed. If you need certainty about what a specific user
+is actually being shown, check that tenant directly rather than trusting the stated default.
 
 ### The Temporary Access Pass as bootstrap mechanism
 
@@ -253,22 +240,21 @@ register or update their security info, often used to confine that to a trusted 
 compliant device during onboarding. The trap: if that policy's grant control is a **custom
 authentication strength** whose `allowedCombinations` doesn't include
 `temporaryAccessPassOneTime` or `temporaryAccessPassMultiUse`, a user relying on a TAP as their
-only way in (precisely the population being pushed toward passkey registration by every mechanism
-above) can never reach the page that would let them register one. A plain `mfa` built-in control
-doesn't cause this; a TAP generically satisfies that. Only a custom strength without a TAP escape
-hatch does. And as of **2026-07-06**, this same policy scope additionally governs Windows Hello
-for Business and macOS Platform SSO credential registration too, which it previously didn't
-evaluate at all. That widens the blast radius of any policy that already has this gap. As above,
-this CA policy governs whether the registration page is *reachable*: it still has no say over
+only way in (precisely the population being pushed toward passkey registration by every
+mechanism above) can never reach the page that would let them register one. A plain `mfa`
+built-in control doesn't cause this; a TAP generically satisfies that. Only a custom strength
+without a TAP escape hatch does. And as of **2026-07-06**, this same policy scope additionally
+governs Windows Hello for Business and macOS Platform SSO credential registration too, which it
+previously didn't evaluate at all. That widens the blast radius of any policy that already has this
+gap. This CA policy governs whether the registration page is *reachable*: it still has no say over
 what System-Preferred Authentication presents on the way there.
 
 ### Tracing it end to end
 
 Individually, every mechanism above is documented somewhere in Microsoft's own docs. What's
-harder to find anywhere is the *combined* trace: what does a specific user, in a specific tenant,
-with these specific settings, actually experience? That's a distinct question from any single
-pass/fail check, and it's why the toolkit's dashboard includes a dedicated section tracing four
-real end-to-end flows step by step against the tenant's actual settings:
+harder to find anywhere is the *combined* trace: what does a specific user, in your specific
+tenant, with your specific settings, actually experience? Four scenarios are worth deliberately
+tracing through, step by step, against your own tenant's real settings:
 
 1. **New User Bootstrap**: first sign-in with a TAP, through to a registration campaign nudge on
    a *later* sign-in (never the same session), and then to System-Preferred Authentication
@@ -284,27 +270,26 @@ real end-to-end flows step by step against the tenant's actual settings:
    plus the fixed reminder that this CA scope never overrides System-Preferred Authentication's
    first-factor choice.
 
-Each step in each flow is marked as currently happening or not, given the tenant's real settings,
-not a generic description of how Entra works in the abstract.
+Each step is either happening today, given your tenant's real settings, or it isn't: this is not
+a generic description of how Entra works in the abstract, it's a trace specific to your
+configuration.
 
 ## Part 3: SOLL: what "good" looks like, and why it isn't one-size-fits-all
 
 SOLL ("should be") is the target state, but there is deliberately no single hard-coded "correct"
 answer. A hybrid tenant still tied to on-premises AD may legitimately need passwords and SSPR
 for longer than a fully cloud-native, passwordless tenant, and a severity that's appropriate for
-one isn't necessarily appropriate for the other. The toolkit resolves this with a baseline
-system: named presets (`hybrid-ad-passwords-required`, `cloud-native-passwordless`) that override
-specific rules' expected values and severities without touching the underlying rule logic, and,
-importantly, **auto-detected** from the tenant's own `onPremisesSyncEnabled` signal rather than
-requiring a manual choice up front. An explicit `-Baseline` always wins over the detected one, but
-disagreement between them surfaces as a visible warning rather than silently picking a side.
+one isn't necessarily appropriate for the other. What "good" should mean for your tenant is
+worth deciding deliberately, ideally auto-detected as a starting point from a signal like
+`organization.onPremisesSyncEnabled` (hybrid vs. cloud-native) and then adjusted for your
+specific risk appetite, rather than assumed.
 
-A representative sample of what the rule set actually checks, to make "SOLL" concrete rather than
+A representative checklist of what "good" actually requires, to make SOLL concrete rather than
 abstract:
 
 - **Block legacy authentication tenant-wide** and **require MFA for all users** via Conditional
   Access, the foundational pair almost everything else assumes is already in place.
-- **Privileged access protection for admins**, modeled as a composite rather than one hard-coded
+- **Privileged access protection for admins**, as a composite rather than one hard-coded
   control: a compliant device requirement *or* a phishing-resistant authentication strength
   requirement for admin roles, either one satisfies the intent.
 - **Admin and overall MFA registration coverage** at or above a defined threshold, since a
@@ -313,25 +298,23 @@ abstract:
 - **FIDO2 attestation and key restrictions enforced**, and a defined policy on whether
   cloud-synced passkeys (Google Password Manager, iCloud Keychain, and similar) are acceptable or
   whether only device-bound credentials are, a real, defensible choice either way depending on
-  the customer's risk appetite, hence baseline-configurable rather than fixed.
-- **SSPR registration coverage** among SSPR-enabled users, and, the newer narrower check,
-  **admins correctly excluded from the user-facing SSPR policy whenever admin SSPR has been
-  deliberately disabled**, closing exactly the trap described above.
+  your risk appetite.
+- **SSPR registration coverage** among SSPR-enabled users, and, the narrower and easier-to-miss
+  check, **admins correctly excluded from the user-facing SSPR policy whenever admin SSPR has
+  been deliberately disabled**, closing exactly the trap described above.
 - **A phishing-resistant registration bootstrap actually available** (self-service FIDO2, or
   TAP), without which every downstream registration push has nowhere for a brand-new user to
   start.
-- **Legacy MFA/SSPR policy migration actually completed**: the one rule in this list that isn't
-  ambiguous or baseline-dependent at all. Microsoft announced deprecating the legacy per-user MFA
+- **Legacy MFA/SSPR policy migration actually completed**, the one item on this list that isn't
+  ambiguous or judgment-dependent at all. Microsoft announced deprecating the legacy per-user MFA
   policy and legacy SSPR policy back in March 2023, and since September 30, 2025 they can no
   longer be *edited*. That's easy to mistake for "solved." It isn't. Per Microsoft's own
   migration-states table, a tenant sitting at `premigration` or `migrationInProgress` still has
   those now-frozen legacy settings *actively respected* for who can register and use which
   method, layered invisibly on top of whatever the modern Authentication Methods Policy says.
-  That's a real blind spot for this assessment specifically: a method this report shows Disabled
-  in the inventory above can still be usable in practice via the legacy policy, which lives on a
-  separate, older API this toolkit doesn't collect. Nothing here can see into it. The fix
-  (Microsoft's own automated migration guide) is documented as fully reversible, so there's no
-  rollout-risk reason this should ever sit at Red for long.
+  That's a real blind spot: a method that looks Disabled in the modern policy can still be usable
+  in practice via the legacy one. The fix (Microsoft's own automated migration guide) is
+  documented as fully reversible, so there's no reason to delay it once you know to look for it.
 
 ## Part 4: The path from IST to SOLL: five phases, and why the order matters
 
@@ -351,11 +334,9 @@ Concretely: enforcing "MFA required for everyone" (Phase 5) before enough users 
 method (Phase 3) risks locking people out entirely. Pushing users to register a passkey before a
 bootstrap method exists (Phase 2 not yet done) gives them nothing to act on. Removing SMS/Voice
 (Phase 4) before a stronger method is actually registered removes someone's only working factor.
-The dashboard's Remediation Roadmap makes this concrete rather than aspirational: every
-outstanding finding is grouped into its phase, with a completion count per phase, and any item
-whose prerequisite from an earlier phase isn't resolved yet is explicitly flagged
-`Blocked - waiting on <rule>`, so "is this safe to do right now" is answered directly instead of
-inferred.
+Track which phase each open item belongs to and work through them in order; don't let an
+easy-to-fix Phase 4 item jump ahead of an unresolved Phase 2 dependency just because it looks
+simpler.
 
 ## Part 5: The SMS/Voice retirement, worked through the whole framework
 
@@ -363,7 +344,7 @@ This is where the calendar deadline that usually starts the conversation fits in
 above, not as a special case but as Phase 1 through 4 applied to one specific, Microsoft-driven
 timeline.
 
-Two dates, with genuinely different eligibility criteria: conflating them is the single most
+Two dates, with genuinely different eligibility criteria, and conflating them is the single most
 common way this gets mis-scoped:
 
 **September 1, 2026: passkeys become the default, automatically.** Microsoft auto-enables
@@ -405,7 +386,7 @@ instead of a hypothetical.
 2. Confirm a bootstrap path exists: FIDO2 self-service registration allowed, and TAP not
    accidentally walled off by the Conditional Access trap above (Phase 1/2).
 3. Turn on the registration campaign deliberately, targeting passkeys, before Microsoft does it
-   automatically. This gives control over snooze limits and targeting instead of inheriting
+   automatically. This gives you control over snooze limits and targeting instead of inheriting
    Microsoft-managed defaults (Phase 3).
 4. Prioritize the highest-risk group first: SMS/Voice-only users, admins especially. Everyone
    else has a fallback and can follow at normal pace.
@@ -413,85 +394,42 @@ instead of a hypothetical.
 6. Communicate on Microsoft's own recommended cadence (awareness, then action, then a reminder
    for stragglers), scoped to the group identified in step one, not a blanket announcement.
 
-## Part 6: How the dashboard operationalizes all of this
+## One known limitation worth naming
 
-Everything above is designed to be read off one report, run read-only against the tenant, top to
-bottom:
-
-- **Upcoming Microsoft Deadlines**: every known Microsoft-driven date (not just SMS/Voice; SSPR
-  directory-sourced-contact-info enforcement, the July 2026 CA scoping extension, and others),
-  each with a live "N days left" countdown and, where computable, a genuine per-tenant impact
-  count. The two SMS/Voice dates deliberately use two *different*, separately-computed counts
-  matching their different eligibility criteria; seeing the narrower February number next to the
-  broader September one is usually the moment a customer realizes how much smaller the truly
-  urgent group is.
-- **Overview**: Green/Yellow/Red/Grey counts across every check; Grey means genuinely not
-  applicable to this tenant or baseline, not a failure.
-- **Trend Over Time**: a chart across every historical run for this tenant, once there's more
-  than one, answering "are we actually making progress" rather than only showing a single
-  point-in-time snapshot.
-- **Remediation Roadmap**: every outstanding finding grouped into its phase from Part 4, with
-  `Blocked - waiting on <rule>` shown wherever a prerequisite from an earlier phase isn't resolved
-  yet.
-- **What Users Can Expect (IST vs. SOLL)**: the four end-to-end flows from Part 2, traced step by
-  step against this tenant's real settings.
-- **Security Info Registration Triage**: every user bucketed OK/Hunt/Remove/Guest, grouped into
-  collapsible sections (Remove/Hunt/Guest open by default, OK collapsed), admins first within
-  each bucket, carrying the WHfB-Only, Possible External Member, Disabled by policy, Not recently
-  used, and SMS/Voice-Only MFA badges described in Part 1. Each row also shows a System-Preferred
-  column: what that specific user would currently be shown first at sign-in, if the tenant-wide
-  setting is active, visible context rather than a bucketing factor.
-- **Authentication Methods Policy Inventory** and **Conditional Access Policy Inventory**: the
-  full plain-language picture behind every pass/fail check, independent of the rules engine, for
-  understanding *why* a check landed where it did. Two rows beyond the 8 method types cover
-  Registration Campaign and System-Preferred Authentication, each with their actual configured
-  state (Disabled / Enabled / Microsoft managed). Neither is a pass/fail rule, deliberately,
-  given the rollout-timing ambiguity described in Part 2. Whenever either shows "Microsoft
-  managed," it carries a second, distinctly-colored badge, **"Rollout timing not confirmed"**,
-  separate from the state badge itself, so that uncertainty is visible at a glance rather than
-  buried in a paragraph only someone hovering would find.
-- **The flat findings table**: every individual check, its result, and its severity, for
-  cross-referencing without a second file.
-
-Beyond a single run: output is namespaced by tenant and timestamp so repeat runs never overwrite
-each other, a JSON history snapshot is written every time, and a dedicated drift report compares
-any two runs directly: what regressed, what improved, how the registration roster moved. Useful
-for a project check-in or a "what changed since last quarter" conversation.
-
-## What this deliberately doesn't cover yet
-
-One real, known gap, named here on purpose rather than left implicit: **per-user legacy MFA
-state**, the classic Disabled/Enabled/Enforced flag from the old "per-user MFA" admin experience
-(`perUserMfaState`, readable via `GET /beta/users/{id}/authentication/requirements`). This
-toolkit doesn't collect it. Unlike everything above, there's no bulk or report-style Graph
-endpoint for it: reading it for every user in a tenant means one Graph call *per user*, a real
-and disproportionate cost next to the report-style endpoints everything else here is built on.
-
-It's not a gap that matters equally everywhere. For a Conditional-Access-based tenant (the
-default assumption throughout this piece), Microsoft's own guidance is that per-user MFA state
+Per-user legacy MFA state, the classic Disabled/Enabled/Enforced flag from the old "per-user
+MFA" admin experience (`perUserMfaState`, readable via
+`GET /beta/users/{id}/authentication/requirements`), is easy to overlook in this whole exercise.
+Unlike the report-style endpoints most of the above is built on, there's no bulk way to read it:
+one Graph call per user. It doesn't matter equally everywhere. For a Conditional-Access-based
+tenant (the default assumption throughout this piece), Microsoft's own guidance is that this
 should sit at `Disabled` and be left alone once CA is in place; a stray `Enabled`/`Enforced` user
-left over from before CA adoption is mostly a cleanup item (it forces app-passwords for legacy
-protocols, a real if minor nuisance). But for a tenant with no Conditional Access at all (Entra
-ID Free, no P1/P2), per-user MFA is the *only* enforcement mechanism that exists, and this
-toolkit currently has no visibility into whether it's actually set on anyone. That's a real, if
-narrow, blind spot worth knowing about rather than discovering later.
+left over from before CA adoption is mostly a cleanup item. But for a tenant with no Conditional
+Access at all (Entra ID Free, no P1/P2), per-user MFA is the *only* enforcement mechanism that
+exists, and it's worth checking explicitly rather than assuming it's covered by everything above.
 
 ## The practical workflow, in short
 
-1. Run the assessment. Read-only, no changes to the tenant. Read the baseline banner first, so
-   you know what target this run was measured against.
-2. Work the Remediation Roadmap phase by phase. A `Blocked` item means finish its dependency
-   first, even if it looks easy to switch on.
-3. Use the Security Info Registration Triage list to drive the actual people-side work, and check
-   the "What Users Can Expect" flows when a specific mechanism's behavior is in question.
-4. Check Upcoming Microsoft Deadlines against your own timeline. Some of this work happens on
-   Microsoft's schedule regardless, which changes what's worth prioritizing manually.
-5. Re-run periodically; use the trend chart and drift report to show progress, not just a
-   snapshot.
-6. Once every Phase 5 item is Green (or intentionally Grey), the tenant matches its SOLL target,
-   for now. New Microsoft rollouts and new checks shift what SOLL means over time, which is why
-   periodic re-assessment stays worthwhile even after reaching Green.
+1. Inventory IST first, in full, before deciding anything. Know your baseline (hybrid vs.
+   cloud-native) so you're measuring against the right target.
+2. Work Phase 1 through 5 in order. A Phase 4 or 5 item that looks easy to switch on is still
+   blocked if its Phase 1–3 prerequisite isn't resolved yet; fix the dependency first, even when
+   the later item looks simpler.
+3. Drive the people-side work (who needs nudging toward a phishing-resistant method, who has a
+   fallback to remove, who's at risk from an upcoming Microsoft deadline) off the per-user data
+   from Part 1, and trace the four end-to-end flows from Part 2 whenever a specific mechanism's
+   behavior is in question rather than assumed.
+4. Check upcoming Microsoft-driven deadlines against your own timeline. Some of this work happens
+   on Microsoft's schedule regardless, which changes what's worth prioritizing manually versus
+   what's coming either way.
+5. Re-assess periodically rather than once. New Microsoft rollouts and new gaps discovered shift
+   what SOLL means over time, so periodic re-assessment stays worthwhile even after reaching a
+   clean state. (This is the part a repeatable, read-only assessment like the Secure At Work
+   Authentication Assessment Toolkit is built to make easy: a phased work plan of exactly what's
+   still open and in what order, a per-user triage list, and a trend view across repeat runs, so
+   the sequencing above doesn't have to be re-derived by hand every time.)
+6. Once every Phase 5 item is genuinely satisfied, the tenant matches its SOLL target, for now.
+   New Microsoft rollouts and new checks shift what SOLL means over time, which is why periodic
+   re-assessment stays worthwhile even after reaching that point.
 
 ---
-*Secure At Work, Microsoft 365 &amp; Entra ID security assessments, including the Authentication
-Assessment Toolkit referenced throughout.*
+*Secure At Work, Microsoft 365 &amp; Entra ID security assessments.*
