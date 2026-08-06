@@ -291,4 +291,43 @@ Describe 'ConvertTo-SAWNormalizedAuthenticationMethods' {
             ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
         }
     }
+
+    Context 'legacy MFA/SSPR policy migration state (AUTH007)' {
+        # Confirmed against Microsoft's own migration-states table: only 'migrationComplete'
+        # means legacy policies are ignored - both 'premigration' and 'migrationInProgress'
+        # still actively respect the (now frozen, unmanageable since 2025-09-30) legacy settings.
+        $settingName = 'Legacy MFA/SSPR Policy Migration Complete'
+
+        It 'reports Disabled when policyMigrationState is premigration' {
+            $raw = @{ authenticationMethodConfigurations = @(); policyMigrationState = 'premigration' }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'reports Disabled when policyMigrationState is migrationInProgress - legacy settings are still respected' {
+            $raw = @{ authenticationMethodConfigurations = @(); policyMigrationState = 'migrationInProgress' }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'reports Enabled when policyMigrationState is migrationComplete' {
+            $raw = @{ authenticationMethodConfigurations = @(); policyMigrationState = 'migrationComplete' }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'reports Disabled when policyMigrationState is absent entirely' {
+            $raw = @{ authenticationMethodConfigurations = @() }
+
+            $result = $raw | ConvertTo-SAWNormalizedAuthenticationMethods
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+    }
 }

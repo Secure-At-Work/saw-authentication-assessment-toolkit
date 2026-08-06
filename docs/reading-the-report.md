@@ -265,6 +265,23 @@ to explicitly exclude administrators from the user-facing SSPR policy once admin
 off. This check shows Grey whenever admin SSPR is enabled (the default) - there's nothing to
 exclude admins from in that case.
 
+A second entry worth calling out: **"Legacy MFA/SSPR Policy Migration Complete"**. Entra ID has
+had two ways to manage authentication methods: the old, tenant-wide legacy per-user MFA policy
+and legacy SSPR policy (found under **Multifactor authentication** and **Password reset** in the
+admin center), and the modern Authentication Methods Policy this report otherwise focuses on
+entirely. Microsoft announced retiring the legacy ones back in March 2023, and since September
+30, 2025 they can no longer be *edited* at all - but that's not the same as being *ignored*.
+Per Microsoft's own documentation, a tenant that hasn't explicitly completed migration (shown as
+**"Migration status: Not started"** or **"In progress"** under **Manage migration** in the
+Authentication methods blade) still has those frozen legacy settings actively governing who can
+register and use which method, layered on top of whatever the modern policy says. That's a real
+blind spot for everything else in this report: a method this dashboard shows as Disabled in the
+Authentication Methods Policy Inventory can still be usable in practice via the legacy policy,
+which this toolkit has no way to see into (it lives on a separate, older API). The fix is to
+finish the migration - Microsoft's own automated guide ( **Authentication methods > Policies >
+Manage migration > Begin automated guide**) does most of the work, and the whole process is
+documented as fully reversible, so there's no rollout-risk reason to leave it half-done.
+
 ## From IST to SOLL: the work plan itself
 
 A list of findings tells you *what's* wrong. It doesn't tell you *what order* to fix things in -

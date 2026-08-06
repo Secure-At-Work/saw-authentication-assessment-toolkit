@@ -5,7 +5,7 @@
   "description": "The tenant-wide policy that controls which authentication methods are allowed and how they are configured.",
   "lastModifiedDateTime": "2026-05-14T09:12:31Z",
   "policyVersion": "1",
-  "policyMigrationState": "migrationInProgress",
+  "policyMigrationState": "premigration",
   "reconfirmationInDays": null,
   "optOutSettings": {
     "passkeyDynamicMigration": false

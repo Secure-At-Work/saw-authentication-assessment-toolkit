@@ -1,0 +1,11 @@
+{
+    "RuleID": "AUTH007",
+    "Category": "Authentication Methods",
+    "Setting": "Legacy MFA/SSPR Policy Migration Complete",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
+    "DependsOn": [],
+    "Recommendation": "This tenant has not completed migration off the legacy per-user MFA policy and legacy SSPR policy onto the Authentication Methods Policy (policyMigrationState is not 'migrationComplete'). Microsoft announced deprecation of managing authentication methods in those legacy policies in March 2023, and since 2025-09-30 they can no longer be edited at all - but being unmanageable is not the same as being ignored: per Microsoft's own documentation, both 'premigration' and 'migrationInProgress' states mean those now-frozen legacy settings are STILL actively respected for who can register and use which method, on top of whatever this tenant's Authentication Methods Policy says. This is a real blind spot for this assessment specifically: a method shown Disabled in the Authentication Methods Policy Inventory above may still be usable via the legacy policy, which lives on a different, older API this toolkit does not collect - so nothing here can see it. Complete the migration via the Microsoft Entra admin center (Entra ID > Authentication methods > Policies > Manage migration > Begin automated guide, or the manual audit process) and set the state to Migration Complete. Migration is documented as fully reversible, so there is no rollout-risk reason to delay this specifically - see https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage#migration-between-policies and https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-methods-manage."
+}

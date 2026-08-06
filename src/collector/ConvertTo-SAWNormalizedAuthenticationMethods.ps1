@@ -36,6 +36,18 @@ function ConvertTo-SAWNormalizedAuthenticationMethods {
         Left absent/false (the default), the automatic rollout applies to the tenant. Opting
         out only buys time to prepare - it does not exempt the tenant from the 2027-02-01
         Microsoft-provided SMS/Voice retirement, which has no opt-out at all.
+
+        Also derives a fact from RawPolicy.policyMigrationState - whether the tenant has
+        completed migrating off the legacy per-user MFA policy and legacy SSPR policy onto this
+        Authentication Methods Policy. Unlike the ambiguous cases above, this one is
+        unambiguous and confirmed against Microsoft's own migration-states table (see
+        https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage,
+        "Migration between policies"): only 'migrationComplete' means the legacy policies are
+        ignored; both 'premigration' and 'migrationInProgress' mean those now-frozen legacy
+        settings (unmanageable since 2025-09-30, but NOT thereby ignored) are still actively
+        respected for who can register/use which method - an audit blind spot this toolkit's
+        Authentication Methods Policy Inventory can't see into, since the legacy policies live on
+        a different, older API this toolkit doesn't collect.
     .PARAMETER RawPolicy
         The object returned by Get-SAWAuthenticationMethods.
     .OUTPUTS
@@ -149,6 +161,36 @@ function ConvertTo-SAWNormalizedAuthenticationMethods {
             Category = 'Authentication Methods'
             Setting  = 'Passkey Dynamic Migration Not Opted Out'
             State    = ConvertTo-SAWStateLabel (-not $passkeyDynamicMigrationOptedOut)
+        }
+
+        # --- Legacy MFA/SSPR policy migration state ---
+        # Confirmed against https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage
+        # ("Migration between policies" table): policyMigrationState has three real values -
+        # 'premigration' (Authentication methods policy governs authentication only; legacy
+        # per-user MFA and legacy SSPR policy settings are still respected), 'migrationInProgress'
+        # (Authentication methods policy now also governs SSPR; legacy settings STILL respected),
+        # and 'migrationComplete' (only the Authentication methods policy is used; legacy settings
+        # are ignored entirely). Unlike System-Preferred Authentication's ambiguous 'default'
+        # state elsewhere in this file, this one is unambiguous and worth a real pass/fail rule:
+        # Microsoft announced deprecation of managing authentication methods in the legacy
+        # policies back in March 2023, and "beginning September 30, 2025, authentication methods
+        # can't be managed in these legacy MFA and SSPR policies" - but critically, being
+        # unmanageable is not the same as being ignored. A tenant stuck at 'premigration' or
+        # 'migrationInProgress' today still has those now-frozen, no-longer-editable legacy
+        # settings actively governing who can register/use which method, entirely invisible to
+        # this toolkit's Authentication Methods Policy Inventory (a different, older API this
+        # toolkit doesn't collect) - a real blind spot where a method shown "Disabled" in the
+        # modern policy may still be usable via the legacy one. Migration is documented as fully
+        # reversible, so there's no rollout-risk reason to delay completing it.
+        $migrationState = [string]$RawPolicy.policyMigrationState
+        $migrationComplete = ($migrationState -eq 'migrationComplete')
+
+        Write-Verbose "ConvertTo-SAWNormalizedAuthenticationMethods: policyMigrationState='$migrationState'"
+
+        @{
+            Category = 'Authentication Methods'
+            Setting  = 'Legacy MFA/SSPR Policy Migration Complete'
+            State    = ConvertTo-SAWStateLabel $migrationComplete
         }
     }
 }

@@ -133,6 +133,18 @@ tenant. Beyond the base 19 rules, the dashboard also has:
   admin still shows `isSsprEnabled: true`; it's Grey (not applicable) whenever admin SSPR is
   enabled, the default. See
   [concept-sspr-policy#administrator-reset-policy-differences](https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy#administrator-reset-policy-differences).
+- **Legacy MFA/SSPR policy migration check (AUTH007)** - reads `policyMigrationState` on the
+  Authentication Methods Policy (already collected, no extra call). Microsoft announced
+  deprecating the legacy per-user MFA policy and legacy SSPR policy back in March 2023, and
+  since 2025-09-30 they can no longer be *edited* - but per Microsoft's own migration-states
+  table, being unmanageable isn't the same as being *ignored*: both `premigration` and
+  `migrationInProgress` mean those now-frozen legacy settings are still actively respected for
+  who can register/use which method, only `migrationComplete` makes Entra ignore them entirely.
+  A real blind spot for this toolkit specifically - a method shown Disabled in the Authentication
+  Methods Policy Inventory can still be usable via the legacy policy, which lives on a different,
+  older API this toolkit doesn't collect, so nothing here can see into it. High severity, Phase 1
+  (fully reversible per Microsoft's own docs, so no rollout-risk reason to delay). See
+  [concept-authentication-methods-manage#migration-between-policies](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage#migration-between-policies).
 - A composite "privileged access protection in place" check (compliant device OR a
   phishing-resistant auth strength required for admins - not a single hard-coded control)
 - A **configurable, auto-detected customer SOLL baseline** (see below - hybrid vs. cloud-native

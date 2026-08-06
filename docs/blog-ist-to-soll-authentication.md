@@ -66,6 +66,10 @@ specific groups), and method-specific settings that change what the method actua
   controlling something different — not what gets *nudged for registration*, but what gets
   *presented at sign-in* for a credential the user already has. Covered in full in Part 2, since
   its effect on the user is significant enough to earn its own mechanic, not just a bullet.
+- **`policyMigrationState`**: whether the tenant has actually finished migrating off the legacy
+  per-user MFA policy and legacy SSPR policy onto this one. Deceptively easy to assume is a
+  solved problem simply because those legacy policies can no longer be *edited* — see Part 3 for
+  why that's a real, checkable gap, not just historical housekeeping.
 
 This is the schema-verified part — target scoping is confirmed against Microsoft's own Graph API
 reference rather than guessed: `excludeTargets` lives on the base
@@ -299,6 +303,18 @@ abstract:
 - **A phishing-resistant registration bootstrap actually available** (self-service FIDO2, or
   TAP) — without this, every downstream registration push has nowhere for a brand-new user to
   start.
+- **Legacy MFA/SSPR policy migration actually completed** — the one rule in this list that isn't
+  ambiguous or baseline-dependent at all. Microsoft announced deprecating the legacy per-user MFA
+  policy and legacy SSPR policy back in March 2023, and since September 30, 2025 they can no
+  longer be *edited*. That's easy to mistake for "solved" — it isn't. Per Microsoft's own
+  migration-states table, a tenant sitting at `premigration` or `migrationInProgress` still has
+  those now-frozen legacy settings *actively respected* for who can register and use which
+  method, layered invisibly on top of whatever the modern Authentication Methods Policy says.
+  That's a real blind spot for this assessment specifically: a method this report shows Disabled
+  in the inventory above can still be usable in practice via the legacy policy, which lives on a
+  separate, older API this toolkit doesn't collect — nothing here can see into it. The fix
+  (Microsoft's own automated migration guide) is documented as fully reversible, so there's no
+  rollout-risk reason this should ever sit at Red for long.
 
 ## Part 4: The path from IST to SOLL — five phases, and why the order matters
 
