@@ -6,7 +6,7 @@ function Get-SAWTimelineMilestones {
     .DESCRIPTION
         Pure data shaping, no Graph calls - reads config/timeline-milestones.json (a static,
         hand-sourced list of known Microsoft-driven Entra authentication rollout dates, e.g.
-        the 2026-09-07 SSPR enforcement or the 2027-02-01 SMS/Voice retirement) and annotates
+        the 2026-10-05 SSPR enforcement or the 2027-02-01 SMS/Voice retirement) and annotates
         each entry with DaysRemaining and IsPast, sorted ascending by Date so the nearest
         deadline is always first.
 

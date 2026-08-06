@@ -303,10 +303,14 @@ and the two dates use **different eligibility criteria** worth not conflating:
 
 **Upcoming Microsoft deadlines, with a countdown.** The dashboard's "Upcoming Microsoft
 Deadlines" section (right after the SOLL baseline banner, before the Overview) surfaces every
-known date above - plus others not tied to a specific rule, like the **2026-09-07** SSPR
+known date above - plus others not tied to a specific rule, like the **2026-10-05** SSPR
 enforcement (directory-sourced `mobilePhone`/`businessPhone`/`otherMails` stop working for SSPR
-unless explicitly registered - see `SSPR001`'s recommendation text) and the **2026-08-06** SSPR
-registration-campaign nudge that precedes it - with a live "N days left" countdown computed
+unless explicitly registered - see `SSPR001`'s recommendation text) and the **2026-11-09** SSPR
+registration-campaign nudge (both dates re-verified 2026-08-06 against Microsoft's own doc,
+updated 2026-08-04 - each moved once already from earlier recorded values of 2026-09-07 and
+2026-08-06 respectively; Microsoft's wording no longer frames the nudge as strictly "ahead of"
+the enforcement date now that the two have swapped relative order, so don't restate that
+relationship without re-checking) - with a live "N days left" countdown computed
 against the current date, color-coded by urgency (red inside 14 days, yellow inside 45,
 grey once past). The list itself is [config/timeline-milestones.json](config/timeline-milestones.json),
 a small, hand-maintained, sourced JSON file (same "rules are data" philosophy as everything
