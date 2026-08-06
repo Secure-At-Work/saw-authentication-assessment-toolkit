@@ -196,6 +196,19 @@ tenant. Beyond the base 19 rules, the dashboard also has:
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
+**Possible future work:**
+- **Per-user legacy MFA state** (`perUserMfaState` - Disabled/Enabled/Enforced, via
+  `GET /beta/users/{id}/authentication/requirements`). Not currently collected - unlike
+  everything else in this toolkit, there's no bulk/report endpoint for it, only one Graph call
+  per user, so it's a meaningfully more expensive collector than anything else here. Two possible
+  angles if built: for a Conditional-Access-based tenant (this toolkit's assumed default), stray
+  `Enabled`/`Enforced` users left over from before CA adoption are mostly a cleanup item (they
+  force app-passwords for legacy protocols); for a tenant with no Conditional Access at all (Entra
+  ID Free, no P1/P2), this is the *only* MFA enforcement mechanism that exists, and a gap here
+  means no MFA requirement at all - something REG001/REG002 (registration, not enforcement)
+  wouldn't catch. If built, scope to admins first (matching the "admins first" pattern used
+  throughout the roster) rather than calling it for every user, to keep the added Graph cost down.
+
 ## Customer baselines (SOLL)
 
 SOLL (target state) is customer-specific: a hybrid tenant still tied to on-prem AD may
