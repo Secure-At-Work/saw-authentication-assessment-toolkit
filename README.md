@@ -336,6 +336,13 @@ the same key.
 
 ## Usage
 
+**Windows convenience wrapper:** double-click [run.cmd](run.cmd) (or run it from a terminal) for
+a menu covering the common cases below - sample data, live tenant (default/specific tenant/install
+modules/force reauth/device code), a drift report, or a custom argument passthrough. Requires
+`pwsh` on PATH; it'll tell you if it isn't. Skip the menu entirely by passing arguments straight
+through, e.g. `run.cmd -UseSampleData -Verbose` - anything after `run.cmd` goes directly to
+`Invoke-SAWAssessment.ps1`, same as calling `pwsh -File src/Invoke-SAWAssessment.ps1` yourself.
+
 Offline, against the bundled sample tenant fixtures (no Graph connection needed):
 
 ```powershell
