@@ -194,6 +194,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeys.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedPasskeys.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWFido2KeyInventory.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWSignInLogs.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedSignInLogs.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuditLogs.ps1')
@@ -308,6 +309,7 @@ $normalized += $tapRaw | ConvertTo-SAWNormalizedTemporaryAccessPass -Verbose:$Ve
 Write-Verbose 'Invoke-SAWAssessment: collecting FIDO2 (passkey) configuration'
 $passkeysRaw = Get-SAWPasskeys -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
 $normalized += $passkeysRaw | ConvertTo-SAWNormalizedPasskeys -Verbose:$VerbosePreference
+$fido2KeyInventory = $passkeysRaw | ConvertTo-SAWFido2KeyInventory -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: collecting sign-in logs'
 $signInsRaw = Get-SAWSignInLogs -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
@@ -433,7 +435,7 @@ else {
     Write-Verbose "Invoke-SAWAssessment: no reading guide found at $readingGuidePath - dashboard will render without the 'Reading This Report' tab"
 }
 
-$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -AuthMethodsInventory $authMethodsInventory -CaPolicyInventory $caPolicyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -FlowScenarios $flowScenarios -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -AuthMethodsInventory $authMethodsInventory -CaPolicyInventory $caPolicyInventory -Fido2KeyInventory $fido2KeyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -FlowScenarios $flowScenarios -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

@@ -48,6 +48,13 @@ function Export-SAWDashboard {
         listing every policy's name, state, targets, and grant controls - independent of the
         handful of synthetic pass/fail CA checks in the rules engine. Omitted entirely if
         empty/absent.
+    .PARAMETER Fido2KeyInventory
+        Optional output of ConvertTo-SAWFido2KeyInventory (a single hashtable, not one per
+        anything). When supplied and key restrictions are enforced, renders a "FIDO2 Key
+        Restrictions" section resolving the tenant's raw allow/block-listed AAGUIDs into
+        human-readable key/provider names - the answer to "which keys are actually allowed"
+        that Graph's raw GUIDs don't give you on their own. Omitted entirely if absent or if
+        key restrictions aren't enforced (nothing to list).
     .PARAMETER Roadmap
         Optional output of ConvertTo-SAWRemediationRoadmap (one hashtable per phase). When
         supplied, renders a "Remediation Roadmap" section right after the Overview - the
@@ -142,6 +149,8 @@ function Export-SAWDashboard {
 
         [AllowEmptyCollection()]
         [object[]]$CaPolicyInventory = @(),
+
+        [object]$Fido2KeyInventory = $null,
 
         [AllowEmptyCollection()]
         [object[]]$Roadmap = @(),
@@ -659,6 +668,41 @@ $($caInventoryRowsHtml -join "`n")
 "@
     }
 
+    # --- FIDO2 key restrictions: which specific keys/providers are allowed ---
+    $fido2KeyRowsHtml = foreach ($k in $Fido2KeyInventory.AllowedKeys) {
+        $recognizedBadge = if ($k.Recognized) {
+            '<span class="badge bg-success">Recognized</span>'
+        }
+        else {
+            '<span class="badge bg-warning text-dark">Unrecognized</span>'
+        }
+        @"
+      <tr>
+        <td><code>$(ConvertTo-SAWHtmlEncoded $k.Aaguid)</code></td>
+        <td>$(ConvertTo-SAWHtmlEncoded $k.KnownName)</td>
+        <td>$recognizedBadge</td>
+      </tr>
+"@
+    }
+
+    $fido2KeyInventorySectionHtml = ''
+    if ($Fido2KeyInventory -and $Fido2KeyInventory.IsEnforced) {
+        $fido2KeyInventorySectionHtml = @"
+  <h2 class="h4 mb-3">FIDO2 Key Restrictions</h2>
+  <p class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $Fido2KeyInventory.EnforcementSummary) AAGUIDs are resolved against a hand-maintained reference list (Yubico hardware keys, confirmed against Yubico's own published AAGUID table, plus common synced-passkey providers) - an unrecognized AAGUID is a real key/provider this toolkit's reference list doesn't yet cover, not necessarily a problem. Check the FIDO Alliance Metadata Service or the vendor directly for anything unrecognized.</p>
+  <div class="table-responsive mb-4">
+    <table class="table table-striped table-hover align-middle">
+      <thead>
+        <tr><th>AAGUID</th><th>Key / Provider</th><th></th></tr>
+      </thead>
+      <tbody>
+$($fido2KeyRowsHtml -join "`n")
+      </tbody>
+    </table>
+  </div>
+"@
+    }
+
     # --- Remediation Roadmap (IST -> SOLL phased work plan) ---
     $roadmapSectionHtml = ''
     if ($Roadmap.Count -gt 0) {
@@ -963,6 +1007,7 @@ $rosterSectionHtml
 
     $policyInventoryPaneHtml = @"
 $authMethodsInventorySectionHtml
+$fido2KeyInventorySectionHtml
 $caInventorySectionHtml
   <h2 class="h4 mb-3">Detail by Category</h2>
   <ul class="nav nav-pills mb-3" role="tablist">

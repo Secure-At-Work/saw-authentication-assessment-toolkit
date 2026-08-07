@@ -7,5 +7,5 @@
     "Phase": 2,
     "PhaseName": "2. Enable Phishing-Resistant Capability",
     "DependsOn": ["AUTH004"],
-    "Recommendation": "Once FIDO2 is enabled (see AUTH004), scope registration to an approved AAGUID allow-list via key restrictions rather than accepting any FIDO2 authenticator."
+    "Recommendation": "Once FIDO2 is enabled (see AUTH004), scope registration to an approved AAGUID allow-list via key restrictions rather than accepting any FIDO2 authenticator. Graph only returns the raw AAGUIDs on that list, not vendor/model names - see the 'FIDO2 Key Restrictions' section (Policy Inventory tab) for those AAGUIDs resolved to readable key names where recognized."
 }
