@@ -82,14 +82,18 @@ tenant. Beyond the base 19 rules, the dashboard also has:
 - A **FIDO2 key restrictions inventory** (`ConvertTo-SAWFido2KeyInventory.ps1`) answering the
   question PASS002's pass/fail check can't on its own: enforced against *which specific keys*?
   Graph only returns the raw AAGUIDs on the tenant's allow/block-list; this resolves each one to
-  a human-readable key or provider name against a hand-maintained reference table (Yubico
-  hardware keys, confirmed against Yubico's own published AAGUID table, plus the same
-  synced-passkey-provider list PASS003 already uses). An unrecognized AAGUID is reported as such
-  rather than silently dropped or guessed at - same "strong signal, not exhaustive proof" caveat
-  as PASS003's synced-passkey detection. Only Yubico is covered for hardware keys so far (by far
-  the most common vendor in enterprise Entra deployments, and the only one with a conveniently
-  published complete AAGUID table found during research); extending to other vendors (Feitian,
-  Google Titan, and so on) is straightforward if/when needed - just more entries in
+  a human-readable key or provider name against a hand-maintained reference table covering
+  Yubico and Feitian hardware keys (confirmed against each vendor's own published/official
+  AAGUID list - worth noting Feitian's list disagreed with a secondary-source blog post found
+  during research on at least two AAGUID/product-name pairings, exactly why it got cross-checked
+  against Feitian's own page rather than trusted secondhand), Microsoft Authenticator as a
+  passkey provider (confirmed against Microsoft's own docs - its admin center even offers
+  "+ Add AAGUID > Microsoft Authenticator" as a one-click shortcut when building an allow-list,
+  so these two AAGUIDs show up often in practice), and the same synced-passkey-provider list
+  PASS003 already uses. An unrecognized AAGUID is reported as such rather than silently dropped
+  or guessed at - same "strong signal, not exhaustive proof" caveat as PASS003's synced-passkey
+  detection. Other hardware vendors (Google Titan, SoloKeys, Thales, and so on) aren't in the
+  table yet; extending it is straightforward if/when needed - just more entries in
   `$knownFido2KeyAaguids`. Omitted from the dashboard entirely when key restrictions aren't
   enforced (nothing to list) or FIDO2 itself is tenant-wide disabled.
 - A full **Authentication Methods policy inventory** (`ConvertTo-SAWAuthenticationMethodsInventory.ps1`)

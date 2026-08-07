@@ -39,6 +39,32 @@ Describe 'ConvertTo-SAWFido2KeyInventory' {
         $result.AllowedKeys[0].KnownName | Should -Match 'YubiKey'
     }
 
+    It 'resolves a known Feitian hardware key AAGUID to its readable name' {
+        $raw = @{
+            state           = 'enabled'
+            keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('12755c32-8ad1-46eb-881c-e0b38d848b09') }
+        }
+
+        $result = $raw | ConvertTo-SAWFido2KeyInventory
+
+        $result.AllowedKeys[0].Recognized | Should -BeTrue
+        $result.AllowedKeys[0].KnownName | Should -Match 'Feitian ePass FIDO'
+    }
+
+    It 'resolves both documented Microsoft Authenticator AAGUIDs (Android and iOS)' {
+        $raw = @{
+            state           = 'enabled'
+            keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('de1e552d-db1d-4423-a619-566b625cdc84', '90a3ccdf-635c-4729-a248-9b709135078f') }
+        }
+
+        $result = $raw | ConvertTo-SAWFido2KeyInventory
+
+        $result.AllowedKeys.Count | Should -Be 2
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq 'de1e552d-db1d-4423-a619-566b625cdc84' }).KnownName | Should -Match 'Microsoft Authenticator \(Android\)'
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq '90a3ccdf-635c-4729-a248-9b709135078f' }).KnownName | Should -Match 'Microsoft Authenticator \(iOS\)'
+        $result.AllowedKeys | ForEach-Object { $_.Recognized | Should -BeTrue }
+    }
+
     It 'resolves a known synced-passkey provider AAGUID to its readable name too, not just hardware keys' {
         $raw = @{
             state           = 'enabled'

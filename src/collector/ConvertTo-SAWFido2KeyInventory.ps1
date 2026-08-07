@@ -10,23 +10,37 @@ function ConvertTo-SAWFido2KeyInventory {
         nothing without cross-referencing a vendor's published list or the FIDO Alliance
         Metadata Service (MDS) by hand.
 
-        The reference table below (see $knownFido2KeyAaguids) is seeded from Yubico's own
-        published hardware FIDO2 AAGUID list
-        (https://support.yubico.com/hc/en-us/articles/360016648959-YubiKey-hardware-FIDO2-AAGUIDs,
-        confirmed current as of this writing) - deliberately not the community
-        passkeydeveloper/passkey-authenticator-aaguids list already used by
-        ConvertTo-SAWNormalizedPasskeys for synced-passkey detection, since that list is scoped
-        to platform authenticators/password managers and does not cover dedicated hardware
-        security keys at all. The two lists are combined here so a single AAGUID lookup covers
-        both hardware keys and synced-passkey providers.
+        The reference table below (see $knownFido2KeyAaguids) is seeded from several
+        vendor-published sources, each confirmed current as of this writing:
+        - Yubico's published hardware FIDO2 AAGUID list
+          (https://support.yubico.com/hc/en-us/articles/360016648959-YubiKey-hardware-FIDO2-AAGUIDs)
+        - Feitian's official FIDO product list (https://fido.ftsafe.com/products/) - note this
+          list disagreed with a secondary-source blog post found during research on at least two
+          AAGUID/product-name pairings, which is exactly why it was cross-checked against
+          Feitian's own page rather than trusted from the secondary source alone
+        - Microsoft's own documented AAGUIDs for Microsoft Authenticator as a passkey provider
+          (https://learn.microsoft.com/entra/identity/authentication/how-to-enable-authenticator-passkey#authenticator-aaguids)
+          - these are genuinely different from Windows Hello's AAGUIDs and from any
+          synced-passkey provider, and matter here specifically because Entra's own admin
+          center UI offers "+ Add AAGUID > Microsoft Authenticator" as a one-click shortcut when
+          building a key-restriction allow-list, so a tenant's configured AAGUIDs will commonly
+          include these two even though Authenticator itself isn't a "key" in the hardware sense
+        - deliberately NOT the community passkeydeveloper/passkey-authenticator-aaguids list
+          already used by ConvertTo-SAWNormalizedPasskeys for synced-passkey detection, since
+          that list is scoped to platform authenticators/password managers and does not cover
+          dedicated hardware security keys (confirmed by checking its combined_aaguid.json,
+          which also doesn't carry Microsoft Authenticator or Feitian). The two lists are
+          combined here so a single AAGUID lookup covers hardware keys, Microsoft Authenticator,
+          and synced-passkey providers together.
 
-        Yubico is the only hardware vendor covered right now - by far the most common in
-        enterprise Entra deployments, and the only one with a conveniently published, complete
-        AAGUID table found during research. Other vendors (Feitian, Google Titan, SoloKeys, and
-        so on) are not yet in the reference table. Same "strong signal, not exhaustive proof"
-        caveat as the synced-passkey detection: an unrecognized AAGUID is reported as such
-        (with a pointer to the FIDO Alliance MDS and the vendor), never silently dropped or
-        misrepresented as something it isn't.
+        Yubico, Feitian, and Microsoft Authenticator are covered so far - Yubico and Feitian by
+        far the two most common hardware vendors in enterprise Entra deployments, alongside
+        Authenticator itself since it's commonly allow-listed via the admin center's own
+        shortcut. Other hardware vendors (Google Titan, SoloKeys, Thales, and so on) are not yet
+        in the reference table. Same "strong signal, not exhaustive proof" caveat as the
+        synced-passkey detection: an unrecognized AAGUID is reported as such (with a pointer to
+        the FIDO Alliance MDS and the vendor), never silently dropped or misrepresented as
+        something it isn't.
     .PARAMETER RawConfig
         The object returned by Get-SAWPasskeys.
     .OUTPUTS
@@ -116,6 +130,30 @@ function ConvertTo-SAWFido2KeyInventory {
             '9ff4cc65-6154-4fff-ba09-9e2af7882ad2' = 'Security Key NFC - Enterprise Edition, enterprise attestation (fw 5.7, FIDO L2)'
             '72c6b72d-8512-4c66-8359-9d3d10d9222f' = 'Security Key NFC - Enterprise Edition, enterprise attestation (fw 5.7, FIDO L2)'
             'ab7d1767-3fa0-4388-b6c4-feef7a844809' = 'Security Key NFC - Enterprise Edition, enterprise attestation (fw 5.8, FIDO L2)'
+
+            # Feitian hardware FIDO2 keys, from Feitian's own official product list
+            # (https://fido.ftsafe.com/products/). "ePass FIDO Plus" is a known Feitian product
+            # with no AAGUID published on that page as of this writing, so it's not included -
+            # a gap in the source, not an omission here.
+            '12755c32-8ad1-46eb-881c-e0b38d848b09' = 'Feitian ePass FIDO'
+            '234cd403-35a2-4cc2-8015-77ea280c77f5' = 'Feitian ePass FIDO NFC'
+            '78ba3993-d784-4f44-8d6e-cc0a8ad5230e' = 'Feitian ePass FIDO NFC Plus'
+            '4c0cf95d-2f40-43b5-ba42-4c83a11c04ba' = 'Feitian BioPass FIDO Pro'
+            '833b721a-ff5f-4d00-bb2e-bdda3ec01e29' = 'Feitian ePassFIDO'
+            'ee041bce-25e5-4cdb-8f86-897fd6418464' = 'Feitian ePassFIDO NFC / ePassFIDO NFC Plus'
+            '310b2830-bd4a-4da5-832e-9a0dfc90abf2' = 'Feitian MultiPass FIDO'
+            '77010bd7-212a-4fc9-b236-d2ca5e9d4084' = 'Feitian BioPass FIDO'
+            'b6ede29c-3772-412c-8a78-539c1f4c62d2' = 'Feitian BioPass FIDO Plus'
+            '12ded745-4bed-47d4-abaa-e713f51d6393' = 'Feitian AllinPass FIDO'
+            '3e22415d-7fdf-4ea4-8a0c-dd60c4249b9d' = 'Feitian iePass FIDO'
+            '2c0df832-92de-4be1-8412-88a8f074df4a' = 'Feitian FIDO Java Card'
+            '8c97a730-3f7b-41a6-87d6-1e9b62bda6f0' = 'Feitian FIDO Fingerprint Card'
+
+            # Microsoft Authenticator as a passkey provider, from Microsoft's own documented
+            # AAGUIDs (see .DESCRIPTION) - genuinely different from Windows Hello's AAGUIDs and
+            # from any synced-passkey provider.
+            'de1e552d-db1d-4423-a619-566b625cdc84' = 'Microsoft Authenticator (Android)'
+            '90a3ccdf-635c-4729-a248-9b709135078f' = 'Microsoft Authenticator (iOS)'
 
             # Synced-passkey providers, same reference list ConvertTo-SAWNormalizedPasskeys uses
             # (https://github.com/passkeydeveloper/passkey-authenticator-aaguids) - combined here
