@@ -25,22 +25,41 @@ function ConvertTo-SAWFido2KeyInventory {
           center UI offers "+ Add AAGUID > Microsoft Authenticator" as a one-click shortcut when
           building a key-restriction allow-list, so a tenant's configured AAGUIDs will commonly
           include these two even though Authenticator itself isn't a "key" in the hardware sense
+        - SoloKeys' own published metadata statements
+          (https://docs.solokeys.dev/metadata-statements/, cross-checked against the raw JSON
+          files in the solokeys/solo1 GitHub repo) - covers the Solo1 hardware line (Solo,
+          Solo Tap, Somu). SoloKeys' newer "Solo 2" / Trussed-based firmware line isn't covered;
+          no equivalently clear published AAGUID table was found for it during research.
+        - One Thales entry (IDPrime FIDO Bio), sourced from the passkeydeveloper/
+          passkey-authenticator-aaguids project's combined_aaguid.json rather than a page
+          published by Thales itself - lower confidence than the vendor-direct entries above,
+          flagged as such below, since Thales' own site didn't turn up an equivalently clear
+          AAGUID reference during research.
         - deliberately NOT the community passkeydeveloper/passkey-authenticator-aaguids list
           already used by ConvertTo-SAWNormalizedPasskeys for synced-passkey detection, since
           that list is scoped to platform authenticators/password managers and does not cover
           dedicated hardware security keys (confirmed by checking its combined_aaguid.json,
-          which also doesn't carry Microsoft Authenticator or Feitian). The two lists are
-          combined here so a single AAGUID lookup covers hardware keys, Microsoft Authenticator,
-          and synced-passkey providers together.
+          which also doesn't carry Microsoft Authenticator or Feitian) - EXCEPT for the single
+          Thales entry above, which was specifically pulled from that same combined_aaguid.json
+          because no better source was found. The two lists are combined here so a single
+          AAGUID lookup covers hardware keys, Microsoft Authenticator, and synced-passkey
+          providers together.
 
-        Yubico, Feitian, and Microsoft Authenticator are covered so far - Yubico and Feitian by
-        far the two most common hardware vendors in enterprise Entra deployments, alongside
-        Authenticator itself since it's commonly allow-listed via the admin center's own
-        shortcut. Other hardware vendors (Google Titan, SoloKeys, Thales, and so on) are not yet
-        in the reference table. Same "strong signal, not exhaustive proof" caveat as the
-        synced-passkey detection: an unrecognized AAGUID is reported as such (with a pointer to
-        the FIDO Alliance MDS and the vendor), never silently dropped or misrepresented as
-        something it isn't.
+        Researched but NOT added: Google Titan Security Key. Despite checking Google's own
+        product pages, the FIDO Alliance Metadata Service discussion threads, and every AAGUID
+        reference list found during research (including the ones that do cover Yubico/Feitian/
+        SoloKeys/Thales), no verifiable Google-published Titan hardware AAGUID turned up. Rather
+        than guess or copy an unverified value from a low-confidence source, Titan AAGUIDs are
+        simply absent from the table for now - they'll surface as "Unrecognized" like any other
+        gap, not silently misattributed to something else.
+
+        Yubico, Feitian, Microsoft Authenticator, and SoloKeys are covered with high confidence
+        (vendor-published sources); one Thales AAGUID is covered with lower confidence (a
+        community aggregator, not Thales' own page). Google Titan and other hardware vendors
+        not listed above are not yet in the reference table. Same "strong signal, not exhaustive
+        proof" caveat as the synced-passkey detection: an unrecognized AAGUID is reported as
+        such (with a pointer to the FIDO Alliance MDS and the vendor), never silently dropped or
+        misrepresented as something it isn't.
     .PARAMETER RawConfig
         The object returned by Get-SAWPasskeys.
     .OUTPUTS
@@ -154,6 +173,20 @@ function ConvertTo-SAWFido2KeyInventory {
             # from any synced-passkey provider.
             'de1e552d-db1d-4423-a619-566b625cdc84' = 'Microsoft Authenticator (Android)'
             '90a3ccdf-635c-4729-a248-9b709135078f' = 'Microsoft Authenticator (iOS)'
+
+            # SoloKeys hardware FIDO2 keys (Solo1 line), from SoloKeys' own published metadata
+            # statements (https://docs.solokeys.dev/metadata-statements/, cross-checked against
+            # the raw JSON in the solokeys/solo1 GitHub repo).
+            '8876631b-d4a0-427f-5773-0ec71c9e0279' = 'SoloKeys Solo (Secp256R1 FIDO2 CTAP2)'
+            '8976631b-d4a0-427f-5773-0ec71c9e0279' = 'SoloKeys Solo Tap (Secp256R1 FIDO2 CTAP2)'
+            '9876631b-d4a0-427f-5773-0ec71c9e0279' = 'SoloKeys Somu (Secp256R1 FIDO2 CTAP2)'
+
+            # Thales - lower confidence than every entry above: sourced from the
+            # passkeydeveloper/passkey-authenticator-aaguids project's combined_aaguid.json, not
+            # a page published by Thales itself (no equivalently clear Thales-direct AAGUID
+            # reference was found during research). Flagged here so this one entry can be
+            # corrected first if it's ever found to be wrong.
+            '4d41190c-7beb-4a84-8018-adf265a6352d' = 'Thales IDPrime FIDO Bio (source: community aggregator, not Thales-direct)'
 
             # Synced-passkey providers, same reference list ConvertTo-SAWNormalizedPasskeys uses
             # (https://github.com/passkeydeveloper/passkey-authenticator-aaguids) - combined here

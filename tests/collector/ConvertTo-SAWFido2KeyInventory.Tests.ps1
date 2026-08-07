@@ -65,6 +65,38 @@ Describe 'ConvertTo-SAWFido2KeyInventory' {
         $result.AllowedKeys | ForEach-Object { $_.Recognized | Should -BeTrue }
     }
 
+    It 'resolves all three known SoloKeys Solo1-line AAGUIDs to their readable names' {
+        $raw = @{
+            state           = 'enabled'
+            keyRestrictions = @{
+                isEnforced      = $true
+                enforcementType = 'allow'
+                aaGuids         = @('8876631b-d4a0-427f-5773-0ec71c9e0279', '8976631b-d4a0-427f-5773-0ec71c9e0279', '9876631b-d4a0-427f-5773-0ec71c9e0279')
+            }
+        }
+
+        $result = $raw | ConvertTo-SAWFido2KeyInventory
+
+        $result.AllowedKeys.Count | Should -Be 3
+        $result.AllowedKeys | ForEach-Object { $_.Recognized | Should -BeTrue }
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq '8876631b-d4a0-427f-5773-0ec71c9e0279' }).KnownName | Should -Match 'SoloKeys Solo \('
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq '8976631b-d4a0-427f-5773-0ec71c9e0279' }).KnownName | Should -Match 'Solo Tap'
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq '9876631b-d4a0-427f-5773-0ec71c9e0279' }).KnownName | Should -Match 'Somu'
+    }
+
+    It 'resolves the known Thales AAGUID, flagged as a lower-confidence community-sourced entry' {
+        $raw = @{
+            state           = 'enabled'
+            keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('4d41190c-7beb-4a84-8018-adf265a6352d') }
+        }
+
+        $result = $raw | ConvertTo-SAWFido2KeyInventory
+
+        $result.AllowedKeys[0].Recognized | Should -BeTrue
+        $result.AllowedKeys[0].KnownName | Should -Match 'Thales'
+        $result.AllowedKeys[0].KnownName | Should -Match 'not Thales-direct'
+    }
+
     It 'resolves a known synced-passkey provider AAGUID to its readable name too, not just hardware keys' {
         $raw = @{
             state           = 'enabled'
