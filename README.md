@@ -44,6 +44,17 @@ Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section
 HTML report both work, and the live-Graph path has been run successfully against a real
 tenant. Beyond the base 19 rules, the dashboard also has:
 
+- **Secure At Work branding**: the navbar, links, active tabs, and card styling use Secure At
+  Work's own palette (primary blue `#0064da`, dark variant `#2b57a7`), sourced directly from
+  `secureatwork.nl`'s computed CSS custom properties rather than guessed. Applied as CSS variable
+  overrides on top of vendored Bootstrap 5.3 in [Export-SAWDashboard.ps1](src/dashboard/Export-SAWDashboard.ps1)
+  (search for "Secure At Work brand palette"), not a fork of Bootstrap's CSS itself. Deliberately
+  left alone: the green/yellow/red/grey traffic-light status colors (Bootstrap's
+  success/warning/danger/secondary) - those are functional semantics the reader relies on to
+  scan results quickly, not a place for brand color to compete for attention. No external font
+  or asset dependency was added; the site's licensed display font isn't embeddable, so a system
+  sans-serif stack (Helvetica Neue/Segoe UI first) approximates its grotesque feel instead.
+
 - A **passkey dynamic migration opt-out check** (AUTH006), two **security info registration
   checks** on Conditional Access (CA004, CA005), and a check for **phishing-resistant strength
   required tenant-wide, not just for admins** (CA006) - see "Passkey rollout and lockout-risk

@@ -1009,8 +1009,46 @@ $ReadingGuideHtml
 <title>Secure At Work - Authentication Assessment Dashboard$titleTenantSuffix</title>
 <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
 <style>
-  body { padding-bottom: 3rem; }
-  .navbar-brand { font-weight: 600; }
+  /*
+    Secure At Work brand palette, sourced from secureatwork.nl's own computed styles
+    (WordPress theme --wp--preset--color--primary-* custom properties): primary blue
+    #0064da, dark variant #2b57a7, very light tint #eff5fe/#f9fbff. Neue Haas Grotesk
+    (the site's licensed display/text font) isn't embeddable here without a license and
+    this toolkit avoids CDN font dependencies on principle (same reason Bootstrap/Chart.js
+    are vendored locally, not pulled from a CDN) - the system sans-serif stack below leans
+    on Helvetica Neue/Segoe UI ahead of the generic fallback for a similar grotesque feel.
+
+    Traffic-light status colors (green/yellow/red/grey - Bootstrap's success/warning/
+    danger/secondary) are deliberately left as Bootstrap defaults, not rebranded: they're
+    functional semantics the reader relies on, not a place for brand color.
+  */
+  :root {
+    --saw-primary: #0064da;
+    --saw-primary-dark: #2b57a7;
+    --saw-primary-light: #eff5fe;
+    --saw-bg: #f9fbff;
+    --saw-ink: #191919;
+    --bs-primary: var(--saw-primary);
+    --bs-primary-rgb: 0, 100, 218;
+    --bs-link-color: var(--saw-primary);
+    --bs-link-color-rgb: 0, 100, 218;
+    --bs-link-hover-color: var(--saw-primary-dark);
+    --bs-link-hover-color-rgb: 43, 87, 167;
+    --bs-body-font-family: -apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --bs-border-radius: 0.6rem;
+    --bs-border-radius-sm: 0.4rem;
+    --bs-border-radius-lg: 0.75rem;
+  }
+  body { padding-bottom: 3rem; background-color: var(--saw-bg); }
+  a { color: var(--saw-primary); }
+  a:hover { color: var(--saw-primary-dark); }
+  .navbar-saw { background-color: var(--saw-primary) !important; }
+  .navbar-brand { font-weight: 700; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: 0.5rem; }
+  .navbar-mark { flex: none; }
+  .card { border-color: rgba(0, 0, 0, 0.06); box-shadow: 0 3px 20px rgba(0, 0, 0, 0.06); }
+  .card-header { font-weight: 600; }
+  .nav-tabs .nav-link.active { color: var(--saw-primary); border-bottom: 2px solid var(--saw-primary); }
+  .nav-pills .nav-link.active, .nav-pills .show > .nav-link { background-color: var(--saw-primary); }
   .stat-card { border-left: 4px solid; }
   .stat-card.green { border-left-color: #198754; }
   .stat-card.yellow { border-left-color: #ffc107; }
@@ -1024,9 +1062,16 @@ $ReadingGuideHtml
 </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+<nav class="navbar navbar-expand-lg navbar-dark navbar-saw mb-4">
   <div class="container-fluid">
-    <span class="navbar-brand">Secure At Work &middot; Authentication Assessment Dashboard</span>
+    <span class="navbar-brand">
+      <svg class="navbar-mark" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M12 2L4 5.5V11C4 16.2 7.4 20.9 12 22C16.6 20.9 20 16.2 20 11V5.5L12 2Z" fill="white" fill-opacity="0.18"/>
+        <path d="M12 2L4 5.5V11C4 16.2 7.4 20.9 12 22C16.6 20.9 20 16.2 20 11V5.5L12 2Z" stroke="white" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M8.5 12.2L10.8 14.5L15.5 9.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      Secure At Work &middot; Authentication Assessment Dashboard
+    </span>
     <span class="navbar-text text-white-50">Generated $generated &middot; $totalRules checks &middot; Read-only assessment, no tenant changes made</span>
   </div>
 </nav>
