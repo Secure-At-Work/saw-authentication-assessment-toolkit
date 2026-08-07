@@ -44,6 +44,23 @@ Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section
 HTML report both work, and the live-Graph path has been run successfully against a real
 tenant. Beyond the base 19 rules, the dashboard also has:
 
+- **Four top-level assessment tabs**, split out to keep any single page from turning into one
+  long scroll of unrelated content (originally all of this sat on a single "Assessment" tab):
+  - **Overview** - SOLL baseline banner, upcoming Microsoft deadlines, the four status stat
+    cards, the status/category charts, and the trend-over-time chart. Deliberately the
+    default-active tab: Chart.js renders a canvas at 0x0 inside a Bootstrap tab pane that isn't
+    shown yet, so anything chart-based has to live wherever loads active.
+  - **Findings & Roadmap** - the Remediation Roadmap and the full Risk Findings &
+    Recommendations list, grouped together since both answer "what's wrong and in what order to
+    fix it."
+  - **User Journeys** - the flow scenarios (What Users Can Expect: IST vs. SOLL) and the
+    Security Info Registration user-triage roster, grouped since both describe what an actual
+    person experiences, not tenant-wide configuration.
+  - **Policy Inventory** - the Authentication Methods and Conditional Access policy inventories,
+    plus the existing per-category "Detail by Category" sub-tabs, as the drill-down/reference
+    material.
+  - A fifth **"Reading This Report"** tab is added alongside these four whenever a reading guide
+    is supplied (see below) - this is the one thing that stayed a separate tab from before.
 - **Secure At Work branding**: the navbar, links, active tabs, and card styling use Secure At
   Work's own palette (primary blue `#0064da`, dark variant `#2b57a7`), sourced directly from
   `secureatwork.nl`'s computed CSS custom properties rather than guessed. Applied as CSS variable
@@ -494,7 +511,7 @@ when tenant/timestamp weren't supplied, e.g. calling `Export-SAWDashboard.ps1`/
 `Export-SAWHtmlReport.ps1` directly outside the orchestrator.
 
 The dashboard also embeds [docs/reading-the-report.md](docs/reading-the-report.md) as its own
-**"Reading This Report"** tab, right alongside the **"Assessment"** tab - so the explainer of
+**"Reading This Report"** tab, alongside the four assessment tabs described above - so the explainer of
 what IST/SOLL means and how to use the Remediation Roadmap travels with the dashboard file
 itself, not as a separate doc someone has to remember to include. `ConvertTo-SAWMarkdownHtml.ps1`
 does a small, deliberately scoped Markdown-to-HTML conversion (just what that one doc actually

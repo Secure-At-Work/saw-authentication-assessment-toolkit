@@ -518,12 +518,18 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '0 user\(s\) impacted'
     }
 
-    It 'does not add a tab wrapper when -ReadingGuideHtml is not supplied (unchanged pre-existing layout)' {
+    It 'always splits the dashboard into Overview / Findings & Roadmap / User Journeys / Policy Inventory tabs' {
         # $script:DashboardContent was generated in BeforeAll with no -ReadingGuideHtml, so this
-        # asserts on the shared fixture rather than generating a new dashboard.
+        # asserts on the shared fixture rather than generating a new dashboard. Unlike the old
+        # two-tab (Assessment/Reading This Report) layout, these four top-level tabs are always
+        # present - there's no "unwrapped" single-scroll mode any more, since that was the
+        # original complaint (too much on one page) this restructuring addresses.
         $script:DashboardContent | Should -Not -Match 'Reading This Report'
-        $script:DashboardContent | Should -Not -Match 'pane-assessment'
-        $script:DashboardContent | Should -Not -Match 'nav-tabs'
+        $script:DashboardContent | Should -Match 'nav-tabs'
+        $script:DashboardContent | Should -Match 'id="pane-overview"'
+        $script:DashboardContent | Should -Match 'id="pane-findings-roadmap"'
+        $script:DashboardContent | Should -Match 'id="pane-user-journeys"'
+        $script:DashboardContent | Should -Match 'id="pane-policy-inventory"'
     }
 
     It 'omits the environment banner and title suffix when no tenant/timestamp info is supplied' {
@@ -563,18 +569,50 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Not -Match 'Assessed:</strong>'
     }
 
-    It 'wraps the dashboard in Assessment / Reading This Report tabs when -ReadingGuideHtml is supplied' {
+    It 'adds a Reading This Report tab alongside the four assessment tabs when -ReadingGuideHtml is supplied' {
         $path = Join-Path $TestDrive 'with-guide\index.html'
 
         Export-SAWDashboard -RuleResults $script:MixedResults -ReadingGuideHtml '<h1>Guide Heading</h1><p>Guide body text.</p>' -OutputPath $path | Out-Null
 
         $content = Get-Content -Path $path -Raw
         $content | Should -Match 'Reading This Report'
-        $content | Should -Match 'id="pane-assessment"'
+        $content | Should -Match 'id="pane-overview"'
+        $content | Should -Match 'id="pane-findings-roadmap"'
+        $content | Should -Match 'id="pane-user-journeys"'
+        $content | Should -Match 'id="pane-policy-inventory"'
         $content | Should -Match 'id="pane-reading-guide"'
         $content | Should -Match '<h1>Guide Heading</h1>'
         $content | Should -Match '<p>Guide body text.</p>'
-        # The rest of the dashboard should still be present, just now inside the Assessment pane.
+        # The rest of the dashboard should still be present, just now split across tabs.
         $content | Should -Match 'Findings by Status'
+    }
+
+    It 'places each section between the right pane markers, not just somewhere on the page' {
+        # Regression guard for the tab split itself: an index-based ordering check (robust
+        # against exact whitespace/markup, unlike a multiline regex extraction would be) - each
+        # marker string should fall after its own pane's opening id and before the next pane's.
+        $c = $script:DashboardContent
+        $iOverview = $c.IndexOf('id="pane-overview"')
+        $iFindings = $c.IndexOf('id="pane-findings-roadmap"')
+        $iJourneys = $c.IndexOf('id="pane-user-journeys"')
+        $iInventory = $c.IndexOf('id="pane-policy-inventory"')
+
+        $iOverview | Should -BeGreaterThan -1
+        $iFindings | Should -BeGreaterThan $iOverview
+        $iJourneys | Should -BeGreaterThan $iFindings
+        $iInventory | Should -BeGreaterThan $iJourneys
+
+        # Charts and the SOLL banner belong to Overview: between pane-overview and pane-findings-roadmap.
+        $c.IndexOf('statusChart') | Should -BeGreaterThan $iOverview
+        $c.IndexOf('statusChart') | Should -BeLessThan $iFindings
+        $c.IndexOf('SOLL baseline') | Should -BeGreaterThan $iOverview
+        $c.IndexOf('SOLL baseline') | Should -BeLessThan $iFindings
+
+        # Risk Findings & Recommendations belongs to the findings/roadmap pane.
+        $c.IndexOf('Risk Findings &amp; Recommendations') | Should -BeGreaterThan $iFindings
+        $c.IndexOf('Risk Findings &amp; Recommendations') | Should -BeLessThan $iJourneys
+
+        # Detail by Category belongs to Policy Inventory, the last of the four panes.
+        $c.IndexOf('Detail by Category') | Should -BeGreaterThan $iInventory
     }
 }

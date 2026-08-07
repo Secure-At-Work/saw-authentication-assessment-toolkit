@@ -883,11 +883,12 @@ $($flowCardsHtml -join "`n")
 "@
     }
 
-    # --- Assessment body (everything that existed before -ReadingGuideHtml was added) ---
-    # Kept as its own fragment so it can be dropped in unwrapped (old behavior, when no guide
-    # is supplied) or wrapped in a tab pane alongside the reading guide (new behavior) without
-    # duplicating this whole block for each case.
-    $assessmentBodyHtml = @"
+    # --- Top-level tabs ---
+    # Splits what used to be one long "Assessment" scroll into four purpose-grouped tabs, plus
+    # Reading This Report when a guide was supplied. Overview is deliberately the default-active
+    # tab: Chart.js renders a canvas at 0x0 if it's inside a Bootstrap tab-pane that isn't shown
+    # yet, so the two charts (and the trend chart) have to live on whichever pane loads active.
+    $overviewPaneHtml = @"
   <div class="alert alert-secondary d-flex flex-wrap gap-3 align-items-center mb-4" role="alert">
     <div><strong>SOLL baseline:</strong> $(ConvertTo-SAWHtmlEncoded $BaselineName)</div>
     <div class="text-body-secondary">SOLL = target state for this customer &middot; IST = what was actually observed in the tenant</div>
@@ -945,14 +946,22 @@ $timelineSectionHtml
   </div>
 
 $trendSectionHtml
+"@
+
+    $findingsRoadmapPaneHtml = @"
 $roadmapSectionHtml
-$flowScenariosSectionHtml
   <h2 class="h4 mb-3">Risk Findings &amp; Recommendations</h2>
   <div class="list-group mb-4">
 $($findingsHtml -join "`n")
   </div>
+"@
 
+    $userJourneysPaneHtml = @"
+$flowScenariosSectionHtml
 $rosterSectionHtml
+"@
+
+    $policyInventoryPaneHtml = @"
 $authMethodsInventorySectionHtml
 $caInventorySectionHtml
   <h2 class="h4 mb-3">Detail by Category</h2>
@@ -971,34 +980,55 @@ $($tabPanes -join "`n")
   </p>
 "@
 
-    # --- Top-level tabs (Assessment / Reading This Report) - only when a guide was supplied,
-    # so the dashboard's own markup is byte-for-byte unchanged when it isn't (no wrapper at
-    # all, exactly the pre-existing behavior). ---
+    $readingGuideNavHtml = ''
+    $readingGuidePaneHtml = ''
     if ($ReadingGuideHtml) {
-        $mainContentHtml = @"
-  <ul class="nav nav-tabs mb-4" role="tablist">
-    <li class="nav-item" role="presentation">
-      <button class="nav-link active" id="tab-assessment" data-bs-toggle="tab" data-bs-target="#pane-assessment" type="button" role="tab" aria-controls="pane-assessment" aria-selected="true">Assessment</button>
-    </li>
+        $readingGuideNavHtml = @"
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="tab-reading-guide" data-bs-toggle="tab" data-bs-target="#pane-reading-guide" type="button" role="tab" aria-controls="pane-reading-guide" aria-selected="false">Reading This Report</button>
     </li>
-  </ul>
-  <div class="tab-content">
-    <div class="tab-pane fade show active" id="pane-assessment" role="tabpanel" aria-labelledby="tab-assessment">
-$assessmentBodyHtml
-    </div>
+"@
+        $readingGuidePaneHtml = @"
     <div class="tab-pane fade" id="pane-reading-guide" role="tabpanel" aria-labelledby="tab-reading-guide">
       <div class="reading-guide-content">
 $ReadingGuideHtml
       </div>
     </div>
-  </div>
 "@
     }
-    else {
-        $mainContentHtml = $assessmentBodyHtml
-    }
+
+    $mainContentHtml = @"
+  <ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab" aria-controls="pane-overview" aria-selected="true">Overview</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-findings-roadmap" data-bs-toggle="tab" data-bs-target="#pane-findings-roadmap" type="button" role="tab" aria-controls="pane-findings-roadmap" aria-selected="false">Findings &amp; Roadmap</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-user-journeys" data-bs-toggle="tab" data-bs-target="#pane-user-journeys" type="button" role="tab" aria-controls="pane-user-journeys" aria-selected="false">User Journeys</button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-policy-inventory" data-bs-toggle="tab" data-bs-target="#pane-policy-inventory" type="button" role="tab" aria-controls="pane-policy-inventory" aria-selected="false">Policy Inventory</button>
+    </li>
+$readingGuideNavHtml
+  </ul>
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="pane-overview" role="tabpanel" aria-labelledby="tab-overview">
+$overviewPaneHtml
+    </div>
+    <div class="tab-pane fade" id="pane-findings-roadmap" role="tabpanel" aria-labelledby="tab-findings-roadmap">
+$findingsRoadmapPaneHtml
+    </div>
+    <div class="tab-pane fade" id="pane-user-journeys" role="tabpanel" aria-labelledby="tab-user-journeys">
+$userJourneysPaneHtml
+    </div>
+    <div class="tab-pane fade" id="pane-policy-inventory" role="tabpanel" aria-labelledby="tab-policy-inventory">
+$policyInventoryPaneHtml
+    </div>
+$readingGuidePaneHtml
+  </div>
+"@
 
     $html = @"
 <!doctype html>
