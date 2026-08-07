@@ -11,7 +11,9 @@ BeforeAll {
             [string]$CampaignTargetMethod = 'fido2',
             [Nullable[bool]]$EnforceAfterSnoozes = $true,
             [Nullable[int]]$ReconfirmationInDays = $null,
-            [string]$SystemPreferredState = 'disabled'
+            [string]$SystemPreferredState = 'disabled',
+            [bool]$TapUsableOnce = $false,
+            [bool]$Fido2AttestationEnforced = $false
         )
         return @{
             reconfirmationInDays = $ReconfirmationInDays
@@ -28,8 +30,8 @@ BeforeAll {
                 excludeTargets = @()
             }
             authenticationMethodConfigurations = @(
-                @{ id = 'TemporaryAccessPass'; state = if ($TapEnabled) { 'enabled' } else { 'disabled' } },
-                @{ id = 'Fido2'; state = if ($Fido2Enabled) { 'enabled' } else { 'disabled' }; isSelfServiceRegistrationAllowed = $Fido2SelfService },
+                @{ id = 'TemporaryAccessPass'; state = if ($TapEnabled) { 'enabled' } else { 'disabled' }; isUsableOnce = $TapUsableOnce },
+                @{ id = 'Fido2'; state = if ($Fido2Enabled) { 'enabled' } else { 'disabled' }; isSelfServiceRegistrationAllowed = $Fido2SelfService; isAttestationEnforced = $Fido2AttestationEnforced },
                 @{ id = 'MicrosoftAuthenticator'; state = if ($AuthenticatorEnabled) { 'enabled' } else { 'disabled' } }
             )
         }
@@ -152,6 +154,71 @@ Describe 'ConvertTo-SAWRegistrationFlowScenarios' {
         $caGated = $result | Where-Object { $_.FlowID -eq 'CAGATED' }
         $caGated.Applicable | Should -Be $true
         $caGated.ISTSummary | Should -Match 'Require MFA for Security Info Registration'
+    }
+
+    Context 'Cross-device "Passkey in Microsoft Authenticator" bootstrap friction' {
+        It 'reports the phone-side step as blocked when TAP is one-time-use AND FIDO2 attestation is enforced' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -TapUsableOnce $true -Fido2AttestationEnforced $true
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $bootstrap = $result | Where-Object { $_.FlowID -eq 'BOOTSTRAP' }
+            $step = $bootstrap.Steps | Where-Object { $_.Step -like 'Whether a brand-new user*' }
+            $step.Applies | Should -Be $false
+        }
+
+        It 'reports the phone-side step as available via the Bluetooth fallback when TAP is one-time-use but attestation is not enforced' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -TapUsableOnce $true -Fido2AttestationEnforced $false
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $bootstrap = $result | Where-Object { $_.FlowID -eq 'BOOTSTRAP' }
+            $step = $bootstrap.Steps | Where-Object { $_.Step -like 'Whether a brand-new user*' }
+            $step.Applies | Should -Be $true
+            $step.Detail | Should -Match 'WebAuthn flow'
+        }
+
+        It 'reports the phone-side step as available when TAP is multi-use, regardless of attestation' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -TapUsableOnce $false -Fido2AttestationEnforced $true
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $bootstrap = $result | Where-Object { $_.FlowID -eq 'BOOTSTRAP' }
+            $step = $bootstrap.Steps | Where-Object { $_.Step -like 'Whether a brand-new user*' }
+            $step.Applies | Should -Be $true
+            $step.Detail | Should -Match 'multi-use'
+        }
+
+        It 'marks the phone-side step as not reachable (null) when FIDO2 self-service is off' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -Fido2SelfService $false
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $bootstrap = $result | Where-Object { $_.FlowID -eq 'BOOTSTRAP' }
+            $step = $bootstrap.Steps | Where-Object { $_.Step -like 'Whether a brand-new user*' }
+            $null -eq $step.Applies | Should -Be $true
+        }
+
+        It 'always includes the fixed-mechanic step explaining cross-device registration is supported' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $bootstrap = $result | Where-Object { $_.FlowID -eq 'BOOTSTRAP' }
+            $step = $bootstrap.Steps | Where-Object { $_.Step -like 'If the target is specifically*' }
+            $step | Should -Not -BeNullOrEmpty
+            $null -eq $step.Applies | Should -Be $true
+        }
     }
 
     Context 'System-Preferred Authentication steps' {

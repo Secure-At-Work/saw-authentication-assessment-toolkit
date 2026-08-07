@@ -190,6 +190,25 @@ happen within 10 minutes of the TAP sign-in, which is why organizations doing de
 plus WHfB setup in one sitting often either issue two single-use TAPs, or enable a multi-use TAP
 so the same code covers both steps without a hard clock running underneath.
 
+There's a second nuance worth knowing before rolling out passkeys specifically, and it only shows
+up when the device the TAP is entered on isn't the device the passkey will live on. Registering
+"Passkey in Microsoft Authenticator" from a laptop, with the phone as the target for the actual
+credential, is genuinely supported: Microsoft's Security Info flow hands off to the phone through
+a QR code or an app-open prompt. What it doesn't do is carry the laptop's TAP session over. The
+phone has to independently sign in and complete MFA inside the Authenticator app itself, as its
+own separate step. For a brand-new user whose only credential is a single one-time-use TAP, that's
+a problem: the TAP is already spent reaching Security Info on the laptop, so there's nothing left
+to authenticate the phone with. Microsoft does document a fallback for exactly this gap, a
+Bluetooth-proximity "WebAuthn flow" that skips the second sign-in, but it's explicitly unavailable
+whenever FIDO2 attestation is enforced. Push both settings toward their generally-recommended
+values (a one-time-use TAP, and attestation enforced) at the same time, and a brand-new user can
+end up with no route through this specific bootstrap path at all. Windows Hello for Business
+doesn't have this problem, since it's bound to the same device the TAP was entered on and never
+needs a handoff, which is the real reason WHfB rollout can look further along than passkey
+rollout even when both are technically "enabled." The practical fix, if cross-device passkey
+bootstrap actually matters for a given tenant, is a short-lived multi-use TAP scoped to
+onboarding rather than a strict one-time-use TAP.
+
 ### The SSPR "two-gate" and its trap
 
 Combined registration serves both MFA and SSPR from the same wizard, but the two policies that

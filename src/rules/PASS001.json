@@ -7,5 +7,5 @@
     "Phase": 2,
     "PhaseName": "2. Enable Phishing-Resistant Capability",
     "DependsOn": ["AUTH004"],
-    "Recommendation": "Once FIDO2 is enabled (see AUTH004), require attestation so only certified, known security key models can be registered."
+    "Recommendation": "Once FIDO2 is enabled (see AUTH004), require attestation so only certified, known security key models can be registered. Side effect worth knowing about: Microsoft's documented Bluetooth-based cross-device fallback for registering a 'Passkey in Microsoft Authenticator' from a different device than the phone it will live on is explicitly unavailable whenever attestation is enforced. That fallback matters specifically when a new user's Temporary Access Pass is one-time-use and was already consumed reaching Security Info on a laptop, leaving the phone-side registration step with no other way to authenticate (see TAP001 and the New User Bootstrap flow for the full trace). Not a reason to leave attestation off - just something to plan around (a short-lived multi-use TAP for onboarding, or Windows Hello for Business as the same-device alternative)."
 }

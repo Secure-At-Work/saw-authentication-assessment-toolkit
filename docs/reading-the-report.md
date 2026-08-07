@@ -126,8 +126,20 @@ The four flows:
   easy-to-miss limitation: if that same user is also in scope for the SSPR or MFA registration
   policy, they can be redirected into a forced registration wizard that currently doesn't support
   registering a passkey or phone sign-in directly - only outside that redirect can those be set
-  up. Last step: once the user has more than one method registered, System-Preferred
-  Authentication can start presenting the newest one first on a *later* sign-in.
+  up. Also traces a second, separate limitation: registering "Passkey in Microsoft Authenticator"
+  on a different device than the phone it will live on (e.g. TAP entered on a laptop) is
+  genuinely supported cross-device, Microsoft hands off to the phone via a QR code / app-open
+  prompt, but the phone must independently complete its own sign-in and MFA inside the
+  Authenticator app rather than inheriting the laptop's TAP session. Whether a brand-new user can
+  actually get through that phone-side step depends on two settings already collected elsewhere
+  in the report: a one-time-use TAP (TAP001) is consumed reaching Security Info on the laptop and
+  leaves nothing for the phone, and the fallback Bluetooth-based path Microsoft documents for this
+  case is unavailable whenever FIDO2 attestation is enforced (PASS001). With both settings at
+  their recommended values at once, a brand-new user can be left with no way to complete this
+  specific bootstrap path, Windows Hello for Business (same device, no handoff) or a short-lived
+  multi-use TAP for onboarding are the practical ways around it. Last step: once the user has
+  more than one method registered, System-Preferred Authentication can start presenting the
+  newest one first on a *later* sign-in.
 - **SSPR Eligibility & Two-Gate** - whether a standard user, and separately an administrator, can
   actually register for and use self-service password reset. Admin accounts follow their own
   built-in policy, independent of the general SSPR setting - see the SSPR002 explanation above

@@ -179,7 +179,23 @@ tenant. Beyond the base 19 rules, the dashboard also has:
     registration-campaign nudge. Includes a documented limitation worth knowing: the forced
     Interrupt-mode redirect a TAP user can be routed into (when in scope for SSPR/MFA
     registration policy) doesn't currently support FIDO2 or phone sign-in registration - only
-    outside that redirect can those be registered directly.
+    outside that redirect can those be registered directly. Also traces a real cross-device
+    bootstrap gap, confirmed against
+    [how-to-register-passkey-authenticator](https://learn.microsoft.com/entra/identity/authentication/how-to-register-passkey-authenticator):
+    if a user enters the TAP on a different device than the phone the passkey will live on
+    (e.g. a laptop), registering "Passkey in Microsoft Authenticator" is genuinely supported
+    cross-device - Microsoft's flow hands off to the phone via a QR code / app-open prompt -
+    but the phone must independently complete its own sign-in and MFA inside the Authenticator
+    app; it does not inherit the laptop's TAP session. Whether a brand-new user can actually
+    complete that phone-side step is derived from two settings already collected: if TAP is
+    enforced one-time-use (TAP001), the laptop-side TAP is consumed and there's nothing left
+    for the phone - the only remaining path is Microsoft's Bluetooth-based "WebAuthn flow"
+    fallback, which is explicitly documented as unavailable whenever FIDO2 attestation is
+    enforced (PASS001). A tenant with both settings at their SOLL-recommended values
+    simultaneously can leave a brand-new user with no way to complete this specific bootstrap
+    path at all - WHfB (device-bound, no cross-device handoff needed) or a short-lived
+    multi-use TAP scoped to onboarding are the practical alternatives, called out directly in
+    TAP001's and PASS001's recommendation text.
   - **SSPR Eligibility & Two-Gate** - whether/how a standard user, and separately an admin
     (governed by its own built-in two-gate policy, independent of the general SSPR setting -
     see SSPR002), can register for and use self-service password reset.
