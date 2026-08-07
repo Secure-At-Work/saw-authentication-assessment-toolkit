@@ -40,17 +40,33 @@ Every run produces two files, in `reports/<tenant>/<run-timestamp>/`:
   self-contained (its own `vendor/` folder ships with it), so the whole `dashboard/` folder can
   be zipped and shared without needing internet access to view it.
 
-The rest of this document walks through the dashboard, top to bottom.
+The rest of this document walks through the dashboard, tab by tab.
 
 ## Reading the dashboard
 
-### 1. The baseline banner
+The dashboard is organized into five tabs across the top. Nothing is hidden - every tab is just a
+grouping of the same run's results, split so no single page becomes an unreadable scroll:
+
+| Tab | What's on it | Use it when |
+|---|---|---|
+| **Overview** | Baseline banner, Microsoft deadlines, the Green/Yellow/Red/Grey headline numbers, charts, trend over time | You want the summary, or you're presenting to someone who won't read further |
+| **Findings & Roadmap** | The prioritized work plan, and every individual finding with its recommendation | You're deciding what to actually do, and in what order |
+| **User Journeys** | The four end-to-end user flows, and the per-user registration triage list | You're working out what real people will experience, or who to contact |
+| **Policy Inventory** | Authentication methods policy, FIDO2 key restrictions, Conditional Access policies, per-category detail | You're checking *why* something passed or failed, or doing a config review |
+| **Reading This Report** | This document, embedded in the dashboard itself | You're handing the file to someone who hasn't seen one before |
+
+Charts live on Overview because a chart drawn inside a hidden tab renders at zero size - so
+Overview is always the tab that opens first.
+
+## Overview tab
+
+### The baseline banner
 
 Right at the top: which SOLL baseline this run was measured against (e.g. *"hybrid-ad-passwords-
 required"*), and whether it was auto-detected from the tenant's own configuration or set
 explicitly. If the tenant profile looks off, this is the first thing to check.
 
-### 2. Upcoming Microsoft Deadlines
+### Upcoming Microsoft Deadlines
 
 Microsoft is retiring/changing several authentication behaviors on fixed dates (e.g. SMS/Voice
 retirement, SSPR no longer accepting directory-sourced contact info). This section is not a
@@ -84,25 +100,35 @@ below. Each card shows:
 
 Treat this section as "things to plan around," not "things this tenant is doing wrong."
 
-### 3. Overview
+### The headline numbers
 
-The headline numbers: how many checks are Green (meets SOLL), Yellow (partial/lower-severity
+The counts: how many checks are Green (meets SOLL), Yellow (partial/lower-severity
 gap), Red (fails SOLL, the priority list), and Grey (not applicable to this tenant/baseline -
 e.g. a passkey-attestation check when passkeys aren't in use at all). Grey is not a failure; it
 means the check doesn't apply here.
 
-### 4. Trend Over Time
+### Trend Over Time
 
 If this tenant has been assessed more than once, a chart plots Green/Yellow/Red/Grey counts
 across every past run. This is the "are we actually making progress" view - useful for check-ins
 during a remediation project, not just the point-in-time snapshot.
 
-### 5. Remediation Roadmap - the IST-to-SOLL work plan
+## Findings & Roadmap tab
+
+### Remediation Roadmap - the IST-to-SOLL work plan
 
 This is the most actionable section, and the answer to "what do we actually do about this." See
 [From IST to SOLL](#from-ist-to-soll-the-work-plan-itself) below for how to use it.
 
-### 6. What Users Can Expect (IST vs. SOLL)
+### Risk Findings & Recommendations
+
+Every individual check that isn't already Green, with its severity and the specific recommendation
+attached to it. Two entries are worth calling out because they surprise people; both are described
+in full under [Findings worth explaining](#findings-worth-explaining) below.
+
+## User Journeys tab
+
+### What Users Can Expect (IST vs. SOLL)
 
 Four real, Microsoft-documented end-to-end flows, each traced step by step against this
 tenant's actual settings - not another single-setting check, but "what does a user actually go
@@ -142,7 +168,7 @@ The four flows:
   newest one first on a *later* sign-in.
 - **SSPR Eligibility & Two-Gate** - whether a standard user, and separately an administrator, can
   actually register for and use self-service password reset. Admin accounts follow their own
-  built-in policy, independent of the general SSPR setting - see the SSPR002 explanation above
+  built-in policy, independent of the general SSPR setting - see the SSPR002 explanation below
   for the trap this can create.
 - **Existing User Re-Registration** - what happens after initial setup: managing security info
   any time, the fixed 5-minute MFA-freshness rule for passkey changes, how the registration
@@ -162,7 +188,7 @@ The four flows:
 Each flow links to the specific Microsoft Learn article it's grounded in - worth opening if a
 step's applicability looks surprising.
 
-### 7. Security Info Registration Triage
+### Security Info Registration Triage
 
 A per-user list, grouped into one expandable/collapsible section per bucket - click a section's
 header to open or close it. Remove/Hunt/Guest start open (there's something to act on); OK
@@ -230,7 +256,9 @@ no badge here wasn't necessarily used recently, it just wasn't evaluated, since 
 registration data and sign-in log data use two different naming schemes with no documented
 one-to-one mapping between them.
 
-### 8. Authentication Methods Policy Inventory
+## Policy Inventory tab
+
+### Authentication Methods Policy Inventory
 
 Every authentication method's tenant-wide policy configuration, in plain language: enabled/
 disabled state, who's included/excluded (counts only - no group/user names shown, to avoid an
@@ -269,19 +297,47 @@ changes what a specific user sees at sign-in, its influence is also woven direct
 Users Can Expect (IST vs. SOLL)" flows above, rather than only appearing here as a policy
 setting.
 
-### 9. Conditional Access Policy Inventory
+### FIDO2 Key Restrictions
+
+Only shown when the tenant actually enforces key restrictions (and FIDO2 is enabled at all) -
+otherwise there's nothing to list and the section is omitted entirely.
+
+Microsoft Graph returns the tenant's allow-list or block-list as bare AAGUIDs: 128-bit identifiers
+like `cb69481e-8ff7-4039-93ec-0a2729a154a8`, which tell you nothing on their own. This section
+resolves each one to a readable name ("YubiKey 5 NFC", "Microsoft Authenticator (iOS)", "1Password")
+where it can, so the question "we restrict keys, but to *what*?" has a visible answer.
+
+Two things to read carefully here:
+
+- The header line states whether this is an **allow-list** (only these may register, everything
+  else is rejected) or a **block-list** (everything except these may register). Same list of
+  AAGUIDs, opposite meaning.
+- An entry marked **Unrecognized** is not a problem in itself. It means a real key or provider
+  whose AAGUID isn't in this toolkit's reference table - the table covers Yubico, Feitian,
+  SoloKeys, Microsoft Authenticator, and common passkey providers, which is not everything on the
+  market. Look it up with the vendor or the FIDO Alliance Metadata Service. The toolkit
+  deliberately says "unrecognized" rather than guessing at a name, and flags one entry (Thales)
+  as community-sourced rather than vendor-confirmed. See [references.md](references.md) for
+  exactly where each name came from.
+
+### Conditional Access Policy Inventory
 
 Every Conditional Access policy in the tenant, in plain language: name, state (on/off/report-
 only), who it targets, what it requires. This is independent of the pass/fail checks above - it's
 the full picture, useful for understanding *why* a check passed or failed, or for a general
 CA hygiene review that isn't captured by any single rule.
 
-### 10. Flat findings table
+### Detail by Category
 
-Every individual check, its result, and its severity - the same data as the flat report, kept
-here too so you don't need to cross-reference two files while reading.
+The same checks as the Findings tab, but grouped by category (Authentication Methods, Conditional
+Access, Passkeys, and so on) behind a row of sub-tabs, including the ones already Green. Use this
+when you want "show me everything about Passkeys" rather than "show me what's broken."
 
-One entry worth calling out specifically: **"Admins Excluded From User SSPR Policy When Admin
+## Findings worth explaining
+
+These two findings come up in almost every assessment and are the ones most often misread as bugs.
+
+The first: **"Admins Excluded From User SSPR Policy When Admin
 SSPR Is Disabled"**. Administrator accounts get self-service password reset through their own
 built-in policy, entirely separate from the general SSPR configuration end users are subject to
 - so an admin showing as SSPR-enabled while the tenant's general SSPR setting looks "off" is
@@ -294,7 +350,7 @@ to explicitly exclude administrators from the user-facing SSPR policy once admin
 off. This check shows Grey whenever admin SSPR is enabled (the default) - there's nothing to
 exclude admins from in that case.
 
-A second entry worth calling out: **"Legacy MFA/SSPR Policy Migration Complete"**. Entra ID has
+The second: **"Legacy MFA/SSPR Policy Migration Complete"**. Entra ID has
 had two ways to manage authentication methods: the old, tenant-wide legacy per-user MFA policy
 and legacy SSPR policy (found under **Multifactor authentication** and **Password reset** in the
 admin center), and the modern Authentication Methods Policy this report otherwise focuses on

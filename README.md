@@ -2,7 +2,7 @@
 
 Read-only assessment toolkit for Microsoft Entra ID authentication configuration. Inventories the current (IST) state of a tenant via Microsoft Graph, compares it against the Secure At Work recommended (SOLL) configuration, and produces gap analysis, risk scoring, and remediation guidance.
 
-See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification, or [docs/reading-the-report.md](docs/reading-the-report.md) for a plain-language walkthrough of what the assessment is and how to read its output (suitable to hand to a customer alongside a report). [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md) is a standalone reference on which OS/browser/app combinations actually support passkeys, useful when planning a rollout regardless of whether you're using this toolkit.
+See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification, or [docs/reading-the-report.md](docs/reading-the-report.md) for a plain-language walkthrough of what the assessment is and how to read its output (suitable to hand to a customer alongside a report). [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md) is a standalone reference on which OS/browser/app combinations actually support passkeys, useful when planning a rollout regardless of whether you're using this toolkit. [docs/references.md](docs/references.md) is the source register: every rule and every substantive claim mapped to the Microsoft (or vendor) documentation backing it, with last-verified dates - the thing to reach for when a customer asks "says who?"
 
 ## Hard constraint
 
@@ -42,7 +42,9 @@ All 8 collectors from spec section 6 are implemented (Authentication Methods, Co
 Access, Authentication Strengths, Registration, Temporary Access Pass, Passkeys, Sign-In
 Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section 9) and flat
 HTML report both work, and the live-Graph path has been run successfully against a real
-tenant. Beyond the base 19 rules, the dashboard also has:
+tenant. There are currently **30 rules** in `src/rules/` (AUDIT, AUTH, BOOT, CA, PASS, RCAMP, REG,
+SIGNIN, SSPR, STR, TAP families) - every one of them mapped to the Microsoft Learn article backing
+it in [docs/references.md](docs/references.md). Beyond the rules themselves, the dashboard has:
 
 - **Four top-level assessment tabs**, split out to keep any single page from turning into one
   long scroll of unrelated content (originally all of this sat on a single "Assessment" tab):
