@@ -1,0 +1,11 @@
+{
+    "RuleID": "CA005",
+    "Category": "Conditional Access",
+    "Setting": "Security Info Registration Requires Strong Authentication",
+    "Expected": "Enabled",
+    "Severity": "High",
+    "Phase": 1,
+    "PhaseName": "1. Foundation & Visibility",
+    "DependsOn": [],
+    "Recommendation": "Conditional Access targeting is mutually exclusive between resources and user actions: a policy scoped to 'All resources' (or 'All cloud apps') does not also cover the 'Register security information' user action (urn:user:registersecurityinfo). It has to be targeted explicitly, by its own policy, confirmed against Microsoft's own 'Target resources' documentation. This is an easy trap: a tenant with a solid-looking baseline (block legacy auth, MFA for all users, admin protection) can still have zero Conditional Access control over the page where users register new authentication methods, because none of those baseline policies extend to it. Anyone who can complete first-factor sign-in, including with a compromised password and no MFA registered yet, can reach that page unchallenged. Create (or verify) an enabled policy that explicitly targets the Register security information user action and requires at least a plain 'mfa' grant control, or an authentication strength that still allows a Temporary Access Pass so a brand-new user isn't locked out of their own bootstrap (see CA004)."
+}

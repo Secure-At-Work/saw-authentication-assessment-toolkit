@@ -34,6 +34,17 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         that user can never reach the page that would let them register a phishing-resistant
         method in the first place. A plain "mfa" builtin control (no custom strength) does not
         trigger this - TAP satisfies a generic MFA requirement.
+
+        Separately checks the opposite gap: whether ANY enabled policy targets the "Register
+        security information" user action with at least some control (a plain "mfa" builtin or
+        an authentication strength) at all. Targeting resources ("All resources"/"All cloud
+        apps") and targeting a user action are mutually exclusive selections in the same
+        Conditional Access policy - a baseline "All resources + MFA" policy never extends to
+        this user action, it has to be targeted explicitly by its own policy. Confirmed against
+        https://learn.microsoft.com/entra/identity/conditional-access/concept-conditional-access-cloud-apps
+        ("Select what this policy applies to"). Without an explicit policy here, the page where
+        users register a new authentication method has no Conditional Access protection of its
+        own, even in a tenant whose baseline policies look complete.
     .PARAMETER RawResponse
         The object returned by Get-SAWConditionalAccess (has a .value array of policies).
     .OUTPUTS
@@ -106,6 +117,7 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         $compliantDeviceForAdmins = $false
         $phishingResistantStrengthForAdmins = $false
         $securityInfoRegistrationBlockedForTapOnlyUsers = $false
+        $securityInfoRegistrationProtected = $false
 
         foreach ($policy in $policies) {
             if ($policy.state -ne 'enabled') {
@@ -144,6 +156,11 @@ function ConvertTo-SAWNormalizedConditionalAccess {
                 Write-Verbose "ConvertTo-SAWNormalizedConditionalAccess: '$($policy.displayName)' gates Register Security Information with a strength that does not accept a Temporary Access Pass"
                 $securityInfoRegistrationBlockedForTapOnlyUsers = $true
             }
+
+            if (-not $securityInfoRegistrationProtected -and $targetsSecurityInfoRegistration -and
+                (($controls -contains 'mfa') -or $policy.grantControls.authenticationStrength)) {
+                $securityInfoRegistrationProtected = $true
+            }
         }
 
         $adminProtectionInPlace = $compliantDeviceForAdmins -or $phishingResistantStrengthForAdmins
@@ -177,6 +194,11 @@ function ConvertTo-SAWNormalizedConditionalAccess {
             Category = 'Conditional Access'
             Setting  = 'Security Info Registration Reachable With Only A Temporary Access Pass'
             State    = ConvertTo-SAWStateLabel (-not $securityInfoRegistrationBlockedForTapOnlyUsers)
+        }
+        @{
+            Category = 'Conditional Access'
+            Setting  = 'Security Info Registration Requires Strong Authentication'
+            State    = ConvertTo-SAWStateLabel $securityInfoRegistrationProtected
         }
     }
 }

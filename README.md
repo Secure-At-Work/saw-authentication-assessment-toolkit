@@ -44,8 +44,9 @@ Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section
 HTML report both work, and the live-Graph path has been run successfully against a real
 tenant. Beyond the base 19 rules, the dashboard also has:
 
-- A **passkey dynamic migration opt-out check** (AUTH006) and a **CA lockout check** (CA004) -
-  see "Passkey rollout and lockout-risk checks" below
+- A **passkey dynamic migration opt-out check** (AUTH006) and two **security info registration
+  checks** on Conditional Access (CA004, CA005) - see "Passkey rollout and lockout-risk checks"
+  below
 
 - A full **Conditional Access policy inventory** (every policy's name, state, targets, and
   grant controls in plain language - independent of the pass/fail CA checks)
@@ -336,6 +337,16 @@ and the two dates use **different eligibility criteria** worth not conflating:
   register a stronger method - they're locked out of self-service recovery entirely. A plain
   `mfa` builtin control doesn't trigger this (TAP generically satisfies it); only a custom
   strength without a TAP escape does.
+- **CA005 - Security Info Registration Requires Strong Authentication.** The opposite gap from
+  CA004: whether *any* enabled policy targets `urn:user:registersecurityinfo` at all, with at
+  least a plain `mfa` control or an authentication strength. Conditional Access targeting is
+  mutually exclusive between resources and user actions, confirmed against Microsoft's own
+  [Target resources](https://learn.microsoft.com/entra/identity/conditional-access/concept-conditional-access-cloud-apps)
+  doc: a policy scoped to "All resources" never extends to this user action, it has to be
+  targeted by its own explicit policy. Miss that, and a tenant whose baseline looks complete
+  (legacy auth blocked, MFA for all users, admin protection) can still have zero Conditional
+  Access control over the page where users register new authentication methods - reachable by
+  anyone who's completed first-factor sign-in, MFA or not.
 
 **Upcoming Microsoft deadlines, with a countdown.** The dashboard's "Upcoming Microsoft
 Deadlines" section (right after the SOLL baseline banner, before the Overview) surfaces every

@@ -136,7 +136,7 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
 
         $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
 
-        $result.Count | Should -Be 6
+        $result.Count | Should -Be 7
         ($result | Where-Object { $_.Setting -ne 'Security Info Registration Reachable With Only A Temporary Access Pass' -and $_.State -eq 'Enabled' }).Count | Should -Be 0
         ($result | Where-Object { $_.Setting -eq 'Security Info Registration Reachable With Only A Temporary Access Pass' }).State | Should -Be 'Enabled'
     }
@@ -290,6 +290,59 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
             $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
 
             ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+    }
+
+    Context 'Register Security Information requires strong authentication (CA005)' {
+        $settingName = 'Security Info Registration Requires Strong Authentication'
+
+        It 'is Disabled when no policy targets registersecurityinfo at all' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'is Disabled when a policy targets registersecurityinfo but has no grant control at all' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -BuiltInControls @())) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'is Enabled when an enabled policy targets registersecurityinfo with a plain mfa control' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'is Enabled when an enabled policy targets registersecurityinfo with an authentication strength' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUserActions @('urn:user:registersecurityinfo') -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'does not credit a policy scoped to All resources as covering registersecurityinfo' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeApplications @('All') -IncludeUserActions @() -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'does not count a report-only policy targeting registersecurityinfo' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -State 'enabledForReportingButNotEnforced' -IncludeUserActions @('urn:user:registersecurityinfo') -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
         }
     }
 }

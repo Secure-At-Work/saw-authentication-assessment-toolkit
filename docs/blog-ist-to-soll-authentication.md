@@ -254,7 +254,19 @@ Conditional Access evaluate authorization.
 
 ### Conditional Access on the registration page itself
 
-A policy scoped to `urn:user:registersecurityinfo` governs *how* and *where* users are allowed to
+There are two separate failure modes here, and it's worth naming both before getting into the
+mechanics of either. The first: no policy targets `urn:user:registersecurityinfo` at all, so the
+page where users register a new authentication method has no Conditional Access protection of
+its own, no matter how solid the rest of the baseline looks. A tenant can have legacy auth
+blocked, MFA required for all users, and admin roles protected, and still have zero control over
+this specific page, because none of those policies extend to it (targeting resources and
+targeting user actions are mutually exclusive choices within one policy, so a baseline "All
+resources" policy simply never reaches it). Anyone who's completed first-factor sign-in, whether
+or not they have MFA registered yet, can reach that page unchallenged. The fix is a policy that
+explicitly targets the user action and requires at least a plain `mfa` grant control.
+
+The second failure mode is the opposite: such a policy exists, but overshoots. A policy scoped to
+`urn:user:registersecurityinfo` governs *how* and *where* users are allowed to
 register or update their security info, often used to confine that to a trusted network or
 compliant device during onboarding. The trap: if that policy's grant control is a **custom
 authentication strength** whose `allowedCombinations` doesn't include
