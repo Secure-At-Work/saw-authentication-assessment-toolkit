@@ -215,9 +215,18 @@ tenant. Beyond the base 19 rules, the dashboard also has:
 - A **configurable, auto-detected customer SOLL baseline** (see below - hybrid vs. cloud-native
   is detected from the tenant itself, not just a manual flag) plus explicit **SOLL (Target) /
   IST (Current)** column labeling in both reports, with the active baseline's name shown in each
-- A **synced (cloud-backed) passkeys** check (PASS003 - Google Password Manager, iCloud
-  Keychain, 1Password, Bitwarden, and similar, detected by AAGUID against the FIDO2 key
-  restrictions allow/block-list). Synced passkeys are still phishing-resistant, so the toolkit
+- A **synced (cloud-backed) passkeys** check (PASS003), detected by AAGUID against the FIDO2 key
+  restrictions allow/block-list. Covers the full current contents of the community
+  [passkey-authenticator-aaguids](https://github.com/passkeydeveloper/passkey-authenticator-aaguids)
+  list: dedicated password manager apps (Google Password Manager, iCloud Keychain / Apple
+  Passwords, 1Password, Bitwarden, Dashlane, NordPass, Keeper, Sesame, Enpass, Samsung Pass,
+  AliasVault, IDmelon) **and** browser-level platform credential stores (Chrome on Mac, Chromium
+  Browser, Edge on Mac) - the latter aren't password manager apps, but the same custody concern
+  applies, since a passkey saved there syncs via the user's Google/Microsoft account rather than
+  staying device-bound. Windows Hello's AAGUIDs are the one deliberate exclusion from that source
+  list: whether a given Windows Hello AAGUID is a per-device TPM-bound credential or a newer
+  cloud-synced Windows passkey varies, and treating it as "synced" would false-flag legitimately
+  device-bound credentials. Synced passkeys are still phishing-resistant, so the toolkit
   default is permissive (Expected Enabled, Low severity); a customer requiring device-bound-only
   passkeys can flip this in a baseline (`cloud-native-passwordless` does this as an example)
 - **Multi-tenant, repeat-run-safe output** - reports and history snapshots are namespaced by

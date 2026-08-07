@@ -164,4 +164,36 @@ Describe 'ConvertTo-SAWNormalizedPasskeys - synced passkeys (PASS003)' {
 
         ($result | Where-Object { $_.Setting -eq 'Synced Passkeys Currently Allowed' }).State | Should -Be 'Enabled'
     }
+
+    It 'recognizes AliasVault and IDmelon as synced providers, not just the original 11 entries' {
+        $raw = @{
+            state                 = 'enabled'
+            isAttestationEnforced = $true
+            keyRestrictions       = @{
+                isEnforced      = $true
+                enforcementType = 'allow'
+                aaGuids          = @('a11a5faa-9f32-4b8c-8c5d-2f7d13e8c942') # AliasVault
+            }
+        }
+
+        $result = $raw | ConvertTo-SAWNormalizedPasskeys
+
+        ($result | Where-Object { $_.Setting -eq 'Synced Passkeys Currently Allowed' }).State | Should -Be 'Enabled'
+    }
+
+    It 'recognizes browser-level platform credential stores (e.g. Chromium Browser) as synced providers too' {
+        $raw = @{
+            state                 = 'enabled'
+            isAttestationEnforced = $true
+            keyRestrictions       = @{
+                isEnforced      = $true
+                enforcementType = 'allow'
+                aaGuids          = @('b5397666-4885-aa6b-cebf-e52262a439a2') # Chromium Browser
+            }
+        }
+
+        $result = $raw | ConvertTo-SAWNormalizedPasskeys
+
+        ($result | Where-Object { $_.Setting -eq 'Synced Passkeys Currently Allowed' }).State | Should -Be 'Enabled'
+    }
 }

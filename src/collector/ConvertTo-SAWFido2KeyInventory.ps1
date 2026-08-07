@@ -202,6 +202,11 @@ function ConvertTo-SAWFido2KeyInventory {
             'f3809540-7f14-49c1-a8b3-8f813b225541' = 'Enpass (synced passkey)'
             'd548826e-79b4-db40-a3d8-11116f7e8349' = 'Bitwarden (synced passkey)'
             '53414d53-554e-4700-0000-000000000000' = 'Samsung Pass (synced passkey)'
+            'a11a5faa-9f32-4b8c-8c5d-2f7d13e8c942' = 'AliasVault (synced passkey)'
+            '39a5647e-1853-446c-a1f6-a79bae9f5bc7' = 'IDmelon (synced passkey)'
+            'adce0002-35bc-c60a-648b-0b25f1f05503' = 'Chrome on Mac (synced passkey)'
+            'b5397666-4885-aa6b-cebf-e52262a439a2' = 'Chromium Browser (synced passkey)'
+            '771b48fd-d3d4-4f74-9232-fc157ab0507a' = 'Edge on Mac (synced passkey)'
         }
     }
 

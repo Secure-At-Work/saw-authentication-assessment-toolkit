@@ -109,6 +109,28 @@ Describe 'ConvertTo-SAWFido2KeyInventory' {
         $result.AllowedKeys[0].KnownName | Should -Match 'Google Password Manager'
     }
 
+    It 'resolves the full synced-passkey-provider list, not just the original 11 entries' {
+        $raw = @{
+            state           = 'enabled'
+            keyRestrictions = @{
+                isEnforced      = $true
+                enforcementType = 'allow'
+                aaGuids         = @(
+                    'a11a5faa-9f32-4b8c-8c5d-2f7d13e8c942', # AliasVault
+                    '39a5647e-1853-446c-a1f6-a79bae9f5bc7', # IDmelon
+                    'adce0002-35bc-c60a-648b-0b25f1f05503', # Chrome on Mac
+                    'b5397666-4885-aa6b-cebf-e52262a439a2', # Chromium Browser
+                    '771b48fd-d3d4-4f74-9232-fc157ab0507a'  # Edge on Mac
+                )
+            }
+        }
+
+        $result = $raw | ConvertTo-SAWFido2KeyInventory
+
+        $result.AllowedKeys.Count | Should -Be 5
+        $result.AllowedKeys | ForEach-Object { $_.Recognized | Should -BeTrue }
+    }
+
     It 'marks an unrecognized AAGUID as such rather than omitting it or guessing' {
         $raw = @{
             state           = 'enabled'

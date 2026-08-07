@@ -22,9 +22,19 @@ function ConvertTo-SAWNormalizedPasskeys {
         config/baselines/cloud-native-passwordless.json for an example).
 
         Detection is AAGUID-based against a small, maintained-by-hand reference list of known
-        synced-passkey providers (see $syncedPasskeyProviderAaguids below) - it is a strong
+        synced-passkey providers (see $syncedPasskeyProviderAaguids below), sourced from the
+        community passkeydeveloper/passkey-authenticator-aaguids project
+        (https://github.com/passkeydeveloper/passkey-authenticator-aaguids/blob/main/aaguid.json,
+        confirmed to be its full, current contents as of this writing - every entry from that
+        list is included here except the one deliberate exclusion below) - it is a strong
         signal, not exhaustive proof: new providers appear over time, and this list needs
-        periodic upkeep. Windows Hello AAGUIDs are deliberately NOT included - whether a given
+        periodic upkeep. Includes both dedicated password manager apps (Google Password Manager,
+        iCloud Keychain, 1Password, Bitwarden, Dashlane, NordPass, Keeper, Sesame, Enpass,
+        Samsung Pass, AliasVault, IDmelon) and browser-level platform credential stores (Chrome
+        on Mac, Chromium Browser, Edge on Mac) - the latter aren't password manager apps, but
+        the same custody concern applies: a passkey saved there syncs via the user's Google/
+        Microsoft account rather than staying device-bound. Windows Hello AAGUIDs are
+        deliberately NOT included, the one exclusion from that source list - whether a given
         Windows Hello AAGUID represents a per-device TPM-bound credential or a newer
         cloud-synced Windows passkey varies, and treating it as "synced" risks false-flagging
         a legitimately device-bound credential.
@@ -61,6 +71,14 @@ function ConvertTo-SAWNormalizedPasskeys {
             'f3809540-7f14-49c1-a8b3-8f813b225541' = 'Enpass'
             'd548826e-79b4-db40-a3d8-11116f7e8349' = 'Bitwarden'
             '53414d53-554e-4700-0000-000000000000' = 'Samsung Pass'
+            'a11a5faa-9f32-4b8c-8c5d-2f7d13e8c942' = 'AliasVault'
+            '39a5647e-1853-446c-a1f6-a79bae9f5bc7' = 'IDmelon'
+            # Browser-level platform credential stores - not password manager apps, but the same
+            # custody concern applies: a passkey saved here syncs via the user's Google/Microsoft
+            # account rather than staying device-bound, so they belong in this list too.
+            'adce0002-35bc-c60a-648b-0b25f1f05503' = 'Chrome on Mac'
+            'b5397666-4885-aa6b-cebf-e52262a439a2' = 'Chromium Browser'
+            '771b48fd-d3d4-4f74-9232-fc157ab0507a' = 'Edge on Mac'
         }
     }
 
