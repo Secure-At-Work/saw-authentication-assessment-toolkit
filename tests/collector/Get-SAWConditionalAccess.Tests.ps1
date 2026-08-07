@@ -136,7 +136,7 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
 
         $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
 
-        $result.Count | Should -Be 7
+        $result.Count | Should -Be 8
         ($result | Where-Object { $_.Setting -ne 'Security Info Registration Reachable With Only A Temporary Access Pass' -and $_.State -eq 'Enabled' }).Count | Should -Be 0
         ($result | Where-Object { $_.Setting -eq 'Security Info Registration Reachable With Only A Temporary Access Pass' }).State | Should -Be 'Enabled'
     }
@@ -339,6 +339,54 @@ Describe 'ConvertTo-SAWNormalizedConditionalAccess' {
 
         It 'does not count a report-only policy targeting registersecurityinfo' {
             $raw = @{ value = @((New-SAWTestCaPolicy -State 'enabledForReportingButNotEnforced' -IncludeUserActions @('urn:user:registersecurityinfo') -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+    }
+
+    Context 'Phishing-resistant authentication strength required for all users (CA006)' {
+        $settingName = 'Phishing-Resistant Authentication Strength Required For All Users'
+
+        It 'is Disabled when the all-user policy only requires plain mfa' {
+            $raw = @{ value = @((New-SAWTestCaPolicy -BuiltInControls @('mfa'))) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'is Enabled when an enabled policy requires a phishing-resistant strength for all users and apps' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2', 'windowsHelloForBusiness', 'x509CertificateMultiFactor') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Enabled'
+        }
+
+        It 'is Disabled when the strength also allows a weaker combination' {
+            $strength = @{ displayName = 'MFA'; allowedCombinations = @('password,sms', 'fido2') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'is Disabled when the phishing-resistant strength policy targets admin roles only, not all users' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -IncludeUsers @() -IncludeRoles @('role-1') -AuthenticationStrength $strength)) }
+
+            $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
+
+            ($result | Where-Object { $_.Setting -eq $settingName }).State | Should -Be 'Disabled'
+        }
+
+        It 'does not count a report-only policy' {
+            $strength = @{ displayName = 'Phishing-resistant MFA'; allowedCombinations = @('fido2') }
+            $raw = @{ value = @((New-SAWTestCaPolicy -State 'enabledForReportingButNotEnforced' -AuthenticationStrength $strength)) }
 
             $result = $raw | ConvertTo-SAWNormalizedConditionalAccess
 

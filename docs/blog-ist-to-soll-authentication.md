@@ -90,6 +90,16 @@ importantly, whether anything actually *requires* it. Defining the strength and 
 are two different rules; a tenant can have a perfectly good phishing-resistant strength sitting
 unused.
 
+Worth being precise about what "phishing-resistant" actually promises here, since it's easy to
+over-claim. It specifically means resistant to adversary-in-the-middle relay at the moment a
+token is issued: the credential can't be captured by a fake sign-in page and replayed, the way a
+password or an OTP code can. It says nothing about a token that's already been issued and then
+gets stolen off the endpoint afterward, for example by infostealer malware harvesting session
+tokens and shipping them to a command-and-control server for replay. That's a different problem,
+closed by endpoint controls (EDR, application control, next-gen antivirus), not by which
+authentication method was used to sign in. Rolling out passkeys is not a substitute for that
+endpoint security work; the two address different stages of the same token's lifecycle.
+
 ### Per-user registration data
 
 The single richest data source in the whole inventory: for every user,
@@ -319,7 +329,16 @@ A representative checklist of what "good" actually requires, to make SOLL concre
 abstract:
 
 - **Block legacy authentication tenant-wide** and **require MFA for all users** via Conditional
-  Access, the foundational pair almost everything else assumes is already in place.
+  Access, the foundational pair almost everything else assumes is already in place. Treat that
+  requirement as a floor, not the finish line: a plain "require MFA" grant control accepts
+  whichever method a user has registered, including a weaker one, and that gap is exactly what
+  an MFA downgrade attack targets. An adversary-in-the-middle proxy can tell Entra the current
+  browser doesn't support a passkey and fall back to something weaker the user also has
+  registered, and a plain MFA requirement has no way to object, because it was satisfied.
+  Requiring a specific authentication strength instead of "any MFA" closes that fallback, since
+  the strength itself defines which methods are acceptable. Rolling that out tenant-wide, not
+  just for admins, only makes sense once phishing-resistant methods are broadly registered
+  (Phase 3 below); until then, plain MFA is a legitimate interim state, not a failure.
 - **Privileged access protection for admins**, as a composite rather than one hard-coded
   control: a compliant device requirement *or* a phishing-resistant authentication strength
   requirement for admin roles, either one satisfies the intent.
@@ -359,7 +378,7 @@ not just theoretical risk:
 | **2. Enable Phishing-Resistant Capability** | Give users something strong to actually register | Turn on FIDO2 self-service registration, attestation, key restrictions; define and be ready to enforce a phishing-resistant authentication strength |
 | **3. Drive Registration Coverage** | Get people actually registered, using the bootstrap from Phase 2 | Run the registration campaign; close admin and overall MFA registration gaps; raise SSPR registration coverage |
 | **4. Retire Weak Fallback Methods** | Remove the downgrade path, only once it's safe to | Turn off SMS/Voice, but only after Phase 3's coverage is genuinely high enough |
-| **5. Enforce via Conditional Access** | Make the target state mandatory, last | Require MFA for all users; require compliant device or phishing-resistant auth for admins |
+| **5. Enforce via Conditional Access** | Make the target state mandatory, last | Require MFA for all users; require compliant device or phishing-resistant auth for admins; once adoption is broad enough, tighten the all-user policy from plain MFA to a phishing-resistant authentication strength to close the MFA downgrade path |
 
 Concretely: enforcing "MFA required for everyone" (Phase 5) before enough users have a registered
 method (Phase 3) risks locking people out entirely. Pushing users to register a passkey before a

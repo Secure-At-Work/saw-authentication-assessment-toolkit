@@ -6,5 +6,5 @@
     "Severity": "High",
     "Phase": 1,
     "PhaseName": "1. Foundation & Visibility",
-    "Recommendation": "Enable FIDO2 security keys to support phishing-resistant authentication for privileged and high-risk users."
+    "Recommendation": "Enable FIDO2 security keys to support phishing-resistant authentication for privileged and high-risk users. Scope this correctly: 'phishing-resistant' here specifically means adversary-in-the-middle resistant - the credential can't be relayed through a fake sign-in page at the moment it's issued. It does not defend against a token already issued being stolen off the endpoint afterward by infostealer malware (e.g. StealC and similar) and replayed by the attacker. That gap is closed by endpoint controls (EDR, application control, next-gen AV), not by the authentication method itself - don't let FIDO2/passkey rollout substitute for endpoint security work that still needs to happen independently."
 }

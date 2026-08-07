@@ -45,6 +45,16 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         ("Select what this policy applies to"). Without an explicit policy here, the page where
         users register a new authentication method has no Conditional Access protection of its
         own, even in a tenant whose baseline policies look complete.
+
+        Also tracks whether the all-user MFA policy goes further than "Require MFA For All
+        Users" (plain "mfa" builtin control) and instead requires a phishing-resistant
+        authentication strength. This distinction matters against an MFA downgrade attack: an
+        adversary-in-the-middle proxy can tell Entra "this browser doesn't support a passkey"
+        and fall back to a weaker registered method, which a plain "mfa" control accepts without
+        complaint. Requiring a specific authentication strength closes that fallback. This is
+        deliberately reported as its own fact rather than folded into "Require MFA For All
+        Users" - plain MFA for all users is still a legitimate interim state on the way there,
+        not a failure, so the two are surfaced as separate checks at separate phases.
     .PARAMETER RawResponse
         The object returned by Get-SAWConditionalAccess (has a .value array of policies).
     .OUTPUTS
@@ -118,6 +128,7 @@ function ConvertTo-SAWNormalizedConditionalAccess {
         $phishingResistantStrengthForAdmins = $false
         $securityInfoRegistrationBlockedForTapOnlyUsers = $false
         $securityInfoRegistrationProtected = $false
+        $phishingResistantStrengthForAllUsers = $false
 
         foreach ($policy in $policies) {
             if ($policy.state -ne 'enabled') {
@@ -140,6 +151,11 @@ function ConvertTo-SAWNormalizedConditionalAccess {
 
             if (-not $mfaForAllUsers -and $targetsAllUsers -and $targetsAllApps -and ($controls -contains 'mfa')) {
                 $mfaForAllUsers = $true
+            }
+
+            if (-not $phishingResistantStrengthForAllUsers -and $targetsAllUsers -and $targetsAllApps -and
+                (Test-SAWPhishingResistantStrength $policy.grantControls.authenticationStrength)) {
+                $phishingResistantStrengthForAllUsers = $true
             }
 
             if (-not $compliantDeviceForAdmins -and $targetsAdminRoles -and ($controls -contains 'compliantDevice')) {
@@ -199,6 +215,11 @@ function ConvertTo-SAWNormalizedConditionalAccess {
             Category = 'Conditional Access'
             Setting  = 'Security Info Registration Requires Strong Authentication'
             State    = ConvertTo-SAWStateLabel $securityInfoRegistrationProtected
+        }
+        @{
+            Category = 'Conditional Access'
+            Setting  = 'Phishing-Resistant Authentication Strength Required For All Users'
+            State    = ConvertTo-SAWStateLabel $phishingResistantStrengthForAllUsers
         }
     }
 }

@@ -44,9 +44,10 @@ Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section
 HTML report both work, and the live-Graph path has been run successfully against a real
 tenant. Beyond the base 19 rules, the dashboard also has:
 
-- A **passkey dynamic migration opt-out check** (AUTH006) and two **security info registration
-  checks** on Conditional Access (CA004, CA005) - see "Passkey rollout and lockout-risk checks"
-  below
+- A **passkey dynamic migration opt-out check** (AUTH006), two **security info registration
+  checks** on Conditional Access (CA004, CA005), and a check for **phishing-resistant strength
+  required tenant-wide, not just for admins** (CA006) - see "Passkey rollout and lockout-risk
+  checks" below
 
 - A full **Conditional Access policy inventory** (every policy's name, state, targets, and
   grant controls in plain language - independent of the pass/fail CA checks)
@@ -225,6 +226,17 @@ Not yet built: Markdown/Excel/JSON report exports (spec section 14).
   means no MFA requirement at all - something REG001/REG002 (registration, not enforcement)
   wouldn't catch. If built, scope to admins first (matching the "admins first" pattern used
   throughout the roster) rather than calling it for every user, to keep the added Graph cost down.
+- **Device compatibility for passkeys** (OS version, browser, managed-vs-unmanaged, whether
+  authentication happens directly on the device or cross-device). A real pre-enforcement gap:
+  Passkey in Microsoft Authenticator requires Android 14+, while a syncable passkey via Google
+  Password Manager reaches back to Android 9 - a tenant that only tests Authenticator can end up
+  telling users to buy new phones unnecessarily. This data mostly lives in Intune/device
+  compliance, not the Entra authentication surface this toolkit otherwise stays inside, so it's
+  a bigger scope change than the other rules here, not just an extra Graph call. If ever built,
+  it'd need its own collector pulling from `deviceManagement/managedDevices` (or Intune) rather
+  than reusing any existing one, and should report inventory (what's actually out there) rather
+  than a single pass/fail, since the "right" minimum OS version is a customer policy decision,
+  not a fixed Microsoft baseline.
 
 ## Customer baselines (SOLL)
 
@@ -347,6 +359,14 @@ and the two dates use **different eligibility criteria** worth not conflating:
   (legacy auth blocked, MFA for all users, admin protection) can still have zero Conditional
   Access control over the page where users register new authentication methods - reachable by
   anyone who's completed first-factor sign-in, MFA or not.
+- **CA006 - Phishing-Resistant Authentication Strength Required For All Users.** A plain `mfa`
+  builtin control (CA002) accepts whichever registered method the user has, which leaves an MFA
+  downgrade attack open: an adversary-in-the-middle proxy can tell Entra the current browser
+  doesn't support a passkey and fall back to a weaker method, and a plain `mfa` requirement has
+  no way to object. Requiring a specific authentication strength for all users (not just admins,
+  where CA003 already checks this) closes that fallback. Deliberately a separate, later-phase
+  check from CA002: plain MFA for all users is a legitimate interim state while a tenant ramps
+  up passkey adoption, not a failure in its own right.
 
 **Upcoming Microsoft deadlines, with a countdown.** The dashboard's "Upcoming Microsoft
 Deadlines" section (right after the SOLL baseline banner, before the Overview) surfaces every

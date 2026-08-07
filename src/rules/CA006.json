@@ -1,0 +1,11 @@
+{
+    "RuleID": "CA006",
+    "Category": "Conditional Access",
+    "Setting": "Phishing-Resistant Authentication Strength Required For All Users",
+    "Expected": "Enabled",
+    "Severity": "Medium",
+    "Phase": 5,
+    "PhaseName": "5. Enforce via Conditional Access",
+    "DependsOn": ["CA002", "STR001"],
+    "Recommendation": "A plain 'mfa' builtin grant control (CA002) accepts any registered MFA method, which leaves an MFA downgrade attack open: an adversary-in-the-middle proxy can tell Entra the current browser doesn't support a passkey and fall back to a weaker method the user also has registered, and a plain 'mfa' requirement has no way to object. Requiring a specific authentication strength closes that fallback, because the strength itself defines which methods are acceptable rather than 'any MFA'. This is deliberately a separate, later-phase check from CA002, not a replacement for it: plain MFA for all users is still a legitimate interim state while a tenant ramps up passkey adoption (see the registration campaign and BOOT001), not something to flag as a failure on its own. Once phishing-resistant methods are broadly registered (see AUTH004, PASS001-PASS003), move the all-user policy from a plain 'mfa' control to a phishing-resistant authentication strength, the same mechanism CA003 already uses for admin roles specifically."
+}
