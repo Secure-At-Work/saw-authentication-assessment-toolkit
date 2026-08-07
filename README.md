@@ -2,7 +2,7 @@
 
 Read-only assessment toolkit for Microsoft Entra ID authentication configuration. Inventories the current (IST) state of a tenant via Microsoft Graph, compares it against the Secure At Work recommended (SOLL) configuration, and produces gap analysis, risk scoring, and remediation guidance.
 
-See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification, or [docs/reading-the-report.md](docs/reading-the-report.md) for a plain-language walkthrough of what the assessment is and how to read its output (suitable to hand to a customer alongside a report).
+See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification, or [docs/reading-the-report.md](docs/reading-the-report.md) for a plain-language walkthrough of what the assessment is and how to read its output (suitable to hand to a customer alongside a report). [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md) is a standalone reference on which OS/browser/app combinations actually support passkeys, useful when planning a rollout regardless of whether you're using this toolkit.
 
 ## Hard constraint
 
@@ -236,7 +236,10 @@ Not yet built: Markdown/Excel/JSON report exports (spec section 14).
   it'd need its own collector pulling from `deviceManagement/managedDevices` (or Intune) rather
   than reusing any existing one, and should report inventory (what's actually out there) rather
   than a single pass/fail, since the "right" minimum OS version is a customer policy decision,
-  not a fixed Microsoft baseline.
+  not a fixed Microsoft baseline. The static half of this question - which OS/browser/app
+  combinations support passkeys *at all*, regardless of any specific tenant's device fleet - is
+  already written up in [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md),
+  since that part is the same for every tenant and doesn't need a collector to answer.
 
 ## Customer baselines (SOLL)
 

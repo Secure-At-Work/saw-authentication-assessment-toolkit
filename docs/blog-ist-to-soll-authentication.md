@@ -366,6 +366,43 @@ abstract:
   in practice via the legacy one. The fix (Microsoft's own automated migration guide) is
   documented as fully reversible, so there's no reason to delay it once you know to look for it.
 
+### Platform and browser gaps that turn "enabled" into "broken" for someone
+
+None of the checklist above is worth enforcing before checking it against the actual devices,
+browsers, and apps your users are on. Microsoft publishes an explicit compatibility matrix for
+passkey (FIDO2) authentication, and it's worth reading before rollout rather than after the
+support tickets start ([full matrix reference](passkey-platform-compatibility.md)). A few gaps
+from that matrix are easy to miss and expensive to discover late:
+
+- **Firefox on Android doesn't support passkey sign-in at all**, full stop, while Chrome and Edge
+  on the same device do. Firefox on Linux specifically can't use a passkey stored in Microsoft
+  Authenticator either, though other passkey types there are fine.
+- **New security key registration doesn't work in any browser on macOS or iOS**, because those
+  browsers don't prompt for the biometric/PIN setup Entra needs to complete registration.
+  Sign-in with an already-registered key works fine; registering a new one has to happen on a
+  platform that does prompt for it. ChromeOS goes further and blocks security key registration
+  entirely, in any browser.
+- **Without an authentication broker installed** (Microsoft Authenticator, Company Portal, or
+  Link to Windows), **Outlook, Teams, and OneDrive on Android can't do passkey sign-in at all**.
+  The same apps work without a broker on iOS and macOS. If a rollout assumes "the app supports
+  passkeys" without checking whether the broker is actually deployed on Android, that's where it
+  breaks.
+- **Third-party identity provider passkey authentication isn't supported on iOS or macOS at
+  all**, broker or no broker. A tenant federating out to a third-party IdP will find passkeys
+  silently don't work for that population on Apple platforms; the workaround runs through the
+  IdP's own Apple Extensible SSO integration on MDM-managed devices, not anything Entra-side.
+- **Version floors gate all of the above**, and they're stricter than "reasonably current
+  device": Authenticator passkey support needs Android 14+ or Windows 11 22H2+ specifically (not
+  just "Windows 10 or later," which only covers security-key sign-in); iOS native app passkey
+  support needs 16.0+ without Microsoft's SSO plug-in, or 17.1+ *with* it; macOS needs 14.0+ and
+  MDM enrollment for the same. An unmanaged Mac can't use passkey-via-broker at all, regardless
+  of OS version.
+
+Inventorying which of these combinations are actually in use, and deciding whether syncable
+passkeys are acceptable specifically because they reach further back (Google Password Manager
+supports Android versions well below Authenticator's floor), belongs in Phase 1 alongside
+everything else in "Foundation & Visibility," not discovered after enforcement is already live.
+
 ## Part 4: The path from IST to SOLL: five phases, and why the order matters
 
 A list of findings tells you *what's* wrong. It doesn't tell you *what order* to fix things in,
@@ -374,7 +411,7 @@ not just theoretical risk:
 
 | Phase | Goal | Typical actions |
 |---|---|---|
-| **1. Foundation & Visibility** | Safe immediately, nothing depends on anything else | Block legacy authentication; enable Authenticator, FIDO2, and TAP; audit log and break-glass hygiene; TAP hardening (one-time-use, shorter lifetime) |
+| **1. Foundation & Visibility** | Safe immediately, nothing depends on anything else | Block legacy authentication; enable Authenticator, FIDO2, and TAP; check platform/browser compatibility against Microsoft's own matrix; audit log and break-glass hygiene; TAP hardening (one-time-use, shorter lifetime) |
 | **2. Enable Phishing-Resistant Capability** | Give users something strong to actually register | Turn on FIDO2 self-service registration, attestation, key restrictions; define and be ready to enforce a phishing-resistant authentication strength |
 | **3. Drive Registration Coverage** | Get people actually registered, using the bootstrap from Phase 2 | Run the registration campaign; close admin and overall MFA registration gaps; raise SSPR registration coverage |
 | **4. Retire Weak Fallback Methods** | Remove the downgrade path, only once it's safe to | Turn off SMS/Voice, but only after Phase 3's coverage is genuinely high enough |
