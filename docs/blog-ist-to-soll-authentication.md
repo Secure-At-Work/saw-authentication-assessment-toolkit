@@ -345,6 +345,50 @@ administrators from the user SSPR policy when admin SSPR is off). It's the kind 
 reported as a bug by a frustrated admin months after someone turned off admin SSPR for good
 reasons.
 
+### Where the prompt actually lands, and where it never will
+
+Knowing *who* is eligible is only half of it. The other half is *where*, and this is where a lot of
+rollout plans quietly mis-forecast, because a nudge is a piece of UI shown during a sign-in, and a
+large share of real-world sign-ins have no UI at all.
+
+Microsoft splits sign-ins into interactive and non-interactive, and the definition of the latter
+does the work here: non-interactive sign-ins are "performed by a client app or OS components on
+behalf of a user and don't require the user to provide an authentication factor," with Entra
+refreshing the token "behind the scenes, without interrupting the user's session." No
+authentication factor is requested and the session is never interrupted, so there is no MFA
+completion to nudge after and no surface to nudge on. Microsoft's own examples of non-interactive
+sign-ins include a client app using a refresh token to get an access token, single sign-on to a
+Windows app on an Entra-joined PC, and signing in to a second Office app while a session already
+exists on the device.
+
+That last one is the Outlook case exactly. A user who is already signed in on their laptop and
+opens Outlook in the morning is usually generating a token refresh or an SSO event, not an
+interactive authentication. They will not see a nudge, no matter how correctly the campaign is
+configured, because nothing interrupted them.
+
+Roughly where things land:
+
+- **Browser sign-in that actually completes MFA.** This is the main event, and effectively the only
+  reliable one.
+- **Native and desktop apps.** Sometimes. Microsoft says registration campaigns "support embedded
+  browser views in certain applications," which is deliberately non-committal, and explicitly
+  excludes out-of-box experiences and browser views embedded in Windows settings.
+- **Anything non-interactive.** Never, structurally. Token refresh, SSO on a joined device, opening
+  a second Office app on a device that already has a session.
+- **Mobile.** Depends on the campaign: passkey campaigns work on mobile browsers and native iOS
+  apps, but not native Android; Authenticator campaigns aren't supported on mobile at all.
+- **Linux.** Not nudged.
+- **An existing SSO session.** Not nudged, which is the same rule stated from the other direction.
+
+The practical consequence is worth sitting with, because it changes what a flat registration
+number means. A user whose whole working pattern is "laptop stays signed in, open Outlook and
+Teams, tokens refresh silently" can go weeks without a single interactive browser sign-in, and
+therefore weeks without ever seeing a prompt you switched on a month ago. When coverage moves
+slower than expected, the intuitive read is that users are ignoring the nudge. Often they are
+genuinely never being shown it. Those two situations call for completely different responses: one
+needs a firmer campaign, the other needs an email, because no amount of campaign tuning will reach
+someone the campaign structurally cannot interrupt.
+
 Working out who lands in each group is mostly derivable from data you already have: registration
 state per user, the campaign's target method and scope, which users still have a phone-based method
 registered, and who is SSPR-enabled but not SSPR-registered. Two honest limits are worth carrying

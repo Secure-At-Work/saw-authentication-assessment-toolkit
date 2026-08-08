@@ -169,6 +169,48 @@ On the broken admin experience the forecast flags separately:
 Source: [concept-sspr-policy](https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy)
 (ms.date 2026-05-26, updated 2026-05-27). Verified 2026-08-07.
 
+### Non-interactive sign-ins cannot show a nudge (backs the "where the prompt lands" guidance)
+
+> "Non-interactive sign-ins are done *on behalf of a* user. These delegated sign-ins were performed
+> by a client app or OS components on behalf of a user and **don't require the user to provide an
+> authentication factor**. Instead, Microsoft Entra ID recognizes when the user's token needs to be
+> refreshed and does so behind the scenes, **without interrupting the user's session**."
+
+Microsoft's own examples of non-interactive sign-ins, which is why opening Outlook on an
+already-signed-in device typically produces no prompt:
+
+> - "A client app uses an OAuth 2.0 refresh token to get an access token."
+> - "A user performs single sign-on (SSO) to a web or Windows app on a Microsoft Entra joined PC
+>   (without providing an authentication factor or interacting with a Microsoft Entra prompt)."
+> - "A user signs in to a second Microsoft Office app while they have a session on a mobile device
+>   using FOCI (Family of Client IDs)."
+
+Source: [concept-noninteractive-sign-ins](https://learn.microsoft.com/entra/identity/monitoring-health/concept-noninteractive-sign-ins)
+(ms.date 2026-02-09, updated 2026-02-26). Verified 2026-08-07.
+
+Note this is an inference chain rather than a single quoted sentence: Microsoft does not say
+"non-interactive sign-ins are never nudged" in one place. It says a nudge follows MFA completion
+during sign-in, and separately that non-interactive sign-ins request no authentication factor and
+never interrupt the session. The conclusion follows, and is corroborated by the campaign article's
+own statement that the nudge doesn't trigger inside an existing SSO session, but it is reasoning
+across two documents rather than one citation.
+
+On which app contexts can show a nudge:
+
+> "Registration campaigns support embedded browser views in certain applications. The campaign
+> doesn't nudge users in out-of-the-box experiences or in browser views embedded in Windows
+> settings."
+
+> "Microsoft Authenticator registration campaigns aren't supported on mobile devices. Passkey
+> registration campaigns are supported on mobile devices, including: Browser-based experiences on
+> mobile devices. Native iOS mobile apps. Native Android mobile app support isn't currently
+> available."
+
+> "Linux users aren't nudged. FIDO2 passkeys aren't available on Linux."
+
+Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+(ms.date 2026-05-20, updated 2026-07-23). Verified 2026-08-07.
+
 ### Passkey registration is not supported for guest users (backs the Guest triage bucket)
 
 > "Registration of passkey (FIDO2) credentials isn't supported for internal or external guest users,

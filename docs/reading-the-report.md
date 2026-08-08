@@ -169,6 +169,19 @@ several documented suppressors are invisible to this toolkit (terms-of-use scree
 Access custom controls, existing SSO sessions, Linux clients). The forecast deliberately
 over-estimates, since over-communicating is the cheaper mistake.
 
+**This tells you who is eligible, not when they'll see it.** A nudge is a piece of UI shown during
+an interactive sign-in that completes MFA. Microsoft defines non-interactive sign-ins as ones that
+require no authentication factor and never interrupt the session, so they structurally cannot carry
+a nudge: a token refresh, single sign-on to an app on a joined device, or opening a second Office
+app on a machine that already has a session. In practice that means someone who leaves their laptop
+signed in and works out of Outlook and Teams all day may be eligible for weeks without ever being
+prompted. It also means slow-moving registration coverage often isn't users ignoring the prompt,
+it's users never being shown it - and those two problems need different fixes, since no amount of
+campaign tuning reaches someone the campaign can't interrupt. Broadly: browser sign-ins are where
+nudges land reliably, native apps sometimes (Microsoft says "certain applications", and excludes
+Windows out-of-box experiences), mobile depends on both the platform and which method the campaign
+targets, and Linux is never nudged.
+
 ### What Users Can Expect (IST vs. SOLL)
 
 Four real, Microsoft-documented end-to-end flows, each traced step by step against this

@@ -214,6 +214,7 @@ function ConvertTo-SAWNudgeForecast {
     $caveats = @(
         'The passkey nudge is evaluated per device-and-browser combination, not per account - a user who already has a passkey can still be nudged on a device where they do not. These counts are therefore a floor for passkey nudges, not a ceiling.'
         'Several documented suppressors are not visible through Graph (terms-of-use screens, Conditional Access custom controls, existing SSO sessions, Linux clients, Authenticator campaigns on mobile). The forecast over-estimates rather than under-estimates, which is the safer direction when planning a communication.'
+        'This forecasts WHO is eligible, not WHEN they will see it. A nudge is UI shown during an interactive sign-in that completes MFA, and Microsoft defines non-interactive sign-ins as requiring no authentication factor and never interrupting the session - so token refreshes, SSO on a joined device, and opening a second Office app on an already-signed-in device cannot show one. A user who rarely does an interactive browser sign-in may stay eligible for weeks without ever being prompted, which is why slow-moving registration coverage is often a reach problem rather than a user-compliance problem.'
     )
     if ($scopeUncertain) {
         $caveats += "The registration campaign is scoped to specific groups rather than all users. Group membership isn't resolved (it would need an extra Graph call per group), so campaign-driven predictions below apply only to whoever is actually in those groups."
