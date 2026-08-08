@@ -188,6 +188,19 @@ managed" today could be on the old behavior, the new one, or partway through, re
 long ago Microsoft's announced date has passed. If you need certainty about what a specific user
 is actually being shown, check that tenant directly rather than trusting the stated default.
 
+There's one more way a campaign can quietly do nothing, and it's the one most likely to catch out
+someone who has otherwise done everything right. Microsoft documents that users are not nudged at
+all if their passkey profile carries any of these restrictions: synced-only, device-bound-only,
+attestation enforced, or AAGUID key restrictions. Read that list again with a hardening mindset,
+because two of those items are things a security-conscious admin actively wants. Enforce
+attestation so only vetted authenticators can register, add an AAGUID allow-list so only approved
+key models are accepted, then switch on a registration campaign to drive adoption, and the
+campaign reaches nobody. Nothing errors. The admin center shows the campaign as configured and
+enabled. Registration coverage simply doesn't move, and the obvious conclusion ("users are
+ignoring the prompt") is wrong, because there was no prompt. The same restriction also blocks the
+automatic switch to passkey targeting under Microsoft-managed state. If you're going to run a
+campaign and enforce attestation, sequence them: drive registration first, tighten afterwards.
+
 ### The Temporary Access Pass as bootstrap mechanism
 
 A TAP is how a user with nothing registered yet gets into the system at all: created by an
@@ -289,6 +302,59 @@ governs Windows Hello for Business and macOS Platform SSO credential registratio
 previously didn't evaluate at all. That widens the blast radius of any policy that already has this
 gap. This CA policy governs whether the registration page is *reachable*: it still has no say over
 what System-Preferred Authentication presents on the way there.
+
+### Who actually gets interrupted, and why you owe them a heads-up
+
+Everything above describes mechanisms. Put them together and a practical question falls out that
+rarely gets asked until it's too late: on Monday morning, which of your people are going to be
+stopped mid-sign-in and asked to do something, and do they know it's coming?
+
+This matters more than it sounds. A registration prompt that arrives unannounced isn't a technical
+failure, it's a support call, and at scale it's a wave of them. Worse, it teaches users that
+unexpected credential prompts are normal, which is precisely the instinct you spend the rest of
+your security programme trying to build out of them. The mechanics are all documented; what's
+usually missing is that somebody worked out the affected population in advance and sent an email.
+
+Four different interrupts can fire, and they're worth separating because they hit different people
+and behave differently once they arrive:
+
+**The automatic passkey enablement on September 1, 2026.** Anyone still enabled for SMS or Voice
+gets auto-enabled for passkeys and nudged on their next MFA sign-in. This is the one to plan around
+first, because the timing isn't yours: it happens whether or not you've configured a campaign, and
+whether or not you're ready. Snoozes are unlimited by default, so it's a recurring prompt rather
+than a hard stop, which is its own kind of problem: a nag nobody is required to resolve tends to
+get trained out rather than acted on.
+
+**A passkey registration campaign,** if you're running one. Fires after a successful MFA for
+in-scope users without a passkey on that particular device and browser.
+
+**A Microsoft Authenticator campaign,** same mechanic, different target. Note you can't run both
+at once.
+
+**The SSPR registration interrupt,** for users who are SSPR-enabled but haven't registered. This
+one has a sting worth knowing: per Microsoft's own combined-registration documentation, if only an
+SSPR policy is enforced and no MFA registration policy sits alongside it, users can skip the
+interruption *indefinitely*. So it's not a rollout that completes. It's a prompt that appears
+forever, gets dismissed forever, and quietly never improves your SSPR coverage.
+
+There's also a fifth case that isn't a nudge so much as a defect, and it's specific enough to be
+worth checking for by name: an administrator who is in scope for the user-facing SSPR policy while
+admin SSPR is disabled tenant-wide gets interrupted to register, and is then shown a message saying
+they can't register anything. Microsoft documents both the behavior and the fix (explicitly exclude
+administrators from the user SSPR policy when admin SSPR is off). It's the kind of thing that gets
+reported as a bug by a frustrated admin months after someone turned off admin SSPR for good
+reasons.
+
+Working out who lands in each group is mostly derivable from data you already have: registration
+state per user, the campaign's target method and scope, which users still have a phone-based method
+registered, and who is SSPR-enabled but not SSPR-registered. Two honest limits are worth carrying
+into that exercise, though, because they push in opposite directions. The passkey nudge is
+evaluated per device-and-browser rather than per account, so "this user has a passkey" does not
+mean "this user won't be prompted." And several suppressors (terms-of-use screens, Conditional
+Access custom controls, an existing SSO session, Linux clients) are invisible from the outside.
+Any list you build is therefore an estimate. Build it as an over-estimate and communicate to the
+wider group: telling fifty people about a prompt that forty of them see is a much cheaper error
+than the reverse.
 
 ### Tracing it end to end
 
@@ -413,7 +479,7 @@ not just theoretical risk:
 |---|---|---|
 | **1. Foundation & Visibility** | Safe immediately, nothing depends on anything else | Block legacy authentication; enable Authenticator, FIDO2, and TAP; check platform/browser compatibility against Microsoft's own matrix; audit log and break-glass hygiene; TAP hardening (one-time-use, shorter lifetime) |
 | **2. Enable Phishing-Resistant Capability** | Give users something strong to actually register | Turn on FIDO2 self-service registration, attestation, key restrictions; define and be ready to enforce a phishing-resistant authentication strength |
-| **3. Drive Registration Coverage** | Get people actually registered, using the bootstrap from Phase 2 | Run the registration campaign; close admin and overall MFA registration gaps; raise SSPR registration coverage |
+| **3. Drive Registration Coverage** | Get people actually registered, using the bootstrap from Phase 2 | Work out who will be interrupted and tell them *before* switching anything on; run the registration campaign; close admin and overall MFA registration gaps; raise SSPR registration coverage |
 | **4. Retire Weak Fallback Methods** | Remove the downgrade path, only once it's safe to | Turn off SMS/Voice, but only after Phase 3's coverage is genuinely high enough |
 | **5. Enforce via Conditional Access** | Make the target state mandatory, last | Require MFA for all users; require compliant device or phishing-resistant auth for admins; once adoption is broad enough, tighten the all-user policy from plain MFA to a phishing-resistant authentication strength to close the MFA downgrade path |
 
@@ -479,7 +545,10 @@ instead of a hypothetical.
    else has a fallback and can follow at normal pace.
 5. Only then retire SMS/Voice, once coverage is genuinely high enough (Phase 4).
 6. Communicate on Microsoft's own recommended cadence (awareness, then action, then a reminder
-   for stragglers), scoped to the group identified in step one, not a blanket announcement.
+   for stragglers), scoped to the group identified in step one, not a blanket announcement. Do
+   this *before* the campaign goes on rather than after, and remember the September 1 nudge
+   arrives on Microsoft's schedule regardless: if you haven't sent anything by then, Microsoft
+   will have started the conversation with your users on your behalf.
 
 ## One known limitation worth naming
 
