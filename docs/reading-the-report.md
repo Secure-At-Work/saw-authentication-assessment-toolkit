@@ -442,6 +442,43 @@ finish the migration - Microsoft's own automated guide ( **Authentication method
 Manage migration > Begin automated guide**) does most of the work, and the whole process is
 documented as fully reversible, so there's no rollout-risk reason to leave it half-done.
 
+## Sources and credits
+
+Nothing in this report is this toolkit's opinion about how Entra behaves. Every behavioral claim
+traces to a published source, and the full rule-by-rule mapping (with the date each was last
+verified against the live page) is in [references.md](references.md). If a finding is ever
+challenged, start there.
+
+**Microsoft documentation** is the primary source throughout: the authentication methods policy,
+registration campaign, combined registration, authentication strengths, Temporary Access Pass,
+passkey/FIDO2, Conditional Access, SSPR policy, sign-in log and data-retention articles on
+Microsoft Learn, plus the Microsoft Graph API reference. Individual articles are linked from the
+findings and deadlines they support.
+
+**Microsoft 365 Message Center** posts cover changes announced but not yet in the product
+documentation. Because Message Center posts can't be linked publicly, this report cites
+[mc.merill.net](https://mc.merill.net), the community mirror maintained by Merill Fernando, so the
+reference is checkable by anyone. Verify against your own tenant's Message Center before treating
+one as final.
+
+**Community and vendor sources** that contributed material findings, credited because they surfaced
+things worth knowing that weren't obvious from the product documentation alone:
+
+- [ourcloudnetwork.com](https://ourcloudnetwork.com/microsoft-entra-just-made-passwordless-mfa-registration-easier/)
+  for surfacing the passwordless-registration changes (MC1450133 and MC1450134). The dates recorded
+  here come from the Message Center posts themselves.
+- [Threatscape](https://www.youtube.com/watch?v=3MC0Hoc8GuA), specifically Ru Campbell's
+  walkthrough of passkey deployment pitfalls, which prompted the checks around MFA downgrade,
+  device compatibility, and the limits of what "phishing-resistant" covers.
+- [passkeydeveloper/passkey-authenticator-aaguids](https://github.com/passkeydeveloper/passkey-authenticator-aaguids),
+  a community-maintained AAGUID list used for passkey provider identification.
+- Vendor AAGUID references from [Yubico](https://support.yubico.com/hc/en-us/articles/360016648959-YubiKey-hardware-FIDO2-AAGUIDs),
+  [Feitian](https://fido.ftsafe.com/products/) and [SoloKeys](https://docs.solokeys.dev/metadata-statements/).
+
+**Software** used to build this dashboard: [Bootstrap](https://getbootstrap.com/) and
+[Chart.js](https://www.chartjs.org/), both bundled locally so the report opens without internet
+access.
+
 ## From IST to SOLL: the work plan itself
 
 A list of findings tells you *what's* wrong. It doesn't tell you *what order* to fix things in -

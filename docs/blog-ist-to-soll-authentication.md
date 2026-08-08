@@ -704,5 +704,62 @@ exists, and it's worth checking explicitly rather than assuming it's covered by 
    New Microsoft rollouts and new checks shift what SOLL means over time, which is why periodic
    re-assessment stays worthwhile even after reaching that point.
 
+## Sources and further reading
+
+Everything above is grounded in published documentation rather than assertion, and some of it came
+from other people's work. Both are worth being explicit about, because dates in this area move and
+because credit matters.
+
+**Microsoft documentation** is the primary source throughout. The articles doing the most work
+here:
+
+- [Passkeys by default and retirement of SMS and voice](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement)
+  for the September 2026 and February 2027 dates and the opt-out property.
+- [Run a registration campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+  for nudge mechanics, the per-device evaluation, and the suppression conditions.
+- [Combined registration for SSPR and MFA](https://learn.microsoft.com/entra/identity/authentication/concept-registration-mfa-sspr-combined)
+  for interrupt versus manage mode and the indefinitely-skippable SSPR interrupt.
+- [Authentication strengths](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-strengths)
+  for what counts as phishing-resistant, and for Temporary Access Pass not satisfying it.
+- [Configure a Temporary Access Pass](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-temporary-access-pass)
+  for lifetime and one-time-use settings, the 10-minute rule, and the Interrupt-mode limitation.
+- [Enable passkeys (FIDO2)](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2)
+  and [passkeys in Authenticator](https://learn.microsoft.com/entra/identity/authentication/how-to-enable-authenticator-passkey)
+  for attestation, key restrictions, synced versus device-bound, and the Authenticator AAGUIDs.
+- [Passkey (FIDO2) authentication matrix](https://learn.microsoft.com/entra/identity/authentication/concept-fido2-compatibility)
+  for every platform and browser support claim.
+- [Targeting resources in Conditional Access](https://learn.microsoft.com/entra/identity/conditional-access/concept-conditional-access-cloud-apps)
+  for resource and user-action targeting being mutually exclusive.
+- [Non-interactive sign-in logs](https://learn.microsoft.com/entra/identity/monitoring-health/concept-noninteractive-sign-ins),
+  [List signIns](https://learn.microsoft.com/graph/api/signin-list) and
+  [data retention](https://learn.microsoft.com/entra/identity/monitoring-health/reference-reports-data-retention)
+  for what a nudge can and cannot reach, and how far back you can measure it.
+
+**Message Center posts** cover changes announced but not yet in the product documentation. Since
+they can't be linked publicly, the references below point at
+[mc.merill.net](https://mc.merill.net), Merill Fernando's community mirror, which makes them
+checkable by anyone: [MC1450133](https://mc.merill.net/message/MC1450133) (passkey as a first MFA
+method) and [MC1450134](https://mc.merill.net/message/MC1450134) (Windows Hello for Business and
+macOS Platform SSO as standalone MFA factors). Check your own tenant's Message Center before
+treating either as final.
+
+**With thanks to:**
+
+- [ourcloudnetwork.com](https://ourcloudnetwork.com/microsoft-entra-just-made-passwordless-mfa-registration-easier/),
+  whose write-up surfaced the passwordless-registration changes covered above.
+- [Ru Campbell at Threatscape](https://www.youtube.com/watch?v=3MC0Hoc8GuA), whose walkthrough of
+  passkey deployment pitfalls prompted the sections on MFA downgrade, device compatibility, and the
+  limits of what "phishing-resistant" actually covers.
+- The [passkey-authenticator-aaguids](https://github.com/passkeydeveloper/passkey-authenticator-aaguids)
+  project, and the published AAGUID references from
+  [Yubico](https://support.yubico.com/hc/en-us/articles/360016648959-YubiKey-hardware-FIDO2-AAGUIDs),
+  [Feitian](https://fido.ftsafe.com/products/) and
+  [SoloKeys](https://docs.solokeys.dev/metadata-statements/).
+
+One habit worth borrowing regardless of any of the above: check the `ms.date` on a Microsoft Learn
+article before relying on a date it states. Two SSPR dates referenced in an earlier version of this
+piece had both moved by the time it was rechecked, and their order relative to each other had
+reversed. Secondary sources, this one included, go stale faster than the primary ones do.
+
 ---
 *Secure At Work, Microsoft 365 &amp; Entra ID security assessments.*

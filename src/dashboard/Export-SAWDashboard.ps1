@@ -1311,6 +1311,31 @@ $envBannerHtml
 $mainContentHtml
 </div>
 
+<footer class="container-fluid mt-5 pt-4 border-top">
+  <p class="text-body-secondary small mb-2"><strong>Sources.</strong> Every behavioral claim in this
+  report traces to a published source rather than to this toolkit's own opinion. Primary sources are
+  Microsoft Learn and the Microsoft Graph API reference; changes announced but not yet documented
+  cite Microsoft 365 Message Center posts via
+  <a href="https://mc.merill.net" rel="noopener noreferrer" target="_blank">mc.merill.net</a>, the
+  community mirror maintained by Merill Fernando, so they stay checkable by anyone.</p>
+  <p class="text-body-secondary small mb-2"><strong>With thanks to</strong>
+  <a href="https://ourcloudnetwork.com/microsoft-entra-just-made-passwordless-mfa-registration-easier/" rel="noopener noreferrer" target="_blank">ourcloudnetwork.com</a>
+  for surfacing the passwordless-registration changes,
+  <a href="https://www.youtube.com/watch?v=3MC0Hoc8GuA" rel="noopener noreferrer" target="_blank">Ru Campbell at Threatscape</a>
+  for the passkey deployment pitfalls that prompted several checks here, the
+  <a href="https://github.com/passkeydeveloper/passkey-authenticator-aaguids" rel="noopener noreferrer" target="_blank">passkey-authenticator-aaguids</a>
+  project, and the published AAGUID references from
+  <a href="https://support.yubico.com/hc/en-us/articles/360016648959-YubiKey-hardware-FIDO2-AAGUIDs" rel="noopener noreferrer" target="_blank">Yubico</a>,
+  <a href="https://fido.ftsafe.com/products/" rel="noopener noreferrer" target="_blank">Feitian</a> and
+  <a href="https://docs.solokeys.dev/metadata-statements/" rel="noopener noreferrer" target="_blank">SoloKeys</a>.
+  Built with <a href="https://getbootstrap.com/" rel="noopener noreferrer" target="_blank">Bootstrap</a>
+  and <a href="https://www.chartjs.org/" rel="noopener noreferrer" target="_blank">Chart.js</a>,
+  bundled locally so this file opens without internet access.</p>
+  <p class="text-body-secondary small mb-0">The full rule-by-rule source mapping, with the date each
+  was last verified against the live page, travels with this report in
+  <code>docs/references.md</code>$(if ($ReadingGuideHtml) { ' and is summarised on the <strong>Reading This Report</strong> tab' }).</p>
+</footer>
+
 <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
 <script src="vendor/chartjs/chart.umd.min.js"></script>
 <script>
