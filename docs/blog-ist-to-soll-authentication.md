@@ -389,10 +389,42 @@ genuinely never being shown it. Those two situations call for completely differe
 needs a firmer campaign, the other needs an email, because no amount of campaign tuning will reach
 someone the campaign structurally cannot interrupt.
 
-Working out who lands in each group is mostly derivable from data you already have: registration
-state per user, the campaign's target method and scope, which users still have a phone-based method
-registered, and who is SSPR-enabled but not SSPR-registered. Two honest limits are worth carrying
-into that exercise, though, because they push in opposite directions. The passkey nudge is
+### You can measure this, not just reason about it
+
+The useful part is that reachability isn't guesswork. Microsoft's `/auditLogs/signIns` endpoint on
+`v1.0` returns, in its own words, "sign-ins that are interactive in nature (where a username or
+password is passed as part of auth token) and successful federated sign-ins." That is precisely the
+population a campaign can interrupt. So cross-reference two lists you can both pull today:
+
+- Everyone eligible for a nudge (no passkey registered, still on SMS or Voice, SSPR-enabled but
+  unregistered, and so on).
+- Everyone who appears in the interactive sign-in log over the retention window.
+
+Eligible and present in that log means a campaign will get its chance. Eligible and absent means it
+won't, no matter how the campaign is configured, and those people need an email or a service-desk
+call instead. Two lists, one comparison, and the answer changes what you do next.
+
+Two limits to apply honestly, though, because it's easy to over-read the result. Entra keeps
+sign-in logs for **seven days on Entra ID Free and 30 days on P1 or P2**, and that ceiling is hard:
+ask for 90 days and you silently get back only what was retained, with no warning that your window
+was truncated. So "no interactive sign-in" always means "none within retention," never "none ever."
+And within that window, a genuinely dormant account and a perfectly active person who simply works
+out of desktop apps all month look identical. Both need reaching directly; the reasons differ
+entirely.
+
+What this buys you is a real diagnosis rather than a guess. Coverage barely moving while most
+eligible users *are* signing in interactively is a messaging problem: they see the prompt and skip
+it, so the fix is better communication, or limited snoozes, or eventually enforcement. Coverage
+barely moving while a large share of eligible users *never* sign in interactively is a reach
+problem, and no campaign setting solves it, because the campaign was never in the room. Those two
+situations look identical on a coverage chart and call for opposite responses, which is exactly why
+it's worth spending ten minutes separating them before concluding that users are ignoring you.
+
+Working out who lands in each group is therefore mostly derivable from data you already have:
+registration state per user, the campaign's target method and scope, which users still have a
+phone-based method registered, who is SSPR-enabled but not SSPR-registered, and who shows up in the
+interactive sign-in log. Two further limits are worth carrying into that exercise, because they
+push in opposite directions. The passkey nudge is
 evaluated per device-and-browser rather than per account, so "this user has a passkey" does not
 mean "this user won't be prompted." And several suppressors (terms-of-use screens, Conditional
 Access custom controls, an existing SSO session, Linux clients) are invisible from the outside.
