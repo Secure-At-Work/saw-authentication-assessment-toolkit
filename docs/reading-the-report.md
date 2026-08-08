@@ -289,6 +289,18 @@ admins don't do routine interactive sign-in on a managed Windows device with the
 (PIM activation from elsewhere, a jump box, browser-only workflows), so WHfB alone may not
 actually be usable when it counts.
 
+**This badge gets more important, not less, in late 2026.** Microsoft is making Windows Hello for
+Business and macOS Platform SSO count as standalone MFA factors (Message Center MC1450134, rolling
+out roughly October to November 2026). That's a genuine usability win, but it carries a side effect
+stated in Microsoft's own post: users holding only these device-bound credentials will no longer be
+automatically prompted to register additional MFA methods. Today this population slowly
+self-corrects, because Entra keeps nudging them toward a second method. After that change it stops
+self-correcting, while the underlying exposure (no way to complete MFA from any device that doesn't
+carry the credential) stays exactly the same. The mitigation is to get these users a *portable*
+backup method deliberately - a synced passkey, or a passkey in Microsoft Authenticator - rather
+than assuming the prompts will handle it. The Upcoming Microsoft Deadlines section carries this
+date along with the affected count for this tenant.
+
 A user may also carry a **"SMS/Voice-Only MFA"** badge - always inside the Hunt bucket, since
 having a phishing-resistant method already would put them in OK or Remove instead. This badge is
 narrower than it might look: it only appears when SMS/Voice is the user's **only** registered

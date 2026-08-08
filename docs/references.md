@@ -279,6 +279,33 @@ Source: [how-to-enable-authenticator-passkey, "Authenticator AAGUIDs"](https://l
 
 ---
 
+### Announced changes not yet reflected in the product docs
+
+Two Message Center posts change the bootstrap story materially. Message Center posts aren't
+publicly linkable, so these cite Merill Fernando's public mirror, which is the same convention
+already used for MC1437671 elsewhere in this repo. Re-verify in your own tenant's Message Center
+before quoting either to a customer, and expect the product documentation to catch up later.
+
+**MC1450133 - passkey registerable as a first MFA method.** Users can register a passkey or
+passwordless method as their first multifactor method rather than setting up a weaker one first.
+Microsoft's framing: password-only users can go straight to a passkey. Phase 1 (synced passkeys,
+Entra passkeys on Windows, FIDO2 keys) mid-October to mid-November 2026; Phase 2 (Windows Hello for
+Business, macOS Platform SSO, Authenticator passwordless) early January to late February 2027.
+Microsoft's own recommended actions include requiring MFA for security info registration, which is
+what CA005 checks. Source: [MC1450133](https://mc.merill.net/message/MC1450133). Verified
+2026-08-07.
+
+**MC1450134 - WHfB and macOS Platform SSO as standalone MFA factors.** These already satisfied MFA
+at primary sign-in; after this change they also satisfy step-up prompts and Authentication Strength
+checks without a separate passkey. Early October to late November 2026. The consequence worth
+carrying: users holding only these device-bound credentials stop receiving automatic prompts to
+register additional MFA methods, so that population stops self-correcting while its exposure is
+unchanged. Source: [MC1450134](https://mc.merill.net/message/MC1450134). Verified 2026-08-07.
+
+Note on sourcing: a secondary write-up of these changes gave a less precise Phase 2 window than the
+Message Center posts themselves. The dates recorded in this repo come from the MC posts, which is
+also why they're worth re-checking directly rather than from any summary, including this one.
+
 ## Platform compatibility claims
 
 Every platform/browser/app support claim in

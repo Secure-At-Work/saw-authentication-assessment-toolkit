@@ -232,6 +232,47 @@ rollout even when both are technically "enabled." The practical fix, if cross-de
 bootstrap actually matters for a given tenant, is a short-lived multi-use TAP scoped to
 onboarding rather than a strict one-time-use TAP.
 
+### Two announced changes that shift this ground in late 2026
+
+Both of the following are announced but not yet shipped at the time of writing, and both change the
+bootstrap picture enough to be worth designing around now rather than reacting to later.
+
+**A passkey becomes registerable as a first MFA method.** Today the awkwardness is circular: you
+want people on passkeys, but the registration path often assumes they already have some other MFA
+method to authenticate the registration with. Microsoft is removing that assumption, so a
+password-only user can go straight to a passkey rather than setting up something weaker first.
+Rolling out in two phases: synced passkeys, Entra passkeys on Windows and FIDO2 keys around
+mid-October to mid-November 2026, then Windows Hello for Business, macOS Platform SSO and
+Authenticator passwordless around January to February 2027.
+
+This narrows the bootstrap problem without closing it, and the distinction is worth being precise
+about because it determines whether you still need Temporary Access Pass. It helps a user who
+*already has a password* and needs to add a strong method. It does nothing for a genuinely new
+user holding no credential at all, who still needs a TAP or admin provisioning to get far enough
+in to register anything. Day-one onboarding and lost-credential recovery are unchanged. Note too
+that the second phase lands *after* the February 2027 SMS/Voice retirement, so if you're planning
+phone-based migration, plan it on the first phase and on TAP, not on that date.
+
+**Windows Hello for Business and macOS Platform SSO become standalone MFA factors.** These already
+satisfied MFA at primary sign-in, but users could still be asked for a separate passkey during a
+step-up prompt or an Authentication Strength check. That gap closes around October to November
+2026, which is a real usability improvement for anyone who lives on one managed device.
+
+It also carries a consequence that deserves more attention than it usually gets, because it is
+stated plainly in Microsoft's own announcement and is easy to skim past: users holding *only* these
+device-bound credentials will no longer be automatically prompted to register additional MFA
+methods. Consider what that means. Right now, someone whose sole strong credential is Windows Hello
+on one laptop keeps getting nudged toward a second method, and some fraction of them act on it, so
+the population slowly self-corrects. After this change the nudging stops, while the underlying
+exposure is completely unchanged: they still cannot complete MFA from any device that doesn't carry
+that credential. Lose or replace the laptop and they're at the service desk.
+
+So a group that was previously shrinking on its own quietly becomes static. That's worth finding
+deliberately, because it is exactly the sort of risk that produces no signal until someone needs
+help and can't get it. The fix is unglamorous: identify who has only a device-bound credential and
+get them a portable backup (a synced passkey, or a passkey in Microsoft Authenticator) as a
+deliberate act, rather than assuming the prompts will keep handling it. They won't.
+
 ### The SSPR "two-gate" and its trap
 
 Combined registration serves both MFA and SSPR from the same wizard, but the two policies that

@@ -392,6 +392,10 @@ Write-Verbose 'Invoke-SAWAssessment: loading Microsoft rollout timeline'
 # method from a directory-sourced one, so this is an upper bound, not an exact count.
 $phoneBasedMethodUsers = @($userRoster | Where-Object { $_.HasDowngradeRiskMethod }).Count
 $smsVoiceOnlyMfaUsers = @($userRoster | Where-Object { $_.IsSmsVoiceOnlyMfa }).Count
+# Device-bound-credential-only users. Becomes materially more important once Microsoft ships
+# MC1450134: these users stop being automatically prompted to add a portable method, so the
+# population quietly stops self-correcting. See the timeline milestone for that date.
+$whfbOnlyUsers = @($userRoster | Where-Object { $_.IsWhfbOnly }).Count
 $ssprEnabledUsersTotal = 0
 $ssprEnabledNotRegisteredUsers = 0
 foreach ($u in @($registrationRaw.value)) {
@@ -404,6 +408,7 @@ $impactMetrics = @{
     PhoneBasedMethodUsers         = $phoneBasedMethodUsers
     SmsVoiceOnlyMfaUsers          = $smsVoiceOnlyMfaUsers
     SsprEnabledNotRegisteredUsers = $ssprEnabledNotRegisteredUsers
+    WhfbOnlyUsers                 = $whfbOnlyUsers
 }
 # SSPR-enabled-for-nobody is a distinct state from "everyone who's enabled is already
 # registered" - both would otherwise show as "0 users impacted", which reads identically

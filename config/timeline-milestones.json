@@ -50,6 +50,34 @@
             "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication"
         },
         {
+            "Date": "2026-11-30",
+            "Title": "Windows Hello for Business / macOS Platform SSO Become Standalone MFA Factors",
+            "Description": "Per Message Center MC1450134, Entra begins recognising Windows Hello for Business and macOS Platform SSO as standalone MFA factors: they already satisfied MFA at primary sign-in, but users could still be asked for a separate passkey for step-up authentication or an Authentication Strength check. After this change they can complete supported MFA challenges without one. Rollout stated as early October 2026 through late November 2026 - shown here as the end of that window as an upper-bound estimate, not a hard cutover. Microsoft states no configuration change is required, but there is a real side effect worth planning for: users holding ONLY these device-bound credentials will no longer receive automatic prompts to register additional MFA methods. That population previously self-corrected via those prompts and now won't, while remaining unable to complete MFA from any device that doesn't carry the credential. See the WHfB-Only (Not Portable) badge in the Security Info Registration Triage section for exactly who that is in this tenant, and treat a portable backup method (a synced passkey, or a passkey in Authenticator) as the mitigation.",
+            "RelatedRuleIDs": [],
+            "SourceUrl": "https://mc.merill.net/message/MC1450134",
+            "ImpactMetric": "WhfbOnlyUsers",
+            "ImpactMetricLabel": "users whose only phishing-resistant method is device-bound Windows Hello for Business (no portable method as backup)"
+        },
+        {
+            "Date": "2026-11-15",
+            "Title": "Passkey Registerable As A First MFA Method (Phase 1: Passkeys/FIDO2)",
+            "Description": "Per Message Center MC1450133, users can register a passkey or passwordless method as their FIRST multifactor method, rather than having to set up a weaker method first. Microsoft's framing: password-only users can go straight to a passkey, making it easier to adopt strong authentication from day one. Phase 1 covers synced passkeys, Entra passkeys on Windows and FIDO2 security keys, stated as mid-October 2026 through mid-November 2026 - shown here as mid-November as an upper-bound estimate. This narrows, but does not remove, the bootstrap problem BOOT001 describes: it helps a user who already HAS a password and needs to add MFA, whereas a genuinely new user with no credential at all still needs a Temporary Access Pass or admin provisioning to get in far enough to register anything. Microsoft's own recommended actions for this change include requiring MFA for security info registration, which is what CA005 checks.",
+            "RelatedRuleIDs": [
+                "BOOT001",
+                "CA005"
+            ],
+            "SourceUrl": "https://mc.merill.net/message/MC1450133"
+        },
+        {
+            "Date": "2027-02-28",
+            "Title": "Passkey Registerable As A First MFA Method (Phase 2: WHfB, macOS Platform SSO, Authenticator)",
+            "Description": "Phase 2 of MC1450133, extending first-method registration to Windows Hello for Business, macOS Platform SSO and Microsoft Authenticator passwordless sign-in. Stated as early January 2027 through late February 2027 - shown here as the end of that window as an upper-bound estimate. Note this phase lands AFTER the 2027-02-01 SMS/Voice retirement below, so it does not help with that deadline: plan phone-based migration on the Phase 1 methods (passkeys/FIDO2) and on Temporary Access Pass, not on this date.",
+            "RelatedRuleIDs": [
+                "BOOT001"
+            ],
+            "SourceUrl": "https://mc.merill.net/message/MC1450133"
+        },
+        {
             "Date": "2027-02-01",
             "Title": "Microsoft-Provided SMS/Voice Retirement (No Opt-Out)",
             "Description": "Microsoft-provided SMS and voice delivery retires outright. There is no opt-out for this date - AUTH006's opt-out only defers the 2026-09-01 automatic enablement above, not this one. Narrower criterion than that milestone: only users whose ONLY available MFA method is SMS/Voice (no Authenticator, no passkey, nothing else registered) will be blocked with a mandatory passkey registration prompt - a user who also has another method registered is unaffected by this specific date, even though they'd still count toward the 2026-09-01 impact number above.",
