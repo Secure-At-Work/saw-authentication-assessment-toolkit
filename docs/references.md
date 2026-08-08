@@ -211,6 +211,35 @@ On which app contexts can show a nudge:
 Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
 (ms.date 2026-05-20, updated 2026-07-23). Verified 2026-08-07.
 
+### Sign-in logs return interactive sign-ins, and retention is capped (backs campaign reachability)
+
+On what the v1.0 endpoint returns, which is what makes "did this user do an interactive sign-in"
+answerable at all:
+
+> "Retrieve the Microsoft Entra user sign-ins for your tenant. **Sign-ins that are interactive in
+> nature (where a username/password is passed as part of auth token) and successful federated
+> sign-ins are currently included in the sign-in logs.**"
+
+Source: [List signIns (Graph v1.0)](https://learn.microsoft.com/graph/api/signin-list)
+(ms.date 2024-07-30, updated 2025-11-04). Verified 2026-08-07.
+
+On the retention ceiling, which bounds every claim built on those logs:
+
+| Report | Entra ID Free | Entra ID P1 | Entra ID P2 |
+|---|---|---|---|
+| Sign-ins | Seven days | 30 days | 30 days |
+
+> "Log retention changes aren't retroactive. When you upgrade from Microsoft Entra ID Free to P1 or
+> P2, only data still within the free retention period (up to seven days) is available."
+
+Source: [reference-reports-data-retention](https://learn.microsoft.com/entra/identity/monitoring-health/reference-reports-data-retention)
+(ms.date 2026-01-06, updated 2026-03-25). Verified 2026-08-07.
+
+Consequence for this toolkit: any window longer than 30 days silently returns only what was
+retained. "No interactive sign-in in the window" therefore always means "none within retention",
+never "none ever", and a dormant account is indistinguishable from someone who simply didn't sign
+in interactively during the window.
+
 ### Passkey registration is not supported for guest users (backs the Guest triage bucket)
 
 > "Registration of passkey (FIDO2) credentials isn't supported for internal or external guest users,

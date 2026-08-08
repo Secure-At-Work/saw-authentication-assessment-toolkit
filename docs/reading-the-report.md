@@ -169,6 +169,15 @@ several documented suppressors are invisible to this toolkit (terms-of-use scree
 Access custom controls, existing SSO sessions, Linux clients). The forecast deliberately
 over-estimates, since over-communicating is the cheaper mistake.
 
+**"Eligible, but a campaign cannot reach them"** is the card to act on differently from the rest.
+These users are forecast to be nudged but did no *interactive* sign-in during the collected window,
+so a campaign has no opportunity to prompt them at all. This is the population most often misread
+as "users ignoring the prompt" when they're simply never shown one, and it needs direct outreach
+(email, service desk, their manager) rather than a firmer campaign. Two limits on reading it: the
+window is bounded by Entra's own log retention (seven days on Entra ID Free, 30 days on P1/P2), so
+it means "not within retention" rather than "never"; and a genuinely dormant account looks identical
+to someone who just didn't sign in interactively that month.
+
 **This tells you who is eligible, not when they'll see it.** A nudge is a piece of UI shown during
 an interactive sign-in that completes MFA. Microsoft defines non-interactive sign-ins as ones that
 require no authentication factor and never interrupt the session, so they structurally cannot carry

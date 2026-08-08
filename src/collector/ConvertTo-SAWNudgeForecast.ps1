@@ -69,6 +69,26 @@ function ConvertTo-SAWNudgeForecast {
     .PARAMETER SecurityInfoRegistrationBlockedByCa
         Whether an enabled Conditional Access policy gates security info registration in a way
         that suppresses nudges entirely.
+    .PARAMETER SignInLogs
+        Optional raw output of Get-SAWSignInLogs. When supplied, each eligible user is additionally
+        classified as reachable or unreachable by a campaign, based on whether they performed an
+        INTERACTIVE sign-in inside the collected window.
+
+        This turns the "eligibility is not the same as being prompted" caveat into actual data. A
+        nudge is UI shown during an interactive sign-in; Microsoft's v1.0 /auditLogs/signIns
+        endpoint returns interactive sign-ins ("Sign-ins that are interactive in nature... are
+        currently included in the sign-in logs"), so a user who is eligible but absent from that
+        window did not do the kind of sign-in a campaign can interrupt. Those users need direct
+        outreach, not a firmer campaign.
+
+        Hard limit worth stating plainly: Entra retains sign-in logs for seven days on Entra ID
+        Free and 30 days on P1/P2. Asking for a longer window silently returns only what is
+        retained, so "no interactive sign-in" always means "none within retention", never "none
+        ever". A user genuinely dormant for six months and a user who simply didn't sign in
+        interactively during a 30-day window are indistinguishable here.
+    .PARAMETER SignInWindowDays
+        The window the supplied sign-in logs were collected over, used only for labelling the
+        result honestly. Capped for display purposes at Entra's own 30-day maximum retention.
     .OUTPUTS
         Hashtable with Users (the enriched roster) and Summary (tenant-level counts, suppressors,
         and caveats).
@@ -87,8 +107,29 @@ function ConvertTo-SAWNudgeForecast {
 
         [bool]$AdminSsprEnabled = $true,
 
-        [bool]$SecurityInfoRegistrationBlockedByCa = $false
+        [bool]$SecurityInfoRegistrationBlockedByCa = $false,
+
+        [object]$SignInLogs = $null,
+
+        [int]$SignInWindowDays = 0
     )
+
+    # Build the set of users who did at least one interactive sign-in inside the collected window.
+    # Absence from this set is the signal that matters: a campaign has no way to reach them.
+    $interactiveSignInUpns = $null
+    if ($SignInLogs) {
+        $interactiveSignInUpns = @{}
+        foreach ($s in @($SignInLogs.value)) {
+            # isInteractive is the authoritative flag. Treat a missing value as interactive rather
+            # than assuming otherwise: v1.0 /auditLogs/signIns is documented as returning
+            # interactive sign-ins, so absent-and-present-in-the-log means interactive, and
+            # guessing "non-interactive" here would invent unreachable users that don't exist.
+            $isInteractive = if ($null -eq $s.isInteractive) { $true } else { [bool]$s.isInteractive }
+            if ($isInteractive -and $s.userPrincipalName) {
+                $interactiveSignInUpns[$s.userPrincipalName] = $true
+            }
+        }
+    }
 
     $campaign = $AuthenticationMethodsPolicy.registrationEnforcement.authenticationMethodsRegistrationCampaign
     $fido2 = $AuthenticationMethodsPolicy.authenticationMethodConfigurations | Where-Object { $_.id -eq 'Fido2' }
@@ -206,6 +247,21 @@ function ConvertTo-SAWNudgeForecast {
         $copy['NudgeSsprBrokenForAdmin'] = $ssprBrokenForAdmin
         $copy['WillBeNudged'] = $willBeNudged
         $copy['NudgeReasons'] = $reasons
+
+        # Reachability: only meaningful for campaign-driven nudges, which require an interactive
+        # sign-in. The SSPR interrupt and the 2026-09-01 enablement ride the same requirement, so
+        # the same signal applies, but it's the campaign case where "eligible but never prompted"
+        # most often gets misread as user non-compliance.
+        if ($null -ne $interactiveSignInUpns) {
+            $hasInteractive = $interactiveSignInUpns.ContainsKey($user.UserPrincipalName)
+            $copy['HasInteractiveSignInInWindow'] = $hasInteractive
+            $copy['NudgeUnreachableInWindow'] = ($willBeNudged -and -not $hasInteractive)
+        }
+        else {
+            $copy['HasInteractiveSignInInWindow'] = $null
+            $copy['NudgeUnreachableInWindow'] = $false
+        }
+
         $copy
     }
 
@@ -218,6 +274,22 @@ function ConvertTo-SAWNudgeForecast {
     )
     if ($scopeUncertain) {
         $caveats += "The registration campaign is scoped to specific groups rather than all users. Group membership isn't resolved (it would need an extra Graph call per group), so campaign-driven predictions below apply only to whoever is actually in those groups."
+    }
+
+    # Entra's own retention ceiling bounds every reachability claim here. Stating it inline stops
+    # "no interactive sign-in" being read as "dormant account".
+    $effectiveWindowDays = $SignInWindowDays
+    $retentionCapped = $false
+    if ($effectiveWindowDays -gt 30) {
+        $effectiveWindowDays = 30
+        $retentionCapped = $true
+    }
+    if ($null -ne $interactiveSignInUpns) {
+        $windowLabel = if ($effectiveWindowDays -gt 0) { "the last $effectiveWindowDays day(s)" } else { 'the collected sign-in window' }
+        $caveats += "Reachability is based on whether a user did an INTERACTIVE sign-in within $windowLabel. Entra retains sign-in logs for seven days on Entra ID Free and 30 days on P1/P2, so this always means 'not within retention', never 'not ever' - a genuinely dormant account and someone who simply didn't sign in interactively during the window look identical here."
+        if ($retentionCapped) {
+            $caveats += "A sign-in window longer than 30 days was requested, but Entra cannot return more than 30 days (P1/P2) or seven days (Free). The effective window is capped at what was actually retained, regardless of what was asked for."
+        }
     }
 
     @{
@@ -238,6 +310,10 @@ function ConvertTo-SAWNudgeForecast {
             SsprRegistrationCount        = @($enriched | Where-Object { $_.NudgeSsprRegistration }).Count
             AutoPasskeySept2026Count     = @($enriched | Where-Object { $_.NudgeAutoPasskeySept2026 }).Count
             SsprBrokenForAdminCount      = @($enriched | Where-Object { $_.NudgeSsprBrokenForAdmin }).Count
+            ReachabilityAvailable        = ($null -ne $interactiveSignInUpns)
+            SignInWindowDays             = $effectiveWindowDays
+            SignInWindowRetentionCapped  = $retentionCapped
+            UnreachableInWindowCount     = @($enriched | Where-Object { $_.NudgeUnreachableInWindow }).Count
         }
     }
 }

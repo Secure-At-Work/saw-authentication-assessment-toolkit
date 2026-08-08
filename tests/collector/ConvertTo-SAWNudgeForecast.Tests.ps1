@@ -128,6 +128,58 @@ Describe 'ConvertTo-SAWNudgeForecast' {
         }
     }
 
+    Context 'campaign reachability from sign-in logs' {
+        It 'reports reachability as unavailable when no sign-in logs are supplied' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy)
+
+            $result.Summary.ReachabilityAvailable | Should -BeFalse
+            $result.Summary.UnreachableInWindowCount | Should -Be 0
+        }
+
+        It 'flags an eligible user with no interactive sign-in as unreachable by a campaign' {
+            $logs = @{ value = @(
+                    @{ userPrincipalName = 'carol@c.com'; isInteractive = $true }
+                    @{ userPrincipalName = 'bob@c.com';   isInteractive = $false }
+                ) }
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy) -SignInLogs $logs -SignInWindowDays 30
+
+            ($result.Users | Where-Object { $_.UserPrincipalName -eq 'bob@c.com' }).NudgeUnreachableInWindow | Should -BeTrue
+            ($result.Users | Where-Object { $_.UserPrincipalName -eq 'carol@c.com' }).NudgeUnreachableInWindow | Should -BeFalse
+        }
+
+        It 'treats a sign-in with no isInteractive value as interactive, rather than inventing unreachable users' {
+            # v1.0 /auditLogs/signIns is documented as returning interactive sign-ins, so presence
+            # in the log without the flag should not be read as non-interactive.
+            $logs = @{ value = @(
+                    @{ userPrincipalName = 'bob@c.com' }
+                    @{ userPrincipalName = 'carol@c.com' }
+                ) }
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy) -SignInLogs $logs -SignInWindowDays 7
+
+            $result.Summary.UnreachableInWindowCount | Should -Be 0
+        }
+
+        It 'caps the reported window at Entra 30-day retention and says it did so' {
+            $logs = @{ value = @(@{ userPrincipalName = 'carol@c.com'; isInteractive = $true }) }
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy) -SignInLogs $logs -SignInWindowDays 90
+
+            $result.Summary.SignInWindowDays | Should -Be 30
+            $result.Summary.SignInWindowRetentionCapped | Should -BeTrue
+            @($result.Summary.Caveats | Where-Object { $_ -match 'cannot return more than 30 days' }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'always states that reachability means "not within retention" rather than "never"' {
+            $logs = @{ value = @(@{ userPrincipalName = 'carol@c.com'; isInteractive = $true }) }
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy) -SignInLogs $logs -SignInWindowDays 30
+
+            @($result.Summary.Caveats | Where-Object { $_ -match "not within retention" }).Count | Should -BeGreaterThan 0
+        }
+    }
+
     Context 'output shape and honesty caveats' {
         It 'always carries the per-device passkey caveat, since the nudge is evaluated per device and browser' {
             $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy)

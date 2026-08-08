@@ -93,6 +93,13 @@ it in [docs/references.md](docs/references.md). Beyond the rules themselves, the
   nobody. Deliberately an over-estimate: the passkey nudge is evaluated per device-and-browser
   rather than per account, and several suppressors aren't visible through Graph, so the forecast
   reports *eligibility* rather than certainty.
+  - It also cross-references the sign-in logs to separate **eligible** from **reachable**. A nudge
+    is UI shown during an interactive sign-in, so a user who did no interactive sign-in in the
+    collected window cannot be prompted by any campaign, however well configured. That group needs
+    direct outreach rather than campaign tuning, and is the one most often misread as "users
+    ignoring the prompt". Bounded honestly by Entra's own log retention (seven days on Free, 30 on
+    P1/P2), so it always means "not within retention" rather than "never" - and a window longer
+    than 30 days is capped, with the report saying so rather than implying coverage it can't have.
 - A **FIDO2 key restrictions inventory** (`ConvertTo-SAWFido2KeyInventory.ps1`) answering the
   question PASS002's pass/fail check can't on its own: enforced against *which specific keys*?
   Graph only returns the raw AAGUIDs on the tenant's allow/block-list; this resolves each one to

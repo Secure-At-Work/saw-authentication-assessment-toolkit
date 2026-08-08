@@ -424,7 +424,11 @@ Write-Verbose 'Invoke-SAWAssessment: forecasting which users are eligible to be 
 $securityInfoRegistrationBlocked = @($normalized | Where-Object {
         $_.Setting -eq 'Security Info Registration Reachable With Only A Temporary Access Pass' -and $_.State -eq 'Disabled'
     }).Count -gt 0
-$nudgeForecast = ConvertTo-SAWNudgeForecast -Roster $userRoster -RegistrationRaw $registrationRaw -AuthenticationMethodsPolicy $authRaw -AdminSsprEnabled ([bool]$authorizationPolicyRaw.allowedToUseSSPR) -SecurityInfoRegistrationBlockedByCa $securityInfoRegistrationBlocked -Verbose:$VerbosePreference
+# Reuse whichever sign-in window was already collected rather than making another Graph call. The
+# method-usage pull is the wider of the two when it's enabled, so prefer it.
+$nudgeSignInLogs = if ($MethodUsageDaysBack -gt 0) { $methodUsageSignInsRaw } else { $signInsRaw }
+$nudgeSignInWindow = if ($MethodUsageDaysBack -gt 0) { $MethodUsageDaysBack } else { 7 }
+$nudgeForecast = ConvertTo-SAWNudgeForecast -Roster $userRoster -RegistrationRaw $registrationRaw -AuthenticationMethodsPolicy $authRaw -AdminSsprEnabled ([bool]$authorizationPolicyRaw.allowedToUseSSPR) -SecurityInfoRegistrationBlockedByCa $securityInfoRegistrationBlocked -SignInLogs $nudgeSignInLogs -SignInWindowDays $nudgeSignInWindow -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference

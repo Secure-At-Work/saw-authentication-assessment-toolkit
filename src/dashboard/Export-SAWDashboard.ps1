@@ -523,7 +523,7 @@ $bucketRowsHtml
     if ($unusedMethodCount -gt 0) {
         $plural = if ($unusedMethodCount -eq 1) { '' } else { 's' }
         $unusedMethodNoteHtml = @"
-  <p class="text-body-secondary small"><span class="badge bg-danger">Not recently used</span> ($unusedMethodCount user$plural below) - a registered method with no successful sign-in using it in the last $MethodUsageDaysBack day(s). Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - not a confirmed problem on its own, but worth checking rather than assuming either way. Only a well-established subset of method types is evaluated (see docs/reading-the-report.md); an absent method type isn't necessarily fine, it just wasn't checked.</p>
+  <p class="text-body-secondary small"><span class="badge bg-danger">Not recently used</span> ($unusedMethodCount user$plural below) - a registered method with no successful sign-in using it in the last $MethodUsageDaysBack day(s) <em>as far as the logs go back</em>. Entra retains sign-in logs for seven days on Entra ID Free and 30 days on P1/P2, so if a longer window was requested this badge really reflects whatever was actually retained, not the full requested period. Could mean the device/method is no longer available, the user relies on something else day to day, or the registration is simply stale - not a confirmed problem on its own, but worth checking rather than assuming either way. Only a well-established subset of method types is evaluated (see docs/reading-the-report.md); an absent method type isn't necessarily fine, it just wasn't checked.</p>
 "@
     }
 
@@ -770,6 +770,52 @@ $($userRowsHtml -join "`n")
 "@
         }
 
+        # Eligible but structurally unreachable: the group most often misread as "users ignoring
+        # the prompt" when they are simply never shown one.
+        $unreachableHtml = ''
+        if ($ns.ReachabilityAvailable -and $ns.UnreachableInWindowCount -gt 0) {
+            $unreachable = @($NudgeForecast.Users | Where-Object { $_.NudgeUnreachableInWindow })
+            $unreachableRowsHtml = foreach ($u in $unreachable) {
+                $adminBadge = if ($u.IsAdmin) { ' <span class="badge bg-dark">Admin</span>' } else { '' }
+                @"
+        <tr>
+          <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge</td>
+          <td class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
+          <td class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)</td>
+        </tr>
+"@
+            }
+            $unreachableHtml = @"
+  <div class="card mb-3 border-danger">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <strong>Eligible, but a campaign cannot reach them</strong>
+      <span class="badge bg-danger">$($ns.UnreachableInWindowCount) user$(if ($ns.UnreachableInWindowCount -ne 1) { 's' })</span>
+    </div>
+    <div class="card-body">
+      <p class="text-body-secondary small mb-3">These users are forecast to be nudged, but did no
+      <strong>interactive</strong> sign-in in the last $($ns.SignInWindowDays) day(s). A nudge is UI shown during an
+      interactive sign-in, so a campaign has no opportunity to prompt them: token refreshes, single
+      sign-on on a joined device, and opening a second Office app on an already-signed-in machine
+      all happen without any interruption. Reaching this group needs direct outreach (email, service
+      desk, manager) rather than a firmer campaign. Note the window is bounded by Entra's own log
+      retention (seven days on Free, 30 on P1/P2), so this means "not within retention", not
+      "never".</p>
+      <details>
+        <summary class="small">Show the $($ns.UnreachableInWindowCount) affected user$(if ($ns.UnreachableInWindowCount -ne 1) { 's' })</summary>
+        <div class="table-responsive mt-2">
+          <table class="table table-sm table-striped align-middle">
+            <thead><tr><th>User</th><th>UPN</th><th>Methods registered</th></tr></thead>
+            <tbody>
+$($unreachableRowsHtml -join "`n")
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+  </div>
+"@
+        }
+
         $suppressorHtml = ''
         if ($ns.Suppressors.Count -gt 0) {
             $suppressorItems = ($ns.Suppressors | ForEach-Object { "      <li>$(ConvertTo-SAWHtmlEncoded $_)</li>" }) -join "`n"
@@ -796,6 +842,7 @@ $suppressorItems
   sign-in is a help-desk call and a trust problem, not a technical failure. Campaign state read from
   the tenant: <strong>$(ConvertTo-SAWHtmlEncoded $ns.CampaignState)</strong>.</p>
 $suppressorHtml
+$unreachableHtml
 $(if (@($nudgeCardsHtml).Count -eq 0) {
     '  <p class="text-body-secondary">No users are currently forecast to be nudged by any of the modeled interrupts.</p>'
 } else {
