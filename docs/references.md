@@ -125,6 +125,50 @@ Note the direction: `true` means **excluded from** the rollout. Same source.
 Source for both: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
 (ms.date 2026-05-20, updated 2026-07-23). Verified 2026-08-07.
 
+### Who gets interrupted, and whether they can skip (backs the nudge forecast)
+
+On the SSPR interrupt being skippable forever when MFA registration isn't also enforced:
+
+> "Combined registration adheres to both multifactor authentication and SSPR policies, if both are
+> enabled for your tenant. These policies control whether a user is interrupted for registration
+> during sign-in and which methods are available for registration. **If only an SSPR policy is
+> enabled, then users are be able to skip (indefinitely) the registration interruption** and
+> complete it at a later time."
+
+On the documented list of scenarios that interrupt a user:
+
+> "*SSPR registration enforced:* Users are asked to register during sign-in. They register only
+> SSPR methods."
+> "*SSPR refresh enforced:* Users are required to review their security info at an interval set by
+> the admin."
+
+Source: [concept-registration-mfa-sspr-combined](https://learn.microsoft.com/entra/identity/authentication/concept-registration-mfa-sspr-combined)
+(ms.date 2025-03-04, updated 2026-05-01). Verified 2026-08-07.
+
+On the passkey nudge being evaluated per device rather than per account, which is why the forecast
+reports eligibility rather than certainty:
+
+> "The nudge evaluation is based on each device-and-browser combination that you use, rather than
+> for your user account."
+
+On the tenant-wide suppressors:
+
+> "Users don't see a nudge when MFA is finished if their passkey profile has any of the following
+> restrictions: Synced only / Device-bound only / Attestation enforced / AAGUID restrictions"
+
+Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+(ms.date 2026-05-20, updated 2026-07-23). Verified 2026-08-07.
+
+On the broken admin experience the forecast flags separately:
+
+> "If SSPR registration is enabled and administrators are included in the password reset policy for
+> users, they're still prompted to register but see a message indicating they can't register any
+> methods. To avoid this experience, explicitly exclude administrators from the password reset
+> policy for users when the password reset policy for administrators is disabled."
+
+Source: [concept-sspr-policy](https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy)
+(ms.date 2026-05-26, updated 2026-05-27). Verified 2026-08-07.
+
 ### Passkey registration is not supported for guest users (backs the Guest triage bucket)
 
 > "Registration of passkey (FIDO2) credentials isn't supported for internal or external guest users,

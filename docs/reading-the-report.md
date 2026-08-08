@@ -128,6 +128,47 @@ in full under [Findings worth explaining](#findings-worth-explaining) below.
 
 ## User Journeys tab
 
+### Who Will Be Nudged (Communication Planning)
+
+The section to read *before* changing anything. It answers "which of our people are going to get
+interrupted at sign-in, and can we tell them first" - because an unannounced registration prompt
+is a help-desk call and a dent in trust, not a technical failure.
+
+Four different interrupts are forecast separately, because they have different triggers, different
+populations, and different escape hatches:
+
+- **Automatic passkey enablement (2026-09-01)** - the one to plan around first, because the date
+  isn't yours. Users enabled for SMS or Voice get auto-enabled for passkeys and nudged on their
+  next MFA sign-in, whether or not you've configured a campaign yourself. Unlimited snoozes by
+  default, so it's a recurring prompt rather than a wall.
+- **Registration campaign - passkey** and **- Microsoft Authenticator** - your own campaign, if
+  one is active. Fires after a successful MFA for in-scope users who don't already have the
+  targeted method.
+- **SSPR registration interrupt** - users who are SSPR-enabled but not registered. Worth knowing:
+  if only SSPR registration is enforced (no MFA registration policy alongside it), users can skip
+  this **indefinitely**, so it's a nag that never resolves itself rather than something that
+  completes on its own.
+- **Broken: admin prompted but cannot register** - not a nudge so much as a defect to fix before
+  anyone reports it. These admins get interrupted to register and are then shown a message saying
+  they can't register anything. See the SSPR002 explanation below.
+
+Each card expands to the **named users** behind the count, so the list can go straight into a
+comms tool rather than being re-derived by hand.
+
+**If a warning appears saying the campaign "currently reaches nobody,"** take it seriously: it
+means the tenant has attestation enforced, AAGUID key restrictions, blocked self-service
+registration, or a blocking Conditional Access policy - all of which Microsoft documents as
+suppressing the nudge. The campaign will look correctly configured in the admin center and quietly
+prompt no one. Note this does *not* stop the 2026-09-01 automatic enablement, which Microsoft
+drives independently of your campaign.
+
+**Treat the counts as a planning estimate, not a guarantee.** Two limits are stated on the section
+itself and are worth repeating: the passkey nudge is evaluated per *device and browser*, not per
+account (so someone who already has a passkey can still be prompted on a different machine), and
+several documented suppressors are invisible to this toolkit (terms-of-use screens, Conditional
+Access custom controls, existing SSO sessions, Linux clients). The forecast deliberately
+over-estimates, since over-communicating is the cheaper mistake.
+
 ### What Users Can Expect (IST vs. SOLL)
 
 Four real, Microsoft-documented end-to-end flows, each traced step by step against this

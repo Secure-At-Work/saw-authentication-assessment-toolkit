@@ -195,6 +195,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeys.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedPasskeys.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWFido2KeyInventory.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNudgeForecast.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWSignInLogs.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedSignInLogs.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWAuditLogs.ps1')
@@ -416,6 +417,15 @@ $timelineMilestones = Get-SAWTimelineMilestones -ImpactMetrics $impactMetrics -N
 Write-Verbose 'Invoke-SAWAssessment: building registration flow scenarios (IST vs. SOLL)'
 $flowScenarios = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authRaw -AuthorizationPolicyRaw $authorizationPolicyRaw -RegistrationRaw $registrationRaw -CaPolicyInventory $caPolicyInventory -Verbose:$VerbosePreference
 
+Write-Verbose 'Invoke-SAWAssessment: forecasting which users are eligible to be nudged'
+# CA004's derived fact is the nearest observable proxy for "a Conditional Access policy blocks this
+# user from the registration page". Microsoft's nudge-suppression wording is about being blocked,
+# not merely challenged, so a policy that simply requires MFA does not count here.
+$securityInfoRegistrationBlocked = @($normalized | Where-Object {
+        $_.Setting -eq 'Security Info Registration Reachable With Only A Temporary Access Pass' -and $_.State -eq 'Disabled'
+    }).Count -gt 0
+$nudgeForecast = ConvertTo-SAWNudgeForecast -Roster $userRoster -RegistrationRaw $registrationRaw -AuthenticationMethodsPolicy $authRaw -AdminSsprEnabled ([bool]$authorizationPolicyRaw.allowedToUseSSPR) -SecurityInfoRegistrationBlockedByCa $securityInfoRegistrationBlocked -Verbose:$VerbosePreference
+
 Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
 $report = Export-SAWHtmlReport -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference
 
@@ -435,7 +445,7 @@ else {
     Write-Verbose "Invoke-SAWAssessment: no reading guide found at $readingGuidePath - dashboard will render without the 'Reading This Report' tab"
 }
 
-$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -AuthMethodsInventory $authMethodsInventory -CaPolicyInventory $caPolicyInventory -Fido2KeyInventory $fido2KeyInventory -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -FlowScenarios $flowScenarios -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
+$dashboard = Export-SAWDashboard -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -UserRoster $userRoster -MethodUsageDaysBack $MethodUsageDaysBack -AuthMethodsInventory $authMethodsInventory -CaPolicyInventory $caPolicyInventory -Fido2KeyInventory $fido2KeyInventory -NudgeForecast $nudgeForecast -Roadmap $roadmap -Trend $trend -TimelineMilestones $timelineMilestones -FlowScenarios $flowScenarios -ReadingGuideHtml $readingGuideHtml -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $DashboardPath -Verbose:$VerbosePreference
 
 foreach ($result in $results) {
     Write-Host ("{0,-8} {1,-24} {2,-24} {3,-10} {4,-10} {5,-8} {6,-8}" -f `

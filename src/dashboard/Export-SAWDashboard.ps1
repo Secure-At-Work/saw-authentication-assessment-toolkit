@@ -55,6 +55,12 @@ function Export-SAWDashboard {
         human-readable key/provider names - the answer to "which keys are actually allowed"
         that Graph's raw GUIDs don't give you on their own. Omitted entirely if absent or if
         key restrictions aren't enforced (nothing to list).
+    .PARAMETER NudgeForecast
+        Optional output of ConvertTo-SAWNudgeForecast (a hashtable with Users and Summary). When
+        supplied, renders a "Who Will Be Nudged" section on the User Journeys tab: per-interrupt
+        counts, the named users behind each count, and any tenant-wide suppressor that means the
+        real answer is "nobody". This exists for communication planning - the population that needs
+        telling before a prompt appears, not after. Omitted entirely if absent.
     .PARAMETER Roadmap
         Optional output of ConvertTo-SAWRemediationRoadmap (one hashtable per phase). When
         supplied, renders a "Remediation Roadmap" section right after the Overview - the
@@ -151,6 +157,8 @@ function Export-SAWDashboard {
         [object[]]$CaPolicyInventory = @(),
 
         [object]$Fido2KeyInventory = $null,
+
+        [object]$NudgeForecast = $null,
 
         [AllowEmptyCollection()]
         [object[]]$Roadmap = @(),
@@ -703,6 +711,105 @@ $($fido2KeyRowsHtml -join "`n")
 "@
     }
 
+    # --- Who Will Be Nudged (communication planning) ---
+    $nudgeSectionHtml = ''
+    if ($NudgeForecast -and $NudgeForecast.Summary) {
+        $ns = $NudgeForecast.Summary
+
+        $nudgeGroups = @(
+            @{ Key = 'NudgeAutoPasskeySept2026'; Title = 'Automatic passkey enablement (2026-09-01)'; Count = $ns.AutoPasskeySept2026Count
+               Note = 'Microsoft-driven, arrives whether or not this tenant configures its own campaign. Users enabled for SMS/Voice are auto-enabled for passkeys and nudged on their next MFA sign-in, with unlimited snoozes by default. Highest communication priority, because the date is not in your control.' }
+            @{ Key = 'NudgePasskeyCampaign'; Title = 'Registration campaign - passkey'; Count = $ns.PasskeyCampaignCount
+               Note = 'Nudged after completing MFA, if in campaign scope and without a passkey on that device/browser.' }
+            @{ Key = 'NudgeAuthenticatorCampaign'; Title = 'Registration campaign - Microsoft Authenticator'; Count = $ns.AuthenticatorCampaignCount
+               Note = 'Nudged after completing MFA, if in campaign scope and Authenticator push is not set up.' }
+            @{ Key = 'NudgeSsprRegistration'; Title = 'SSPR registration interrupt'; Count = $ns.SsprRegistrationCount
+               Note = 'SSPR-enabled but not registered. Skippable indefinitely unless MFA registration is also enforced, so this is a recurring nag rather than a one-off.' }
+            @{ Key = 'NudgeSsprBrokenForAdmin'; Title = 'Broken: admin prompted but cannot register'; Count = $ns.SsprBrokenForAdminCount
+               Note = 'Admin SSPR is disabled tenant-wide while these admins are still in scope for the user SSPR policy. They are interrupted to register and then told no methods can be registered. See SSPR002.' }
+        )
+
+        $nudgeCardsHtml = foreach ($g in $nudgeGroups) {
+            if ($g.Count -eq 0) { continue }
+            $affected = @($NudgeForecast.Users | Where-Object { $_[$g.Key] })
+            $isBroken = $g.Key -eq 'NudgeSsprBrokenForAdmin'
+            $badgeClass = if ($isBroken) { 'bg-danger' } else { 'bg-warning text-dark' }
+
+            $userRowsHtml = foreach ($u in $affected) {
+                $adminBadge = if ($u.IsAdmin) { ' <span class="badge bg-dark">Admin</span>' } else { '' }
+                @"
+        <tr>
+          <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge</td>
+          <td class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
+          <td class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)</td>
+        </tr>
+"@
+            }
+
+            @"
+  <div class="card mb-3">
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <strong>$(ConvertTo-SAWHtmlEncoded $g.Title)</strong>
+      <span class="badge $badgeClass">$($g.Count) user$(if ($g.Count -ne 1) { 's' })</span>
+    </div>
+    <div class="card-body">
+      <p class="text-body-secondary small mb-3">$(ConvertTo-SAWHtmlEncoded $g.Note)</p>
+      <details>
+        <summary class="small">Show the $($g.Count) affected user$(if ($g.Count -ne 1) { 's' })</summary>
+        <div class="table-responsive mt-2">
+          <table class="table table-sm table-striped align-middle">
+            <thead><tr><th>User</th><th>UPN</th><th>Methods registered</th></tr></thead>
+            <tbody>
+$($userRowsHtml -join "`n")
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+  </div>
+"@
+        }
+
+        $suppressorHtml = ''
+        if ($ns.Suppressors.Count -gt 0) {
+            $suppressorItems = ($ns.Suppressors | ForEach-Object { "      <li>$(ConvertTo-SAWHtmlEncoded $_)</li>" }) -join "`n"
+            $suppressorHtml = @"
+  <div class="alert alert-warning" role="alert">
+    <strong>The registration campaign currently reaches nobody.</strong> Microsoft documents the
+    following as suppressing the nudge, and this tenant has at least one in place:
+    <ul class="mb-2 mt-2">
+$suppressorItems
+    </ul>
+    <span class="small">The campaign can therefore look correctly configured while silently
+    nudging no one. Note this does <em>not</em> suppress the 2026-09-01 automatic enablement, which
+    is driven by Microsoft rather than by this campaign.</span>
+  </div>
+"@
+        }
+
+        $caveatItems = ($ns.Caveats | ForEach-Object { "    <li>$(ConvertTo-SAWHtmlEncoded $_)</li>" }) -join "`n"
+
+        $nudgeSectionHtml = @"
+  <h2 class="h4 mb-3">Who Will Be Nudged (Communication Planning)</h2>
+  <p class="text-body-secondary small">Which users are <em>eligible</em> to be interrupted with a
+  registration prompt, and why. The purpose is to have told them first: an unannounced interrupt at
+  sign-in is a help-desk call and a trust problem, not a technical failure. Campaign state read from
+  the tenant: <strong>$(ConvertTo-SAWHtmlEncoded $ns.CampaignState)</strong>.</p>
+$suppressorHtml
+$(if (@($nudgeCardsHtml).Count -eq 0) {
+    '  <p class="text-body-secondary">No users are currently forecast to be nudged by any of the modeled interrupts.</p>'
+} else {
+    ($nudgeCardsHtml -join "`n")
+})
+  <div class="alert alert-secondary small" role="alert">
+    <strong>Read these counts as a planning estimate, not a guarantee.</strong>
+    <ul class="mb-0 mt-2">
+$caveatItems
+    </ul>
+  </div>
+"@
+    }
+
     # --- Remediation Roadmap (IST -> SOLL phased work plan) ---
     $roadmapSectionHtml = ''
     if ($Roadmap.Count -gt 0) {
@@ -1001,6 +1108,7 @@ $($findingsHtml -join "`n")
 "@
 
     $userJourneysPaneHtml = @"
+$nudgeSectionHtml
 $flowScenariosSectionHtml
 $rosterSectionHtml
 "@

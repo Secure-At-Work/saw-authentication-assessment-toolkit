@@ -81,6 +81,18 @@ it in [docs/references.md](docs/references.md). Beyond the rules themselves, the
 
 - A full **Conditional Access policy inventory** (every policy's name, state, targets, and
   grant controls in plain language - independent of the pass/fail CA checks)
+- A **nudge forecast** (`ConvertTo-SAWNudgeForecast.ps1`) answering a question that's operational
+  rather than technical: *who is about to get interrupted at sign-in, and have we told them?* An
+  unannounced registration prompt is a help-desk spike and a trust problem. Forecasts four
+  interrupts separately (the Microsoft-driven 2026-09-01 automatic passkey enablement, a passkey
+  campaign, an Authenticator campaign, and the SSPR registration interrupt), plus the broken
+  admin-SSPR case where a user is prompted and then told they can't register anything. Each count
+  expands to the named users behind it, so the list goes straight into a comms tool. Also detects
+  the tenant-wide suppressors Microsoft documents (attestation, AAGUID restrictions, self-service
+  off, a blocking CA policy) and says so plainly when the campaign is configured but reaching
+  nobody. Deliberately an over-estimate: the passkey nudge is evaluated per device-and-browser
+  rather than per account, and several suppressors aren't visible through Graph, so the forecast
+  reports *eligibility* rather than certainty.
 - A **FIDO2 key restrictions inventory** (`ConvertTo-SAWFido2KeyInventory.ps1`) answering the
   question PASS002's pass/fail check can't on its own: enforced against *which specific keys*?
   Graph only returns the raw AAGUIDs on the tenant's allow/block-list; this resolves each one to
