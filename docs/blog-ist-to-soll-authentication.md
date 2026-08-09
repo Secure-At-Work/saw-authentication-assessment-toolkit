@@ -354,9 +354,22 @@ least true. (This toolkit had that bug until 2026-08-09.)
 
 The *gap* between the two fields is worth reporting in its own right: someone who is registered but
 not capable appears on no "not registered" list, and is one policy change away from being locked out
-of their own MFA. There's an equivalent pair for SSPR — `isSsprCapable` is exactly
-`isSsprEnabled AND isSsprRegistered` — and `isPasswordlessCapable`, which is the direct, policy-aware
-measure of phishing-resistant coverage.
+of their own MFA. SSPR has an equivalent pair — `isSsprCapable` is exactly `isSsprEnabled AND
+isSsprRegistered`.
+
+**And one more trap, in the field that looks like the answer to this whole post.**
+`isPasswordlessCapable` is policy-aware in the same useful way, so it's tempting to read it as
+"phishing-resistant coverage". It isn't, and the two sets disagree in both directions:
+
+- Microsoft's definition covers FIDO2, Windows Hello for Business, **and Microsoft Authenticator
+  passwordless phone sign-in**. That last one is push-based — passwordless, but still phishable.
+- **Certificate-based authentication** is phishing-resistant by Microsoft's own list, and isn't
+  named in the passwordless definition at all.
+
+So a tenant can raise its passwordless number by pushing phone sign-in without getting meaningfully
+harder to attack. Track passwordless capability *and* phishing resistance as two numbers, and treat
+a widening gap between them as a finding rather than as progress. Measure phishing resistance from
+`methodsRegistered` — the actual methods — not from a capability flag.
 
 Per user, this is what tells you whether they: 
 
