@@ -245,6 +245,45 @@ rollout even when both are technically "enabled." The practical fix, if cross-de
 bootstrap actually matters for a given tenant, is a short-lived multi-use TAP scoped to
 onboarding rather than a strict one-time-use TAP.
 
+### If the tenant is still federated, TAP does one more thing
+
+Everything above assumes users authenticate against Entra. Plenty of hybrid tenants don't yet:
+they're federated to AD FS or a third-party identity provider, and they're partway through moving
+to managed cloud authentication using Staged Rollout, the feature that flips a pilot group from
+federated to managed so you can test before converting the whole domain.
+
+The relevant mechanic is that moving a user into Staged Rollout doesn't take effect immediately.
+Microsoft's own description: the switch to managed authentication lands "after the user completes
+one more interactive sign-in using their existing federated login." So the very users you're moving
+*towards* passwordless get sent back to the old identity provider, with a password, one last time.
+Removing a user from Staged Rollout works the same way in reverse.
+
+TAP short-circuits that, and this is the part worth knowing, because Entra evaluates a TAP *before*
+it decides to redirect the user to their federated identity provider. Issue a TAP right after adding
+someone to the Staged Rollout group and their first sign-in is already managed: no final trip
+through AD FS, no password, and from there they can register Authenticator or a passkey exactly as
+any cloud-native user would. It is the same bootstrap pattern described above, doing double duty as
+a migration step.
+
+Two related constraints matter if the tenant is in this state, because they quietly contradict
+advice given elsewhere in this post. Self-service password reset with writeback to on-premises AD
+is **not supported** while Staged Rollout is enabled for a security group; Microsoft says it works
+in some cases but can't be guaranteed. So the SSPR coverage targets discussed later are worth
+pursuing, but the writeback path specifically is unreliable until the domain conversion finishes.
+And Windows Hello for Business hybrid *certificate* trust, where the federation server acts as the
+registration authority, along with smartcard users, isn't supported on Staged Rollout at all, which
+takes the WHfB-shaped bootstrap route off the table for exactly the population most likely to have
+it.
+
+The overall framing Microsoft now uses is worth repeating to anyone treating this as a steady state:
+Staged Rollout "is **not** designed to be a permanent configuration," a federated identity provider
+should stay in place as a fallback while testing, and the domain cutover to managed authentication
+is a separate step that Staged Rollout never performs on its own. A tenant that has been "halfway
+migrated" for two years is carrying the constraints above the whole time.
+
+The assessment doesn't currently read Staged Rollout configuration, so this is a question to ask
+rather than something the report answers. It's noted in the backlog.
+
 ### Three announced changes that shift this ground in late 2026
 
 All three of the following are announced but not yet shipped at the time of writing, and each
@@ -806,6 +845,12 @@ here:
   [List signIns](https://learn.microsoft.com/graph/api/signin-list) and
   [data retention](https://learn.microsoft.com/entra/identity/monitoring-health/reference-reports-data-retention)
   for what a nudge can and cannot reach, and how far back you can measure it.
+- [Cloud authentication via Staged Rollout](https://learn.microsoft.com/entra/identity/hybrid/connect/how-to-connect-staged-rollout)
+  for the one-more-federated-sign-in transition, TAP being evaluated ahead of the federation
+  redirect, and the SSPR-writeback and WHfB-certificate-trust scenarios it doesn't support.
+- [Authentication flows in Conditional Access](https://learn.microsoft.com/entra/identity/conditional-access/concept-authentication-flows)
+  for device code flow being high risk, and for the protocol-tracking and Device Registration
+  Service traps that come with blocking it.
 
 **Message Center posts** cover changes announced but not yet in the product documentation. Since
 they can't be linked publicly, the references below point at

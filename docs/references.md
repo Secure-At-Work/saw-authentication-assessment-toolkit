@@ -463,6 +463,43 @@ which will not reconcile against a raw user count. Source:
 [howto-authentication-methods-activity](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity),
 ms.date 2025-10-22. Verified 2026-08-09.
 
+### Staged Rollout, and why TAP matters to federated tenants (backs the federation subsection)
+
+Not tied to a rule: the toolkit reads no Staged Rollout configuration. Recorded because the blog
+makes claims from this page, and because it changes advice given elsewhere for hybrid tenants.
+
+The transition is not instant in either direction:
+
+> "When a user is added to a Staged Rollout (SR) group ... their authentication method will
+> transition from federated to managed. This change takes effect after the user completes one more
+> interactive sign-in using their existing federated login."
+
+The TAP interaction is stated as a recommended workaround, and the ordering is the whole point:
+
+> "Because Microsoft Entra evaluates a TAP before it redirects a user to the federated identity
+> provider, administrators can issue a TAP to the user immediately after adding them to Staged
+> Rollout."
+
+Two unsupported-scenario entries contradict advice this repo gives for hybrid tenants:
+
+> "Self-service password reset (SSPR) with writeback to an on-premises domain isn't supported when
+> staged rollout is enabled for a security group. Although it works in some cases, SSPR can't be
+> guaranteed to work consistently when staged rollout is enabled."
+
+> "If you have a Windows Hello for Business hybrid certificate trust with certs that are issued via
+> your federation server acting as Registration Authority or smartcard users, the scenario isn't
+> supported on a Staged Rollout."
+
+And Microsoft's framing of the feature itself, which is newer than most practitioners' mental model:
+
+> "Staged rollout is **not** designed to be a permanent configuration."
+
+Group mechanics, for anyone sizing a pilot: max 10 groups per feature, no nested groups, no dynamic
+groups, 200 users when a group is first added, and up to 24 hours for membership edits to take
+effect. Source:
+[how-to-connect-staged-rollout](https://learn.microsoft.com/entra/identity/hybrid/connect/how-to-connect-staged-rollout),
+ms.date 2026-07-22. Verified 2026-08-09.
+
 ## Platform compatibility claims
 
 Every platform/browser/app support claim in

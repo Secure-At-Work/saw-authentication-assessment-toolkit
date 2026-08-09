@@ -326,6 +326,22 @@ Not yet built: Markdown/Excel/JSON report exports (spec section 14).
   combinations support passkeys *at all*, regardless of any specific tenant's device fleet - is
   already written up in [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md),
   since that part is the same for every tenant and doesn't need a collector to answer.
+- **Staged Rollout state for federated tenants** (`GET /beta/policies/featureRolloutPolicies`).
+  Not currently collected. Staged Rollout is the mechanism that moves a pilot group from federated
+  to managed cloud authentication, and a tenant sitting in it has three constraints that change
+  advice this toolkit already gives: SSPR with on-premises writeback isn't supported while it's
+  enabled for a security group, Windows Hello for Business hybrid *certificate* trust (federation
+  server as registration authority) and smartcard users aren't supported at all, and a user newly
+  added to the rollout needs one more interactive sign-in through the old identity provider unless
+  a TAP is issued, because Entra evaluates a TAP before it redirects to the federated IdP. That
+  last point is a genuinely useful extension of the existing TAP bootstrap story (AUTH005, TAP001,
+  TAP002, BOOT001) rather than a new one. Arguments against building it: this is Entra Connect
+  territory rather than the authentication-methods surface the toolkit otherwise stays inside, it
+  needs an additional Graph scope, and it's a deliberately temporary state that Microsoft says is
+  "not designed to be a permanent configuration." A cheaper middle option is to surface it as an
+  inventory row plus caveats on the SSPR rules when the tenant profile is Hybrid, rather than as a
+  pass/fail rule. The documentation half is already written up in the blog and in
+  [docs/references.md](docs/references.md).
 
 ## Customer baselines (SOLL)
 
