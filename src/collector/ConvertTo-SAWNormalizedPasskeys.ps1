@@ -88,27 +88,75 @@ function ConvertTo-SAWNormalizedPasskeys {
             return
         }
 
-        $attestationEnforced = [bool]$RawConfig.isAttestationEnforced
-        $keyRestrictionsEnforced = [bool]$RawConfig.keyRestrictions.isEnforced
+        # Resolved through ConvertTo-SAWPasskeyPolicyEffective rather than read directly, because
+        # isAttestationEnforced/keyRestrictions are deprecated (removal October 2027) in favour of
+        # passkeyProfiles. Critically, the resolver distinguishes "not enforced" from "couldn't
+        # determine": the previous [bool]$RawConfig.isAttestationEnforced turned an absent property
+        # into $false, i.e. a false negative on a security control that looked like a real finding.
+        $effective = ConvertTo-SAWPasskeyPolicyEffective -RawConfig $RawConfig
 
-        @{
-            Category = 'Passkeys'
-            Setting  = 'FIDO2 Attestation Enforced'
-            State    = ConvertTo-SAWStateLabel $attestationEnforced
+        if (-not $effective.IsKnown) {
+            # Emit nothing rather than a wrong answer. An omitted fact surfaces as a missing row,
+            # which prompts a question; a fabricated "Disabled" surfaces as a finding someone acts
+            # on. Detail goes to the verbose stream for whoever is debugging the collection.
+            Write-Verbose "ConvertTo-SAWNormalizedPasskeys: $($effective.Summary)"
+            Write-Warning "Passkey attestation and key-restriction state could not be determined for this tenant, so PASS001/PASS002/PASS003 are omitted from this run rather than reported as 'not enforced'. $($effective.Summary)"
+            return
         }
-        @{
-            Category = 'Passkeys'
-            Setting  = 'FIDO2 Key Restrictions Enforced'
-            State    = ConvertTo-SAWStateLabel $keyRestrictionsEnforced
+
+        $attestationEnforced = $effective.AttestationEnforced
+        $keyRestrictionsEnforced = $effective.KeyRestrictionsEnforced
+
+        Write-Verbose "ConvertTo-SAWNormalizedPasskeys: $($effective.Summary)"
+
+        # Each fact is emitted only when its OWN value resolved. IsKnown means "at least one
+        # source was present", which isn't the same as "both values are populated" - a legacy
+        # config carrying keyRestrictions but no isAttestationEnforced is known-but-partial, and
+        # passing $null through ConvertTo-SAWStateLabel's [bool] cast would land back on
+        # "Disabled", which is the exact false negative this refactor exists to remove.
+        if ($null -ne $attestationEnforced) {
+            @{
+                Category = 'Passkeys'
+                Setting  = 'FIDO2 Attestation Enforced'
+                State    = ConvertTo-SAWStateLabel $attestationEnforced
+            }
+        }
+        else {
+            Write-Verbose 'ConvertTo-SAWNormalizedPasskeys: attestation state unresolved - omitting PASS001 rather than defaulting it to Disabled'
+        }
+
+        if ($null -ne $keyRestrictionsEnforced) {
+            @{
+                Category = 'Passkeys'
+                Setting  = 'FIDO2 Key Restrictions Enforced'
+                State    = ConvertTo-SAWStateLabel $keyRestrictionsEnforced
+            }
+        }
+        else {
+            Write-Verbose 'ConvertTo-SAWNormalizedPasskeys: key-restriction state unresolved - omitting PASS002 rather than defaulting it to Disabled'
         }
 
         # --- Synced passkeys currently allowed? ---
+        # Where passkey profiles are in use, passkeyTypes ('deviceBound' / 'synced') states this
+        # outright, so use it and skip the inference below entirely - an explicit tenant setting
+        # beats guessing from which AAGUIDs happen to be listed.
+        if ($null -ne $effective.SyncedPasskeysAllowed) {
+            Write-Verbose "ConvertTo-SAWNormalizedPasskeys: synced passkeys allowed = $($effective.SyncedPasskeysAllowed) (from passkeyProfiles.passkeyTypes, not AAGUID inference)"
+            @{
+                Category = 'Passkeys'
+                Setting  = 'Synced Passkeys Currently Allowed'
+                State    = ConvertTo-SAWStateLabel $effective.SyncedPasskeysAllowed
+            }
+            return
+        }
+
+        # Legacy path: no profiles, so infer from the AAGUID allow/block list.
         # Default assumption: allowed, unless key restrictions are configured in a way that
         # provably excludes every known synced-passkey provider.
         $syncedPasskeysAllowed = $true
-        $configuredAaGuids = @($RawConfig.keyRestrictions.aaGuids) | Where-Object { $_ }
+        $configuredAaGuids = @($effective.KeyRestrictions.aaGuids) | Where-Object { $_ }
 
-        if ($keyRestrictionsEnforced -and $RawConfig.keyRestrictions.enforcementType -eq 'allow') {
+        if ($keyRestrictionsEnforced -and $effective.KeyRestrictions.enforcementType -eq 'allow') {
             # Allow-list: only the listed AAGUIDs may register. Synced passkeys are allowed
             # only if at least one known synced provider appears in that allow-list.
             $syncedPasskeysAllowed = $false
@@ -119,7 +167,7 @@ function ConvertTo-SAWNormalizedPasskeys {
                 }
             }
         }
-        elseif ($keyRestrictionsEnforced -and $RawConfig.keyRestrictions.enforcementType -eq 'block') {
+        elseif ($keyRestrictionsEnforced -and $effective.KeyRestrictions.enforcementType -eq 'block') {
             # Block-list: everything EXCEPT the listed AAGUIDs may register. Synced passkeys
             # are allowed unless every known synced provider is explicitly blocked.
             $syncedPasskeysAllowed = $false
@@ -131,7 +179,7 @@ function ConvertTo-SAWNormalizedPasskeys {
             }
         }
 
-        Write-Verbose "ConvertTo-SAWNormalizedPasskeys: synced passkeys currently allowed = $syncedPasskeysAllowed (keyRestrictions enforced=$keyRestrictionsEnforced, enforcementType=$($RawConfig.keyRestrictions.enforcementType))"
+        Write-Verbose "ConvertTo-SAWNormalizedPasskeys: synced passkeys currently allowed = $syncedPasskeysAllowed (keyRestrictions enforced=$keyRestrictionsEnforced, enforcementType=$($effective.KeyRestrictions.enforcementType))"
 
         @{
             Category = 'Passkeys'

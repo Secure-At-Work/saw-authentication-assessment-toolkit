@@ -96,7 +96,11 @@ function ConvertTo-SAWRegistrationFlowScenarios {
     # (device-bound to the machine the TAP was entered on, no cross-device handoff needed at
     # all) or a multi-use TAP (re-enterable on the phone within its lifetime).
     $tapIsOneTimeUse = ($tapConfig -and $tapConfig.isUsableOnce -eq $true)
-    $fido2AttestationEnforced = ($fido2Config -and $fido2Config.isAttestationEnforced -eq $true)
+    # Resolved via ConvertTo-SAWPasskeyPolicyEffective so this honours passkeyProfiles as well as
+    # the deprecated top-level property (removal October 2027). -eq $true keeps an unresolved
+    # value from reading as enforced, which would wrongly claim the cross-device bootstrap is
+    # blocked and send a reader chasing a problem they don't have.
+    $fido2AttestationEnforced = ((ConvertTo-SAWPasskeyPolicyEffective -RawConfig $fido2Config).AttestationEnforced -eq $true)
     $crossDevicePasskeyBootstrapBlocked = ($tapIsOneTimeUse -and $fido2AttestationEnforced)
 
     $campaign = $AuthenticationMethodsPolicyRaw.registrationEnforcement.authenticationMethodsRegistrationCampaign

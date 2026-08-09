@@ -128,7 +128,17 @@ function ConvertTo-SAWAuthenticationMethodsInventory {
             switch ($Config.id) {
                 'Fido2' {
                     $parts += "Self-service registration: $(if ($Config.isSelfServiceRegistrationAllowed) { 'Allowed' } else { 'Not allowed' })"
-                    $parts += "Attestation enforced: $(if ($Config.isAttestationEnforced) { 'Yes' } else { 'No' })"
+                    # Three-state on purpose. "No" and "couldn't read it" are different answers,
+                    # and the inventory is where a reader checks what the tenant actually says.
+                    $fido2Effective = ConvertTo-SAWPasskeyPolicyEffective -RawConfig $Config
+                    $attestationLabel = if ($null -eq $fido2Effective.AttestationEnforced) {
+                        'Could not be determined'
+                    }
+                    elseif ($fido2Effective.AttestationEnforced) { 'Yes' } else { 'No' }
+                    $parts += "Attestation enforced: $attestationLabel"
+                    if ($fido2Effective.Source -eq 'PasskeyProfiles') {
+                        $parts += "Passkey profiles in use: $($fido2Effective.ProfileCount)$(if ($fido2Effective.MixedEnforcement) { ' (settings differ between profiles)' })"
+                    }
                 }
                 'MicrosoftAuthenticator' {
                     $numberMatching = $Config.featureSettings.numberMatchingRequiredState.state

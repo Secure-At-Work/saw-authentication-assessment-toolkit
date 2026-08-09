@@ -219,9 +219,19 @@ function ConvertTo-SAWFido2KeyInventory {
             return $null
         }
 
-        $isEnforced = [bool]$RawConfig.keyRestrictions.isEnforced
-        $enforcementType = $RawConfig.keyRestrictions.enforcementType
-        $configuredAaGuids = @($RawConfig.keyRestrictions.aaGuids) | Where-Object { $_ }
+        # Via the resolver so this reads passkeyProfiles where present, falling back to the
+        # deprecated top-level keyRestrictions (removal October 2027). Where profiles are in use
+        # the restrictions shown are the DEFAULT profile's, since a per-group profile set has no
+        # single tenant-wide answer - the summary line says so rather than implying one.
+        $effective = ConvertTo-SAWPasskeyPolicyEffective -RawConfig $RawConfig
+        if (-not $effective.IsKnown) {
+            Write-Verbose "ConvertTo-SAWFido2KeyInventory: $($effective.Summary)"
+            return $null
+        }
+
+        $isEnforced = [bool]$effective.KeyRestrictionsEnforced
+        $enforcementType = $effective.KeyRestrictions.enforcementType
+        $configuredAaGuids = @($effective.KeyRestrictions.aaGuids) | Where-Object { $_ }
 
         $keys = foreach ($aaguid in $configuredAaGuids) {
             $known = $knownFido2KeyAaguids[$aaguid.ToLowerInvariant()]

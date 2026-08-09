@@ -338,20 +338,35 @@ it in [docs/references.md](docs/references.md). Beyond the rules themselves, the
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
-**Known issue, highest priority:**
-- **PASS001/PASS002 read Graph properties Microsoft has deprecated.**
-  `fido2AuthenticationMethodConfiguration.isAttestationEnforced` and `.keyRestrictions` are marked
-  in the v1.0 reference as deprecated, to be removed **October 2027**, superseded by
-  `passkeyProfiles` (with a `defaultPasskeyProfile` that mirrors the legacy settings at migration
-  time). Five call sites here read the old properties and none read the new one:
-  `ConvertTo-SAWNormalizedPasskeys`, `ConvertTo-SAWFido2KeyInventory`, `ConvertTo-SAWNudgeForecast`,
-  `ConvertTo-SAWRegistrationFlowScenarios`, `ConvertTo-SAWAuthenticationMethodsInventory`.
-  Each coerces with `[bool]`, so an absent property reads as `$false` and renders as "attestation
-  not enforced" — a **false negative on a security control**, not a visible failure. A tenant
-  already on passkey profiles whose profile has diverged from the mirrored values may read wrong
-  today, so this is not purely future-dated. Fix is to read `passkeyProfiles` with a fallback to the
-  legacy properties, and to say "couldn't determine" rather than "not enforced" when neither is
-  present. Needs a live migrated tenant to confirm real-world shape before building.
+**Passkey profiles (the deprecation of `isAttestationEnforced`/`keyRestrictions`):**
+`fido2AuthenticationMethodConfiguration.isAttestationEnforced` and `.keyRestrictions` are marked in
+the v1.0 reference as deprecated, to be removed **October 2027**, superseded by `passkeyProfiles`.
+All five call sites now go through
+[`ConvertTo-SAWPasskeyPolicyEffective.ps1`](src/collector/ConvertTo-SAWPasskeyPolicyEffective.ps1),
+which resolves profiles first, falls back to the deprecated properties for tenants that haven't
+migrated, and reports **Unknown** when neither is present.
+
+That third state is the point. Every call site previously coerced with `[bool]`, so an absent
+property became `$false` and rendered as "attestation not enforced" — a false negative on a security
+control, dressed as a real finding. PASS001/PASS002/PASS003 are now **omitted** from a run that
+can't determine them, with a warning, rather than asserted. An omitted row prompts a question; a
+fabricated "Disabled" gets acted on.
+
+Two further judgment calls worth knowing:
+- **Profiles are per-group, so there is no single tenant-wide answer.** Attestation counts as
+  enforced only when *every* profile enforces it. A strict admin profile plus a permissive
+  everyone-else profile is not a tenant with attestation enforced. `ProfileCount` and
+  `MixedEnforcement` are surfaced so the report can say "1 of 2 profiles" instead of flattening it.
+- **An unrecognized `attestationEnforcement` value is treated as not enforcing**, never assumed
+  safe, and the summary says so.
+- PASS003 now reads `passkeyTypes` (`deviceBound`/`synced`) directly where profiles exist, which is
+  an explicit tenant setting rather than the AAGUID inference the legacy path has to fall back on.
+
+**Not confirmed against a live migrated tenant.** The profiles branch is built from Microsoft's
+published v1.0 schema; no tenant in reach has migrated yet, so the fallback is the exercised path.
+Re-check before relying on the profile branch for a customer finding — particularly whether Graph
+returns `passkeyProfiles` without the explicit `$expand` the collector sends, and whether
+`attestationEnforcement` carries values beyond the three documented ones.
 
 **Possible future work:**
 - **Per-user legacy MFA state** (`perUserMfaState` - Disabled/Enabled/Enforced, via

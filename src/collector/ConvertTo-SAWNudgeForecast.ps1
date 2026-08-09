@@ -157,12 +157,23 @@ function ConvertTo-SAWNudgeForecast {
     $scopeUncertain = ($scopedToSpecificGroups -gt 0) -or ($campaignActive -and -not $scopedToAllUsers -and $scopedToSpecificGroups -eq 0)
 
     # Documented tenant-wide suppressors of the campaign nudge.
+    # Resolved rather than read directly: isAttestationEnforced/keyRestrictions are deprecated in
+    # favour of passkeyProfiles (removal October 2027). Note the asymmetry with PASS001/PASS002 -
+    # there, an unknown value must not become "not enforced" because that invents a finding. Here,
+    # an unknown value simply means no suppressor is listed, which understates why a campaign may
+    # be reaching nobody. That is the safer direction for a forecast, but worth knowing when a
+    # campaign looks correctly configured and still isn't landing.
+    $fido2Effective = ConvertTo-SAWPasskeyPolicyEffective -RawConfig $fido2
+
     $suppressors = @()
-    if ($fido2 -and $fido2.isAttestationEnforced -eq $true) {
+    if ($fido2Effective.AttestationEnforced -eq $true) {
         $suppressors += 'FIDO2 attestation is enforced (PASS001), which Microsoft documents as suppressing the passkey nudge for affected users'
     }
-    if ($fido2 -and $fido2.keyRestrictions.isEnforced -eq $true) {
+    if ($fido2Effective.KeyRestrictionsEnforced -eq $true) {
         $suppressors += 'FIDO2 AAGUID key restrictions are enforced (PASS002), which Microsoft documents as suppressing the passkey nudge for affected users'
+    }
+    if ($fido2 -and -not $fido2Effective.IsKnown) {
+        $suppressors += "FIDO2 attestation and key-restriction state couldn't be read, so any suppression from those two settings is unknown rather than ruled out"
     }
     if ($fido2 -and $fido2.isSelfServiceRegistrationAllowed -eq $false) {
         $suppressors += 'FIDO2 self-service registration is off, which is a prerequisite for a passkey campaign'

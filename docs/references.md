@@ -657,7 +657,7 @@ Authenticator" is a separate row that is. AUTH001 checks that Authenticator is e
 page supports as a baseline; it is not an endorsement of push as a target state, and the rule's
 Phase 1 placement already reflects that.
 
-**PASS001/PASS002 read two properties Microsoft has deprecated (found 2026-08-09, NOT yet fixed).**
+**PASS001/PASS002 read two properties Microsoft has deprecated (found and fixed 2026-08-09).**
 `fido2AuthenticationMethodConfiguration.isAttestationEnforced` and `.keyRestrictions` are both
 marked in Microsoft's v1.0 Graph reference (ms.date 2026-03-04) as "deprecated and will be removed
 in October 2027. Use the **passkeyProfiles** property." The replacement is a `passkeyProfile`
@@ -665,7 +665,7 @@ collection plus a `defaultPasskeyProfile` that, per the same page, "is automatic
 migrating to passkey profiles and initially mirrors the tenant's legacy global passkey (FIDO2)
 authentication methods policy settings."
 
-Five places in this toolkit read the deprecated properties and nothing reads `passkeyProfiles`:
+Five places read the deprecated properties and nothing read `passkeyProfiles`. All five now go through `ConvertTo-SAWPasskeyPolicyEffective`, which prefers profiles, falls back to the legacy properties, and reports Unknown when neither is present. The affected call sites were:
 `ConvertTo-SAWNormalizedPasskeys` (PASS001/PASS002/PASS003), `ConvertTo-SAWFido2KeyInventory`,
 `ConvertTo-SAWNudgeForecast` (suppressor detection), `ConvertTo-SAWRegistrationFlowScenarios`, and
 `ConvertTo-SAWAuthenticationMethodsInventory`.

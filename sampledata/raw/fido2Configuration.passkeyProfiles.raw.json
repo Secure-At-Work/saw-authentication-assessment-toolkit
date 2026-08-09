@@ -1,0 +1,38 @@
+{
+  "_comment": "Second FIDO2 fixture, representing a tenant that HAS migrated to passkey profiles. The default fixture (fido2Configuration.raw.json) still carries the deprecated top-level isAttestationEnforced/keyRestrictions so the legacy fallback path stays exercised. This one deliberately omits both, which is the shape that used to make the toolkit report 'attestation not enforced' when the truth was 'enforced, in a profile we never read'. Two profiles with DIFFERENT settings so the mixed-enforcement path is covered: attestation is enforced for the admin profile only, so the conservative tenant-wide answer is 'not enforced'.",
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#policies/authenticationMethodsPolicy/authenticationMethodConfigurations/$entity",
+  "@odata.type": "#microsoft.graph.fido2AuthenticationMethodConfiguration",
+  "id": "Fido2",
+  "state": "enabled",
+  "isSelfServiceRegistrationAllowed": true,
+  "defaultPasskeyProfile": "11111111-1111-1111-1111-111111111111",
+  "passkeyProfiles": [
+    {
+      "@odata.type": "#microsoft.graph.passkeyProfile",
+      "id": "11111111-1111-1111-1111-111111111111",
+      "name": "Default passkey profile",
+      "passkeyTypes": "deviceBound,synced",
+      "attestationEnforcement": "disabled",
+      "keyRestrictions": {
+        "isEnforced": false,
+        "enforcementType": "block",
+        "aaGuids": []
+      }
+    },
+    {
+      "@odata.type": "#microsoft.graph.passkeyProfile",
+      "id": "22222222-2222-2222-2222-222222222222",
+      "name": "Privileged accounts - device-bound only",
+      "passkeyTypes": "deviceBound",
+      "attestationEnforcement": "registrationOnly",
+      "keyRestrictions": {
+        "isEnforced": true,
+        "enforcementType": "allow",
+        "aaGuids": [
+          "2fc0579f-8113-47ea-b116-bb5a8db9202a",
+          "90a3ccdf-635c-4729-a248-9b709135078f"
+        ]
+      }
+    }
+  ]
+}

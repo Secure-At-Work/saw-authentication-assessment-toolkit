@@ -194,6 +194,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeys.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWPasskeyPolicyEffective.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedPasskeys.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWFido2KeyInventory.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWStagedRollout.ps1')
