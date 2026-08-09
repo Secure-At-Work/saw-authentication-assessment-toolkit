@@ -43,7 +43,7 @@ Access, Authentication Strengths, Registration, Temporary Access Pass, Passkeys,
 Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section 9) works, and
 the live-Graph path has been run successfully against a real tenant. The dashboard is now the
 single report output; the flat HTML report that used to sit beside it has been removed (see
-"Output" below for why). There are currently **30 rules** in `src/rules/` (AUDIT, AUTH, BOOT, CA, PASS, RCAMP, REG,
+"Output" below for why). There are currently **31 rules** in `src/rules/` (AUDIT, AUTH, BOOT, CA, PASS, RCAMP, REG,
 SIGNIN, SSPR, STR, TAP families) - every one of them mapped to the Microsoft Learn article backing
 it in [docs/references.md](docs/references.md). Beyond the rules themselves, the dashboard has:
 

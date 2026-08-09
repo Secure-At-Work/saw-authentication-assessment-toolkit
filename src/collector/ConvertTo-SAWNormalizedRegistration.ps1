@@ -33,6 +33,25 @@ function ConvertTo-SAWNormalizedRegistration {
             if ($Value) { return 'Enabled' }
             return 'Disabled'
         }
+
+        # Kept deliberately in sync with ConvertTo-SAWUserRegistrationRoster.ps1's own list. Used
+        # only to cross-check Microsoft's isPasswordlessCapable against method-based phishing
+        # resistance, never as the source of the coverage number itself.
+        #
+        # Known gap, not yet closed: Microsoft also counts certificate-based authentication and
+        # Platform Credential for macOS as phishing-resistant, and neither appears here. Adding
+        # them needs the exact methodsRegistered strings Graph emits for them, which this project
+        # hasn't yet observed on a live tenant - and guessing a string would silently under-count
+        # rather than fail loudly. Until then this cross-check under-reports phishing resistance
+        # for tenants using CBA or macOS Platform SSO, which is the safe direction for a
+        # discrepancy counter but is worth knowing when reading it.
+        $phishingResistantMethodNames = @(
+            'fido2',
+            'passKeyDeviceBound',
+            'passKeyDeviceBoundAuthenticator',
+            'passKeyDeviceBoundWindowsHello',
+            'windowsHelloForBusiness'
+        )
     }
 
     process {
@@ -52,6 +71,10 @@ function ConvertTo-SAWNormalizedRegistration {
         $totalUsers = 0
         $mfaCapableUsers = 0
         $mfaRegisteredNotCapable = 0
+        $passwordlessCapableUsers = 0
+        $phishingResistantRegistered = 0
+        $passwordlessNotPhishingResistant = 0
+        $phishingResistantNotPasswordlessCapable = 0
         $adminUsers = 0
         $adminUsersMissingMfa = 0
         $ssprEnabledUsers = 0
@@ -60,6 +83,40 @@ function ConvertTo-SAWNormalizedRegistration {
         foreach ($user in $users) {
             $totalUsers++
             if ($user.isMfaCapable) { $mfaCapableUsers++ }
+
+            # isPasswordlessCapable is policy-aware in the same way isMfaCapable is: the method
+            # must be ALLOWED by the authentication methods policy, not merely registered.
+            #
+            # It is NOT a synonym for "phishing-resistant", and treating it as one would repeat the
+            # mistake that made isMfaRegistered wrong. Microsoft's definition covers "FIDO2, Windows
+            # Hello for Business, and Microsoft Authenticator (Passwordless)". Compare that against
+            # Microsoft's own list of phishing-resistant methods (WHfB, Platform Credential for
+            # macOS, synced passkeys, FIDO2 security keys, passkeys in Microsoft Authenticator, and
+            # certificate-based authentication) and the two sets diverge in BOTH directions:
+            #   - Microsoft Authenticator passwordless PHONE SIGN-IN is passwordless but push-based,
+            #     so it is not phishing-resistant. It counts here and should not count as the goal.
+            #   - Certificate-based authentication is phishing-resistant but is not named in the
+            #     passwordless-capable definition at all.
+            # So this is reported as its own measure, alongside the roster's method-based
+            # phishing-resistant bucketing, rather than replacing it.
+            if ($user.isPasswordlessCapable) { $passwordlessCapableUsers++ }
+
+            $hasPhishingResistantMethod = $false
+            foreach ($method in @($user.methodsRegistered)) {
+                if ($phishingResistantMethodNames -contains $method) {
+                    $hasPhishingResistantMethod = $true
+                    break
+                }
+            }
+            if ($hasPhishingResistantMethod) { $phishingResistantRegistered++ }
+
+            # The two directions of disagreement mean different things, so they are counted apart.
+            if ($user.isPasswordlessCapable -and -not $hasPhishingResistantMethod) {
+                $passwordlessNotPhishingResistant++
+            }
+            if ($hasPhishingResistantMethod -and -not $user.isPasswordlessCapable) {
+                $phishingResistantNotPasswordlessCapable++
+            }
 
             # The gap between the two is itself a finding, not noise: this user registered a strong
             # method and the policy no longer permits it. They are one policy change away from
@@ -103,10 +160,32 @@ function ConvertTo-SAWNormalizedRegistration {
             Write-Warning "$mfaRegisteredNotCapable user(s) have a registered MFA method that the authentication methods policy no longer allows. They count as registered but cannot actually complete MFA. Run with -Verbose to list them."
         }
 
+        $passwordlessCoveragePercent = 0
+        $passwordlessMeetsTarget = $false
+        if ($totalUsers -gt 0) {
+            $passwordlessCoveragePercent = $passwordlessCapableUsers / $totalUsers * 100
+            $passwordlessMeetsTarget = $passwordlessCoveragePercent -ge 90
+        }
+
+        Write-Verbose ("ConvertTo-SAWNormalizedRegistration: {0}/{1} users passwordless capable ({2:N1}%); {3} have a phishing-resistant method registered" -f `
+            $passwordlessCapableUsers, $totalUsers, $passwordlessCoveragePercent, $phishingResistantRegistered)
+
+        if ($passwordlessNotPhishingResistant -gt 0) {
+            Write-Verbose "ConvertTo-SAWNormalizedRegistration: $passwordlessNotPhishingResistant user(s) are passwordless-capable WITHOUT a phishing-resistant method registered - most likely Microsoft Authenticator passwordless phone sign-in, which is passwordless but push-based and therefore still phishable"
+        }
+        if ($phishingResistantNotPasswordlessCapable -gt 0) {
+            Write-Verbose "ConvertTo-SAWNormalizedRegistration: $phishingResistantNotPasswordlessCapable user(s) have a phishing-resistant method registered but are NOT passwordless-capable - the authentication methods policy isn't allowing the method they registered"
+        }
+
         @{
             Category = 'Registration'
             Setting  = 'All Privileged Admins MFA Capable'
             State    = ConvertTo-SAWStateLabel $allAdminsMfaRegistered
+        }
+        @{
+            Category = 'Registration'
+            Setting  = 'Passwordless Capability Coverage At Least 90 Percent'
+            State    = ConvertTo-SAWStateLabel $passwordlessMeetsTarget
         }
         @{
             Category = 'Registration'

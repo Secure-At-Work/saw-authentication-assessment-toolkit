@@ -51,7 +51,8 @@ caught (see "Known corrections" at the bottom).
 | **PASS002** | Key restrictions allow/block specific models by AAGUID | [Passkey profiles, "Key Restriction Policy"](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
 | **PASS003** | Synced passkeys are phishing-resistant but have a different custody model | [Synced vs device-bound passkeys](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
 | **RCAMP001 / RCAMP002** | The campaign nudges registration and can target Authenticator or passkey | [Run a registration campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign) | **2026-08-07** |
-| **REG001 / REG002** | Per-user registration state is readable and coverage is measurable | [Authentication methods activity report](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity) | **2026-08-09** |
+| **REG001 / REG002** | MFA coverage must be measured with `isMfaCapable` (policy-aware), not `isMfaRegistered` | [userRegistrationDetails](https://learn.microsoft.com/graph/api/resources/userregistrationdetails) + [activity report](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity) | **2026-08-09** (field corrected) |
+| **REG003** | `isPasswordlessCapable` measures passwordless capability, which is **not** the same set as phishing-resistant | [userRegistrationDetails](https://learn.microsoft.com/graph/api/resources/userregistrationdetails) + [phishing-resistant methods](https://learn.microsoft.com/entra/identity/authentication/overview-authentication) | **2026-08-09** |
 | **SIGNIN001** | Successful legacy-auth sign-ins are visible in sign-in logs | [Block legacy auth, "Identify legacy authentication use"](https://learn.microsoft.com/entra/identity/conditional-access/policy-block-legacy-authentication) | **2026-08-07** |
 | **SIGNIN002** | Device code flow is a known phishing vector worth monitoring | [Authentication flows as a condition in Conditional Access, "Device code flow"](https://learn.microsoft.com/entra/identity/conditional-access/concept-authentication-flows#device-code-flow) | **2026-08-09** (citation replaced) |
 | **SSPR001** | Directory-sourced contact info stops satisfying SSPR on a fixed date | [SSPR authentication data](https://learn.microsoft.com/entra/identity/authentication/howto-sspr-authenticationdata) | 2026-08-06 |
@@ -718,9 +719,22 @@ this repo caused by synthetic data that never disagrees with itself — the othe
 authentication-policy properties and the passkey-profile deprecation. Source:
 [userRegistrationDetails](https://learn.microsoft.com/graph/api/resources/userregistrationdetails).
 
-Not yet used, and worth considering: **`isPasswordlessCapable`** is the direct, policy-aware measure
-of phishing-resistant coverage, which is this whole project's goal. The toolkit currently infers that
-from `methodsRegistered` buckets instead.
+**`isPasswordlessCapable` is now used (REG003), but deliberately NOT as a phishing-resistance
+measure.** Microsoft defines it as covering "FIDO2, Windows Hello for Business, and Microsoft
+Authenticator (Passwordless)". Compare that with Microsoft's own phishing-resistant list (WHfB,
+Platform Credential for macOS, synced passkeys, FIDO2 security keys, passkeys in Microsoft
+Authenticator, and certificate-based authentication) and the two sets diverge in BOTH directions:
+Authenticator passwordless phone sign-in is passwordless but push-based, so still phishable and it
+counts here; certificate-based authentication is phishing-resistant but is not named in the
+passwordless definition at all. REG003 therefore reports passwordless capability as its own measure
+alongside the roster's method-based phishing-resistant bucketing, and the assessment counts where
+the two disagree in each direction. Treating them as synonyms would have repeated the
+isMfaRegistered mistake one paragraph above.
+
+Known gap in our own list, not yet closed: `ConvertTo-SAWUserRegistrationRoster` does not count
+certificate-based authentication or Platform Credential for macOS as phishing-resistant, because
+the exact `methodsRegistered` strings Graph emits for them have not been observed on a live tenant
+and guessing one would under-count silently rather than fail loudly.
 
 **Linux passkey support is described inconsistently.** The compatibility matrix lists Chrome, Edge,
 and Firefox on Linux as supported for passkey sign-in, while the registration campaign article

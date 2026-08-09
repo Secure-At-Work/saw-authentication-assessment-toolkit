@@ -45,12 +45,13 @@
       "isSsprCapable": true,
       "isMfaRegistered": true,
       "isMfaCapable": false,
-      "isPasswordlessCapable": false,
+      "isPasswordlessCapable": true,
       "methodsRegistered": [
-        "microsoftAuthenticatorPush"
+        "microsoftAuthenticatorPush",
+        "passwordlessMicrosoftAuthenticator"
       ],
       "systemPreferredAuthenticationMethod": "microsoftAuthenticatorPush",
-      "_comment": "Deliberately isMfaRegistered=true but isMfaCapable=false: this user registered a method the authentication methods policy no longer allows (the classic case, an SMS registration after SMS is switched off). Before 2026-08-09 the toolkit counted this user as covered. Keep the divergence - it is the only fixture row exercising that path."
+      "_comment": "Deliberately isMfaRegistered=true but isMfaCapable=false: this user registered a method the authentication methods policy no longer allows (the classic case, an SMS registration after SMS is switched off). Before 2026-08-09 the toolkit counted this user as covered. Keep the divergence - it is the only fixture row exercising that path. ALSO deliberately isPasswordlessCapable=true with NO phishing-resistant method: Microsoft Authenticator passwordless phone sign-in is passwordless but push-based, so it is still phishable. This is the row that stops isPasswordlessCapable being mistaken for a phishing-resistance measure. Keep the divergence."
     },
     {
       "id": "10000000-0000-0000-0000-000000000004",

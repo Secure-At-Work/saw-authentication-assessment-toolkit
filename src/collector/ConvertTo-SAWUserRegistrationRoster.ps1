@@ -188,6 +188,12 @@ function ConvertTo-SAWUserRegistrationRoster {
                 UserPrincipalName          = $user.userPrincipalName
                 DisplayName                = $user.userDisplayName
                 IsAdmin                    = [bool]$user.isAdmin
+                # Microsoft's own policy-aware verdict, carried alongside this roster's
+                # method-based bucketing rather than replacing it. Where the two disagree that is
+                # a real signal: passwordless-capable without a phishing-resistant method usually
+                # means Authenticator passwordless phone sign-in (passwordless, still phishable),
+                # while the reverse means the policy isn't allowing the method they registered.
+                IsPasswordlessCapable      = [bool]$user.isPasswordlessCapable
                 IsGuest                    = $isGuest
                 IsPossibleExternalMember   = $isPossibleExternalMember
                 IsWhfbOnly                 = $isWhfbOnly
