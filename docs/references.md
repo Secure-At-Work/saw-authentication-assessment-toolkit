@@ -463,10 +463,32 @@ which will not reconcile against a raw user count. Source:
 [howto-authentication-methods-activity](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity),
 ms.date 2025-10-22. Verified 2026-08-09.
 
-### Staged Rollout, and why TAP matters to federated tenants (backs the federation subsection)
+### Staged Rollout, and why TAP matters to federated tenants (backs the Staged Rollout inventory)
 
-Not tied to a rule: the toolkit reads no Staged Rollout configuration. Recorded because the blog
-makes claims from this page, and because it changes advice given elsewhere for hybrid tenants.
+Not tied to a rule, by design: this is inventory, collected by `Get-SAWStagedRollout` and
+interpreted by `ConvertTo-SAWStagedRolloutInventory`, and it never reaches the rules engine.
+Staged Rollout is a temporary migration state, so there is no value of "enabled" that is correct
+for every tenant. The quotes below are the caveats the inventory raises against other findings.
+
+Three API facts, each verified against Microsoft's Graph reference on 2026-08-09, because each one
+produces a plausible-looking wrong answer if missed:
+
+- The endpoint is **v1.0**, not beta: `GET /v1.0/policies/featureRolloutPolicies`.
+- The least-privileged delegated scope is **`Policy.Read.HybridAuthentication`**.
+  `Policy.Read.All` does *not* cover it; the only alternatives Microsoft lists are
+  `Directory.ReadWrite.All` and `Policy.ReadWrite.HybridAuthentication`, both write scopes this
+  toolkit will never request.
+- `feature` is an **evolvable enum**. Without a `Prefer: include-unknown-enum-members` request
+  header, the two newest members (`certificateBasedAuthentication` and
+  `multiFactorAuthentication`) return as `unknownFutureValue` rather than by name. Those two are
+  the ones an authentication assessment most cares about, so the header is sent. Without it the
+  response still parses and is still wrong.
+
+Sources for the three: [featureRolloutPolicy resource
+type](https://learn.microsoft.com/graph/api/resources/featurerolloutpolicy) (ms.date 2024-07-08)
+and [List featureRolloutPolicies](https://learn.microsoft.com/graph/api/featurerolloutpolicies-list)
+(ms.date 2024-03-06). `appliesTo` is a relationship rather than a property, so the targeted groups
+are absent unless the request adds `$expand=appliesTo`.
 
 The transition is not instant in either direction:
 

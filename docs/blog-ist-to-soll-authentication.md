@@ -281,8 +281,10 @@ should stay in place as a fallback while testing, and the domain cutover to mana
 is a separate step that Staged Rollout never performs on its own. A tenant that has been "halfway
 migrated" for two years is carrying the constraints above the whole time.
 
-The assessment doesn't currently read Staged Rollout configuration, so this is a question to ask
-rather than something the report answers. It's noted in the backlog.
+The assessment reads this directly for hybrid tenants and reports it as inventory rather than as a
+pass or fail, precisely because there's no value of "enabled" that's correct for everyone. What it
+does flag are the three caveats above, against the specific findings each one qualifies, so a
+reader working through the SSPR or TAP recommendations sees why they don't fully apply yet.
 
 ### Three announced changes that shift this ground in late 2026
 

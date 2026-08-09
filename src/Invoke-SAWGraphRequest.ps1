@@ -39,6 +39,16 @@ function Invoke-SAWGraphRequest {
         HTTP method, passed straight through to Invoke-MgGraphRequest.
     .PARAMETER Uri
         Request URI, passed straight through to Invoke-MgGraphRequest.
+    .PARAMETER Headers
+        Optional extra request headers. Only needed by callers reading an "evolvable enum",
+        where newer members are collapsed to `unknownFutureValue` unless the request opts in
+        with `Prefer: include-unknown-enum-members` (see
+        https://learn.microsoft.com/graph/best-practices-concept#handling-future-members-in-evolvable-enumerations).
+        Get-SAWStagedRollout is currently the only caller: without the header, a staged rollout
+        of certificate-based authentication or of Entra MFA - the two members most relevant to
+        this toolkit - reads back as `unknownFutureValue` and would be reported as an
+        unrecognized feature rather than by name. Omitted by every other collector, which keeps
+        their behavior byte-for-byte unchanged.
     .OUTPUTS
         Whatever Invoke-MgGraphRequest returns (Hashtable, typically).
     #>
@@ -48,10 +58,15 @@ function Invoke-SAWGraphRequest {
         [string]$Method,
 
         [Parameter(Mandatory)]
-        [string]$Uri
+        [string]$Uri,
+
+        [hashtable]$Headers
     )
 
     try {
+        if ($Headers -and $Headers.Count -gt 0) {
+            return Invoke-MgGraphRequest -Method $Method -Uri $Uri -Headers $Headers
+        }
         return Invoke-MgGraphRequest -Method $Method -Uri $Uri
     }
     catch {

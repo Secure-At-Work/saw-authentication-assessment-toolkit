@@ -160,6 +160,12 @@ function Export-SAWDashboard {
 
         [object]$NudgeForecast = $null,
 
+        # Null for a cloud-native tenant, where Staged Rollout cannot apply and the orchestrator
+        # deliberately doesn't call for it. Distinct from an inventory whose .IsAvailable is
+        # $false, which means "this tenant could have it, but we couldn't read it".
+        [AllowNull()]
+        [object]$StagedRolloutInventory = $null,
+
         [AllowEmptyCollection()]
         [object[]]$Roadmap = @(),
 
@@ -676,6 +682,103 @@ $($caInventoryRowsHtml -join "`n")
 "@
     }
 
+    # --- Staged Rollout: federated-to-managed migration state, and what it qualifies ---
+    # Inventory only, never a pass/fail: Staged Rollout is a temporary migration state, so
+    # "enabled" is neither good nor bad on its own. Three display states, kept distinct on
+    # purpose, because collapsing them would each time turn a different unknown into a false
+    # "no": not rendered at all (cloud-native tenant, cannot apply), couldn't read it (scope
+    # missing), and read it (with or without policies).
+    $stagedRolloutSectionHtml = ''
+    if ($StagedRolloutInventory) {
+        if (-not $StagedRolloutInventory.IsAvailable) {
+            $stagedRolloutSectionHtml = @"
+  <h2 class="h4 mb-3">Staged Rollout (Federated to Managed Authentication)</h2>
+  <div class="alert alert-secondary" role="alert">
+    <strong>Not read.</strong> $(ConvertTo-SAWHtmlEncoded $StagedRolloutInventory.UnavailableReason)
+  </div>
+"@
+        }
+        else {
+            $stagedRolloutRowsHtml = foreach ($p in $StagedRolloutInventory.Policies) {
+                $enabledBadge = if ($p.IsEnabled) {
+                    '<span class="badge bg-primary">Enabled</span>'
+                }
+                else {
+                    '<span class="badge bg-secondary">Disabled</span>'
+                }
+                $featureCell = if ($p.FeatureRecognized) {
+                    ConvertTo-SAWHtmlEncoded $p.FeatureLabel
+                }
+                else {
+                    "$(ConvertTo-SAWHtmlEncoded $p.FeatureLabel) <span class=""badge bg-warning text-dark"">Newer than this toolkit</span>"
+                }
+                $scopeCell = if ($p.AppliesToOrganization) {
+                    '<span class="badge bg-warning text-dark">Entire organization</span>'
+                }
+                elseif ($p.GroupCount -gt 0) {
+                    ConvertTo-SAWHtmlEncoded ($p.GroupNames -join ', ')
+                }
+                else {
+                    '<span class="text-body-secondary">No groups targeted</span>'
+                }
+                @"
+      <tr>
+        <td>$featureCell</td>
+        <td>$(ConvertTo-SAWHtmlEncoded $p.DisplayName)</td>
+        <td>$enabledBadge</td>
+        <td>$scopeCell</td>
+      </tr>
+"@
+            }
+
+            $stagedRolloutTableHtml = ''
+            if ($StagedRolloutInventory.Policies.Count -gt 0) {
+                $stagedRolloutTableHtml = @"
+  <div class="table-responsive mb-4">
+    <table class="table table-striped table-hover align-middle">
+      <thead>
+        <tr><th>Feature</th><th>Policy</th><th>State</th><th>Applies to</th></tr>
+      </thead>
+      <tbody>
+$($stagedRolloutRowsHtml -join "`n")
+      </tbody>
+    </table>
+  </div>
+"@
+            }
+
+            $stagedRolloutCaveatsHtml = ''
+            if ($StagedRolloutInventory.Caveats.Count -gt 0) {
+                $caveatItemsHtml = foreach ($c in $StagedRolloutInventory.Caveats) {
+                    @"
+    <li class="mb-3">
+      <strong>$(ConvertTo-SAWHtmlEncoded $c.Heading)</strong><br>
+      $(ConvertTo-SAWHtmlEncoded $c.Detail)<br>
+      <span class="text-body-secondary small">Qualifies: $(ConvertTo-SAWHtmlEncoded $c.AffectsRules)</span>
+    </li>
+"@
+                }
+                $stagedRolloutCaveatsHtml = @"
+  <div class="alert alert-warning" role="alert">
+    <h3 class="h6">Because Staged Rollout is active, some findings elsewhere in this report are qualified</h3>
+    <p class="small mb-2">These aren't failures. They're places where the standard recommendation doesn't fully apply while the tenant is mid-migration, and following it anyway would produce a result that looks right and isn't.</p>
+    <ul class="mb-0 small">
+$($caveatItemsHtml -join "`n")
+    </ul>
+  </div>
+"@
+            }
+
+            $stagedRolloutSectionHtml = @"
+  <h2 class="h4 mb-3">Staged Rollout (Federated to Managed Authentication)</h2>
+  <p class="text-body-secondary small">Staged Rollout moves a pilot group from federated sign-in (AD FS or a third-party identity provider) to Microsoft Entra, ahead of converting the whole domain. It's reported here as inventory rather than as a pass or fail, because Microsoft designs it as a temporary testing state rather than a configuration with a correct value. Group targeting is capped at 10 groups per feature, and nested and dynamic groups aren't supported.</p>
+  <p class="small">$(ConvertTo-SAWHtmlEncoded $StagedRolloutInventory.Summary)</p>
+$stagedRolloutTableHtml
+$stagedRolloutCaveatsHtml
+"@
+        }
+    }
+
     # --- FIDO2 key restrictions: which specific keys/providers are allowed ---
     $fido2KeyRowsHtml = foreach ($k in $Fido2KeyInventory.AllowedKeys) {
         $recognizedBadge = if ($k.Recognized) {
@@ -1164,6 +1267,7 @@ $rosterSectionHtml
 $authMethodsInventorySectionHtml
 $fido2KeyInventorySectionHtml
 $caInventorySectionHtml
+$stagedRolloutSectionHtml
   <h2 class="h4 mb-3">Detail by Category</h2>
   <ul class="nav nav-pills mb-3" role="tablist">
 $($navItems -join "`n")

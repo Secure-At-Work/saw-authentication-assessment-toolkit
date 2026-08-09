@@ -128,6 +128,29 @@ it in [docs/references.md](docs/references.md). Beyond the rules themselves, the
   coverage further (Google Titan if a source ever turns up, other vendors entirely) is just more
   entries in `$knownFido2KeyAaguids`. Omitted from the dashboard entirely when key restrictions
   aren't enforced (nothing to list) or FIDO2 itself is tenant-wide disabled.
+- A **Staged Rollout inventory** (`Get-SAWStagedRollout.ps1` +
+  `ConvertTo-SAWStagedRolloutInventory.ps1`) for tenants moving from federated sign-in to managed
+  cloud authentication. Deliberately **not** a pass/fail rule: Microsoft designs Staged Rollout as
+  a temporary testing state ("not designed to be a permanent configuration"), so "enabled" is
+  neither good nor bad on its own. What it has is consequences, and those are what gets reported -
+  when at least one rollout policy is enabled, the dashboard raises the three places where advice
+  elsewhere in the same report stops fully applying:
+  - **SSPR with on-premises writeback isn't supported** while staged rollout is enabled for a
+    security group, and Microsoft says it can't be guaranteed even where it appears to work.
+    Qualifies SSPR001/SSPR002.
+  - **A TAP skips the last federated sign-in.** Adding a user to a rollout group doesn't take
+    effect until one more interactive sign-in through the old identity provider - unless a TAP is
+    issued, because Entra evaluates a TAP *before* it redirects to the federated IdP. That makes
+    AUTH005/TAP001/TAP002/BOOT001 do double duty as migration tooling.
+  - **WHfB hybrid *certificate* trust and smartcards aren't supported** on staged rollout at all,
+    removing a bootstrap route for the population most likely to have it. Hybrid *key* trust and
+    cloud Kerberos trust aren't named in that limitation.
+
+  A fourth note fires only when a policy has `isAppliedToOrganization = true`, since org-wide is a
+  migration to finish rather than a pilot. Only requested for Hybrid/FormerlyHybrid tenants - a
+  cloud-native tenant can't have this, so the section isn't rendered at all rather than shown
+  empty. Three display states are kept distinct on purpose (not applicable, couldn't read it, read
+  it), because collapsing any of them turns a different unknown into a false "no".
 - A full **Authentication Methods policy inventory** (`ConvertTo-SAWAuthenticationMethodsInventory.ps1`)
   - every method's enabled/disabled state, who's included/excluded, and key settings in plain
   language - independent of the pass/fail checks. Target scoping is confirmed against Microsoft's
@@ -326,23 +349,6 @@ Not yet built: Markdown/Excel/JSON report exports (spec section 14).
   combinations support passkeys *at all*, regardless of any specific tenant's device fleet - is
   already written up in [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md),
   since that part is the same for every tenant and doesn't need a collector to answer.
-- **Staged Rollout state for federated tenants** (`GET /beta/policies/featureRolloutPolicies`).
-  Not currently collected. Staged Rollout is the mechanism that moves a pilot group from federated
-  to managed cloud authentication, and a tenant sitting in it has three constraints that change
-  advice this toolkit already gives: SSPR with on-premises writeback isn't supported while it's
-  enabled for a security group, Windows Hello for Business hybrid *certificate* trust (federation
-  server as registration authority) and smartcard users aren't supported at all, and a user newly
-  added to the rollout needs one more interactive sign-in through the old identity provider unless
-  a TAP is issued, because Entra evaluates a TAP before it redirects to the federated IdP. That
-  last point is a genuinely useful extension of the existing TAP bootstrap story (AUTH005, TAP001,
-  TAP002, BOOT001) rather than a new one. Arguments against building it: this is Entra Connect
-  territory rather than the authentication-methods surface the toolkit otherwise stays inside, it
-  needs an additional Graph scope, and it's a deliberately temporary state that Microsoft says is
-  "not designed to be a permanent configuration." A cheaper middle option is to surface it as an
-  inventory row plus caveats on the SSPR rules when the tenant profile is Hybrid, rather than as a
-  pass/fail rule. The documentation half is already written up in the blog and in
-  [docs/references.md](docs/references.md).
-
 ## Customer baselines (SOLL)
 
 SOLL (target state) is customer-specific: a hybrid tenant still tied to on-prem AD may
@@ -673,5 +679,12 @@ rule-by-rule diff between two specific runs.
   `Microsoft.Graph.Identity.SignIns`, `Microsoft.Graph.Users`) aren't actually needed.
 - Delegated Graph permissions with **read-only** scopes: `Policy.Read.All`,
   `UserAuthenticationMethod.Read.All`, `Reports.Read.All`, `AuditLog.Read.All`,
-  `Directory.Read.All` (the default set `Connect-SAWGraph.ps1` requests) — no write scopes
-  should ever be requested.
+  `Directory.Read.All`, `Policy.Read.HybridAuthentication` (the default set
+  `Connect-SAWGraph.ps1` requests) — no write scopes should ever be requested.
+  `Policy.Read.HybridAuthentication` is the odd one out and worth knowing about: it covers only
+  the Staged Rollout inventory, and `Policy.Read.All` does **not** imply it. Microsoft's
+  permissions table for `/policies/featureRolloutPolicies` lists it as the least-privileged
+  option, with the only alternatives being write scopes this toolkit will never ask for. Adding
+  it means one more admin consent the first time you run after upgrading. If that consent isn't
+  available in a given tenant, pass a `-Scopes` list without it: the rest of the assessment is
+  unaffected and the Staged Rollout section reports "not read" rather than failing the run.

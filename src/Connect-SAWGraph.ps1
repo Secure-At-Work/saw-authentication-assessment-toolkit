@@ -29,7 +29,10 @@ function Connect-SAWGraph {
         what was asked for, this disconnects and reconnects fresh instead of reusing it.
     .PARAMETER Scopes
         Graph delegated scopes to request. Defaults to the union of every read-only scope
-        the toolkit's collectors need.
+        the toolkit's collectors need. All are read-only; none of them permit a write, which is
+        deliberate and load-bearing for this toolkit. Note that Policy.Read.All does not cover
+        every policy endpoint: Staged Rollout needs Policy.Read.HybridAuthentication as well, so
+        that scope is requested separately (see the default list below).
     .PARAMETER TenantId
         Optional. The tenant (GUID or verified domain name, same as Connect-MgGraph's own
         -TenantId) you intend to assess. If an active connection already exists but belongs to
@@ -93,7 +96,17 @@ function Connect-SAWGraph {
             'UserAuthenticationMethod.Read.All',
             'Reports.Read.All',
             'AuditLog.Read.All',
-            'Directory.Read.All'
+            'Directory.Read.All',
+            # Staged Rollout inventory only (Get-SAWStagedRollout). Listed separately because
+            # it's the one scope here that isn't implied by the others: Policy.Read.All does NOT
+            # cover /policies/featureRolloutPolicies - Microsoft's own permissions table for that
+            # endpoint names Policy.Read.HybridAuthentication as the least-privileged option, and
+            # otherwise only write scopes this read-only toolkit will never request. Adding it
+            # means one more admin consent on first run after upgrading. If that consent isn't
+            # available in a given tenant, pass a -Scopes list without it: everything else still
+            # runs, and Get-SAWStagedRollout degrades to reporting "not read" rather than failing
+            # the assessment.
+            'Policy.Read.HybridAuthentication'
         ),
 
         [string]$TenantId,

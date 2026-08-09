@@ -1,0 +1,64 @@
+{
+  "@odata.context": "https://graph.microsoft.com/v1.0/$metadata#policies/featureRolloutPolicies(appliesTo())",
+  "value": [
+    {
+      "id": "e3c2f23a-edd2-43a8-849f-154e70794ac5",
+      "displayName": "PasswordHashSync rollout policy",
+      "description": "Pilot wave 1 - finance and IT",
+      "feature": "passwordHashSync",
+      "isEnabled": true,
+      "isAppliedToOrganization": false,
+      "appliesTo": [
+        {
+          "@odata.type": "#microsoft.graph.group",
+          "id": "11111111-1111-1111-1111-111111111111",
+          "displayName": "SRO-Pilot-Finance"
+        },
+        {
+          "@odata.type": "#microsoft.graph.group",
+          "id": "22222222-2222-2222-2222-222222222222",
+          "displayName": "SRO-Pilot-IT"
+        }
+      ]
+    },
+    {
+      "id": "df85e4d9-e8c4-4033-a41c-73419a95c29c",
+      "displayName": "SeamlessSso rollout policy",
+      "description": "Seamless SSO for the same pilot waves",
+      "feature": "seamlessSso",
+      "isEnabled": true,
+      "isAppliedToOrganization": false,
+      "appliesTo": [
+        {
+          "@odata.type": "#microsoft.graph.group",
+          "id": "11111111-1111-1111-1111-111111111111",
+          "displayName": "SRO-Pilot-Finance"
+        }
+      ]
+    },
+    {
+      "id": "4b7f9c11-6d3e-4a52-9f10-8c2b7d5e0a33",
+      "displayName": "Entra MFA rollout policy",
+      "description": "Move MFA off the on-premises MFA Server",
+      "feature": "multiFactorAuthentication",
+      "isEnabled": true,
+      "isAppliedToOrganization": true,
+      "appliesTo": []
+    },
+    {
+      "id": "9a0e5b27-1c84-4f3d-b6a7-2e91d4c8f005",
+      "displayName": "PassthroughAuthentication rollout policy",
+      "description": "Created during evaluation, never switched on",
+      "feature": "passthroughAuthentication",
+      "isEnabled": false,
+      "isAppliedToOrganization": false,
+      "appliesTo": [
+        {
+          "@odata.type": "#microsoft.graph.group",
+          "id": "33333333-3333-3333-3333-333333333333",
+          "displayName": "SRO-Pilot-PTA-Test"
+        }
+      ]
+    }
+  ]
+}
