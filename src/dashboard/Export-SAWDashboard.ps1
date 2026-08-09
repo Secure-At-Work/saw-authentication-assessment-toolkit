@@ -1165,6 +1165,30 @@ $($flowCardsHtml -join "`n")
     if ($TenantDisplayName) { $titleTenantSuffix += " - $(ConvertTo-SAWHtmlEncoded $TenantDisplayName)" }
     if ($RunTimestamp) { $titleTenantSuffix += " - $(ConvertTo-SAWHtmlEncoded $runTimestampDisplay)" }
 
+    # The tenant name is the headline in the hero, because a consultant with several of these
+    # open needs to tell them apart at a glance, and the product name is already in the brand
+    # line above it. Falls back to the product name when no tenant was resolved (sample data,
+    # or a profile call that came back empty).
+    $heroTitle = if ($TenantDisplayName) {
+        ConvertTo-SAWHtmlEncoded $TenantDisplayName
+    }
+    else {
+        'Authentication Assessment'
+    }
+
+    # One headline number in the hero: how many checks are not currently at the target state.
+    # Deliberately counts Red + Yellow and excludes Grey, since Grey means "not applicable to
+    # this tenant" rather than "unresolved", and rolling it in would inflate the number with
+    # items nobody can act on.
+    $openFindings = $counts.Red + $counts.Yellow
+    $heroScoreChipHtml = if ($totalRules -gt 0) {
+        $openLabel = if ($openFindings -eq 1) { 'finding open' } else { 'findings open' }
+        "      <span class=""saw-chip"" title=""Red plus Yellow. Grey items are not applicable to this tenant and are excluded.""><strong>$openFindings</strong> $openLabel</span>"
+    }
+    else {
+        ''
+    }
+
     $envBannerHtml = ''
     if ($TenantDisplayName -or $TenantId -or $RunTimestamp) {
         $tenantLineHtml = ''
@@ -1205,28 +1229,32 @@ $(if ($DomainServicesDetected) {
 $timelineSectionHtml
   <h2 class="h4 mb-3">Overview</h2>
   <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-lg-3">
-      <div class="card stat-card green h-100"><div class="card-body">
-        <div class="text-uppercase text-body-secondary small">Green</div>
-        <div class="fs-2 fw-bold">$($counts.Green)</div>
-      </div></div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
-      <div class="card stat-card yellow h-100"><div class="card-body">
-        <div class="text-uppercase text-body-secondary small">Yellow</div>
-        <div class="fs-2 fw-bold">$($counts.Yellow)</div>
-      </div></div>
-    </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-6 col-lg-3">
       <div class="card stat-card red h-100"><div class="card-body">
-        <div class="text-uppercase text-body-secondary small">Red</div>
-        <div class="fs-2 fw-bold">$($counts.Red)</div>
+        <div class="stat-label">Red</div>
+        <div class="stat-value">$($counts.Red)</div>
+        <div class="small text-body-secondary">Below target, act first</div>
       </div></div>
     </div>
-    <div class="col-sm-6 col-lg-3">
+    <div class="col-6 col-lg-3">
+      <div class="card stat-card yellow h-100"><div class="card-body">
+        <div class="stat-label">Yellow</div>
+        <div class="stat-value">$($counts.Yellow)</div>
+        <div class="small text-body-secondary">Below target, lower severity</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
+      <div class="card stat-card green h-100"><div class="card-body">
+        <div class="stat-label">Green</div>
+        <div class="stat-value">$($counts.Green)</div>
+        <div class="small text-body-secondary">At target state</div>
+      </div></div>
+    </div>
+    <div class="col-6 col-lg-3">
       <div class="card stat-card grey h-100"><div class="card-body">
-        <div class="text-uppercase text-body-secondary small">Grey / N/A</div>
-        <div class="fs-2 fw-bold">$($counts.Grey)</div>
+        <div class="stat-label">Grey</div>
+        <div class="stat-value">$($counts.Grey)</div>
+        <div class="small text-body-secondary">Not applicable here</div>
       </div></div>
     </div>
   </div>
@@ -1302,7 +1330,8 @@ $ReadingGuideHtml
     }
 
     $mainContentHtml = @"
-  <ul class="nav nav-tabs mb-4" role="tablist">
+  <div class="saw-tabs-sticky mb-4">
+  <ul class="nav nav-tabs" role="tablist">
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab" aria-controls="pane-overview" aria-selected="true">Overview</button>
     </li>
@@ -1317,6 +1346,7 @@ $ReadingGuideHtml
     </li>
 $readingGuideNavHtml
   </ul>
+  </div>
   <div class="tab-content">
     <div class="tab-pane fade show active" id="pane-overview" role="tabpanel" aria-labelledby="tab-overview">
 $overviewPaneHtml
@@ -1337,6 +1367,20 @@ $readingGuidePaneHtml
     $html = @"
 <!doctype html>
 <html lang="en" data-bs-theme="light">
+<script>
+  /* Set the Bootstrap theme before first paint, so a dark-mode reader never sees a white
+     flash. Deliberately follows the OS setting only: this report is a deliverable that gets
+     opened once and handed on, so a manual toggle would be state nobody asked to manage.
+     Printing always forces light, because these get exported to PDF. */
+  (function () {
+    try {
+      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+      window.addEventListener('beforeprint', function () { document.documentElement.setAttribute('data-bs-theme', 'light'); });
+      window.addEventListener('afterprint', function () { document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light'); });
+    } catch (e) { /* leave the light default in place */ }
+  })();
+</script>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1362,6 +1406,23 @@ $readingGuidePaneHtml
     --saw-primary-light: #eff5fe;
     --saw-bg: #f9fbff;
     --saw-ink: #191919;
+    --saw-heading: #0d1b2a;
+    --saw-muted: #5c6b7f;
+    --saw-border: rgba(16, 24, 40, 0.09);
+    --saw-card-header: #fbfcfe;
+    --saw-hero-from: #2b57a7;
+    --saw-hero-mid: #0064da;
+    --saw-hero-to: #2f8ae8;
+
+    /* Status colours. Kept as traffic-light semantics rather than brand colour, but
+       split into an accent (borders, tile rules) and a bg/ink pair for tinted badges,
+       because solid amber on white fails contrast at badge size. Ink values are
+       darkened until they pass WCAG AA against their own tint. */
+    --saw-green: #198754;  --saw-green-bg: #e7f4ed;  --saw-green-ink: #10633d;
+    --saw-yellow: #e0a800; --saw-yellow-bg: #fdf4dd; --saw-yellow-ink: #7a5600;
+    --saw-red: #dc3545;    --saw-red-bg: #fdebed;    --saw-red-ink: #a71d2a;
+    --saw-grey: #6c757d;   --saw-grey-bg: #eef1f5;   --saw-grey-ink: #4a5462;
+
     --bs-primary: var(--saw-primary);
     --bs-primary-rgb: 0, 100, 218;
     --bs-link-color: var(--saw-primary);
@@ -1373,42 +1434,202 @@ $readingGuidePaneHtml
     --bs-border-radius-sm: 0.4rem;
     --bs-border-radius-lg: 0.75rem;
   }
-  body { padding-bottom: 3rem; background-color: var(--saw-bg); }
-  a { color: var(--saw-primary); }
+  body {
+    padding-bottom: 4rem;
+    background-color: var(--saw-bg);
+    color: var(--saw-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--saw-primary); text-underline-offset: 0.15em; }
   a:hover { color: var(--saw-primary-dark); }
-  .navbar-saw { background-color: var(--saw-primary) !important; }
-  .navbar-brand { font-weight: 700; letter-spacing: -0.01em; display: inline-flex; align-items: center; gap: 0.5rem; }
+
+  /* Type scale. Headings are tightened and slightly darker than body text so section
+     boundaries read at a glance when scrolling a long report. */
+  h1, h2, h3, h4, h5, h6 { letter-spacing: -0.018em; color: var(--saw-heading); }
+  h2.h4 { font-weight: 650; }
+  .lead-sm { font-size: 0.9375rem; line-height: 1.6; }
+
+  /* --- Hero -------------------------------------------------------------------
+     Replaces a flat navbar strip. The tenant name is the thing a consultant running
+     several assessments needs to identify a file by, so it is the largest element. */
+  .saw-hero {
+    /* Deliberately its own colour pair rather than reusing --saw-primary: dark mode lightens
+       the primary blue for text contrast, which would wash the hero out to near-white. */
+    background: linear-gradient(135deg, var(--saw-hero-from) 0%, var(--saw-hero-mid) 55%, var(--saw-hero-to) 100%);
+    color: #fff;
+    padding: 1.75rem 0 1.5rem;
+    margin-bottom: 1.75rem;
+    box-shadow: 0 8px 28px rgba(0, 60, 130, 0.18);
+  }
+  .saw-hero a { color: #fff; }
+  .saw-hero-brand {
+    display: inline-flex; align-items: center; gap: 0.5rem;
+    font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+    font-size: 0.78rem; opacity: 0.92; margin-bottom: 0.65rem;
+  }
+  .saw-hero-title { font-weight: 700; font-size: clamp(1.35rem, 2.4vw, 1.9rem); margin: 0; color: #fff; }
+  .saw-hero-sub { opacity: 0.85; font-size: 0.875rem; margin: 0.35rem 0 0; }
+  .saw-hero-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
+  .saw-chip {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px; padding: 0.2rem 0.7rem;
+    font-size: 0.78rem; white-space: nowrap;
+  }
+  .saw-chip strong { font-weight: 600; }
   .navbar-mark { flex: none; }
-  .card { border-color: rgba(0, 0, 0, 0.06); box-shadow: 0 3px 20px rgba(0, 0, 0, 0.06); }
-  .card-header { font-weight: 600; }
-  .nav-tabs .nav-link.active { color: var(--saw-primary); border-bottom: 2px solid var(--saw-primary); }
-  .nav-pills .nav-link.active, .nav-pills .show > .nav-link { background-color: var(--saw-primary); }
-  .stat-card { border-left: 4px solid; }
-  .stat-card.green { border-left-color: #198754; }
-  .stat-card.yellow { border-left-color: #ffc107; }
-  .stat-card.red { border-left-color: #dc3545; }
-  .stat-card.grey { border-left-color: #6c757d; }
+
+  /* --- Cards ------------------------------------------------------------------ */
+  .card {
+    border-color: var(--saw-border);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 20px rgba(16, 24, 40, 0.05);
+    transition: box-shadow 0.16s ease, transform 0.16s ease;
+  }
+  .card-header { font-weight: 600; background-color: var(--saw-card-header); border-bottom-color: var(--saw-border); }
+  details.card > summary.card-header:hover { background-color: var(--saw-primary-light); }
+
+  /* --- KPI tiles ---------------------------------------------------------------
+     Previously a 4px left border. Now a top accent plus a tinted, tabular-figure
+     numeral, so the four tiles scan as a set and the numbers line up. */
+  .stat-card { position: relative; overflow: hidden; border-top: 3px solid transparent; }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(16,24,40,0.05), 0 12px 28px rgba(16,24,40,0.10); }
+  .stat-card .stat-label {
+    text-transform: uppercase; letter-spacing: 0.06em;
+    font-size: 0.7rem; font-weight: 650; color: var(--saw-muted);
+  }
+  .stat-card .stat-value {
+    font-size: 2.35rem; font-weight: 700; line-height: 1.1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+  }
+  .stat-card.green  { border-top-color: var(--saw-green); }
+  .stat-card.yellow { border-top-color: var(--saw-yellow); }
+  .stat-card.red    { border-top-color: var(--saw-red); }
+  .stat-card.grey   { border-top-color: var(--saw-grey); }
+  .stat-card.green  .stat-value { color: var(--saw-green); }
+  .stat-card.yellow .stat-value { color: var(--saw-yellow-ink); }
+  .stat-card.red    .stat-value { color: var(--saw-red); }
+  .stat-card.grey   .stat-value { color: var(--saw-grey); }
+
+  /* --- Navigation --------------------------------------------------------------
+     Sticky, because several panes are long tables and losing the tab bar halfway
+     down means scrolling back to the top to change view. */
+  .saw-tabs-sticky {
+    position: sticky; top: 0; z-index: 1020;
+    background-color: var(--saw-bg);
+    padding-top: 0.35rem;
+    box-shadow: 0 6px 12px -10px rgba(16, 24, 40, 0.5);
+  }
+  .nav-tabs { border-bottom-color: var(--saw-border); }
+  .nav-tabs .nav-link { color: var(--saw-muted); font-weight: 550; border: none; border-bottom: 2px solid transparent; }
+  .nav-tabs .nav-link:hover { color: var(--saw-primary); border-bottom-color: var(--saw-border); }
+  .nav-tabs .nav-link.active { color: var(--saw-primary); background: transparent; border-bottom: 2px solid var(--saw-primary); }
+  .nav-pills .nav-link { color: var(--saw-muted); font-weight: 550; }
+  .nav-pills .nav-link.active, .nav-pills .show > .nav-link { background-color: var(--saw-primary); color: #fff; }
+
+  /* --- Tables ------------------------------------------------------------------
+     Column headers become quiet micro-labels and the heavy zebra striping goes, so
+     the coloured status badges are the only strong signal in the grid. */
+  .table { --bs-table-border-color: var(--saw-border); }
+  .table > thead > tr > th {
+    text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 0.7rem; font-weight: 650; color: var(--saw-muted);
+    border-bottom: 1px solid var(--saw-border); white-space: nowrap;
+  }
+  .table > tbody > tr > td { vertical-align: middle; }
+  .table-striped > tbody > tr:nth-of-type(odd) > * { --bs-table-accent-bg: transparent; background-color: transparent; }
+  .table-hover > tbody > tr:hover > * { background-color: var(--saw-primary-light); }
+  .table-responsive { border-radius: var(--bs-border-radius); }
+  .table-responsive > .table { margin-bottom: 0; }
+
+  /* --- Badges ------------------------------------------------------------------
+     Bootstrap's solid warning/secondary badges are visually louder than the finding
+     they label. These are tinted pills: same semantics, far less shouting. */
+  .badge { font-weight: 600; letter-spacing: 0.01em; border-radius: 999px; padding: 0.34em 0.68em; }
+  .badge.bg-success { background-color: var(--saw-green-bg) !important; color: var(--saw-green-ink) !important; }
+  .badge.bg-warning { background-color: var(--saw-yellow-bg) !important; color: var(--saw-yellow-ink) !important; }
+  .badge.bg-danger  { background-color: var(--saw-red-bg) !important;   color: var(--saw-red-ink) !important; }
+  .badge.bg-secondary { background-color: var(--saw-grey-bg) !important; color: var(--saw-grey-ink) !important; }
+  .badge.bg-primary { background-color: var(--saw-primary-light) !important; color: var(--saw-primary-dark) !important; }
+
+  /* --- Alerts ------------------------------------------------------------------ */
+  .alert { border: 1px solid var(--saw-border); border-left-width: 4px; }
+  .alert-warning { border-left-color: var(--saw-yellow); }
+  .alert-danger { border-left-color: var(--saw-red); }
+  .alert-secondary { border-left-color: var(--saw-primary); background-color: var(--saw-primary-light); }
+
+  code { color: var(--saw-primary-dark); background-color: var(--saw-primary-light); padding: 0.1em 0.35em; border-radius: 0.3rem; }
+
   .reading-guide-content { max-width: 900px; }
   .reading-guide-content h1 { margin-top: 0.5rem; margin-bottom: 1rem; }
   .reading-guide-content h2 { margin-top: 2rem; margin-bottom: 0.75rem; }
   .reading-guide-content h3 { margin-top: 1.5rem; margin-bottom: 0.5rem; }
   .reading-guide-content table { margin: 1rem 0; }
+
+  /* --- Dark mode ---------------------------------------------------------------
+     Follows the reader's OS setting. Bootstrap 5.3 already themes its own components
+     from data-bs-theme, which the inline script below flips; these variables cover
+     the custom surfaces above. */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --saw-bg: #0f1520;
+      --saw-ink: #e6e9ef;
+      --saw-heading: #f4f6fa;
+      --saw-muted: #98a3b5;
+      --saw-border: rgba(255, 255, 255, 0.10);
+      --saw-card-header: rgba(255, 255, 255, 0.03);
+      --saw-primary: #5aa4ff;
+      --saw-primary-dark: #8dc0ff;
+      --saw-primary-light: rgba(90, 164, 255, 0.13);
+      /* Hero stays deep in dark mode; only slightly desaturated so it doesn't glow. */
+      --saw-hero-from: #16305e;
+      --saw-hero-mid: #10457f;
+      --saw-hero-to: #1b5c9e;
+      --saw-green-bg: rgba(45, 190, 120, 0.16); --saw-green-ink: #63d9a0;
+      --saw-yellow-bg: rgba(240, 180, 40, 0.16); --saw-yellow-ink: #f0c257;
+      --saw-red-bg: rgba(240, 90, 100, 0.16);   --saw-red-ink: #ff8b93;
+      --saw-grey-bg: rgba(160, 170, 185, 0.16); --saw-grey-ink: #aab3c2;
+    }
+    .card { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.30); }
+    .saw-hero { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
+  }
+
+  /* --- Print -------------------------------------------------------------------
+     Consultants hand these over as PDFs. Show every tab pane rather than only the
+     active one, drop shadows and interactive chrome, and avoid breaking a card
+     across pages. */
+  @media print {
+    body { background: #fff; padding-bottom: 0; }
+    .saw-hero { background: var(--saw-primary-dark) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none; }
+    .saw-tabs-sticky, .nav-tabs, .nav-pills { display: none !important; }
+    .tab-pane { display: block !important; opacity: 1 !important; }
+    .card { box-shadow: none; break-inside: avoid; }
+    .table-responsive { overflow: visible !important; }
+    a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.7em; word-break: break-all; }
+  }
 </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark navbar-saw mb-4">
+<header class="saw-hero">
   <div class="container-fluid">
-    <span class="navbar-brand">
-      <svg class="navbar-mark" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <div class="saw-hero-brand">
+      <svg class="navbar-mark" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path d="M12 2L4 5.5V11C4 16.2 7.4 20.9 12 22C16.6 20.9 20 16.2 20 11V5.5L12 2Z" fill="white" fill-opacity="0.18"/>
         <path d="M12 2L4 5.5V11C4 16.2 7.4 20.9 12 22C16.6 20.9 20 16.2 20 11V5.5L12 2Z" stroke="white" stroke-width="1.4" stroke-linejoin="round"/>
         <path d="M8.5 12.2L10.8 14.5L15.5 9.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      Secure At Work &middot; Authentication Assessment Dashboard
-    </span>
-    <span class="navbar-text text-white-50">Generated $generated &middot; $totalRules checks &middot; Read-only assessment, no tenant changes made</span>
+      Secure At Work
+    </div>
+    <h1 class="saw-hero-title">$heroTitle</h1>
+    <p class="saw-hero-sub">Entra ID Authentication Assessment &middot; IST versus SOLL</p>
+    <div class="saw-hero-meta">
+      <span class="saw-chip">Generated <strong>$generated</strong></span>
+      <span class="saw-chip"><strong>$totalRules</strong> checks</span>
+$heroScoreChipHtml
+      <span class="saw-chip" title="This toolkit only ever issues HTTP GET requests.">Read-only &middot; no tenant changes made</span>
+    </div>
   </div>
-</nav>
+</header>
 <div class="container-fluid">
 
 $envBannerHtml
@@ -1443,6 +1664,12 @@ $mainContentHtml
 <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
 <script src="vendor/chartjs/chart.umd.min.js"></script>
 <script>
+  /* Chart.js draws legends and axis ticks in a fixed dark grey, which disappears against the
+     dark theme. Read the resolved body colour instead so both themes stay legible. */
+  Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('color') || '#191919';
+  Chart.defaults.borderColor = getComputedStyle(document.documentElement).getPropertyValue('--saw-border').trim() || 'rgba(16,24,40,0.09)';
+  Chart.defaults.font.family = getComputedStyle(document.body).getPropertyValue('font-family');
+
   new Chart(document.getElementById('statusChart'), {
     type: 'doughnut',
     data: {
