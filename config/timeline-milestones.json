@@ -20,6 +20,24 @@
             "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered (upper-bound proxy for tenant-wide policy scope - Graph doesn't expose per-user AMP-scope evaluation directly, only what's registered)"
         },
         {
+            "Date": "2026-09-18",
+            "Title": "Customer-Managed Telecom Providers Become Reviewable (Microsoft Security Store)",
+            "Description": "Microsoft publishes the telecom providers and related information in the Microsoft Security Store, so tenants with a genuine regulatory or operational need for an SMS/Voice channel can evaluate which option meets their regional and compliance requirements. This is an OPENING, not a deadline: nothing is required of anyone on this date, and it only matters to the subset of tenants that cannot move a given user segment to a phishing-resistant method. Everyone else should be treating passkeys as the migration path and can ignore this row. Verified 2026-08-09 against the Source URL: 'Beginning September 18th, 2026, review the telecom providers and related information available through the Microsoft Security Store to evaluate which option best meets your regional and compliance requirements.'",
+            "RelatedRuleIDs": ["AUTH002", "AUTH003"],
+            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement",
+            "ImpactMetric": "PhoneBasedMethodUsers",
+            "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered - only the regulated/operational subset of these needs a telecom provider at all"
+        },
+        {
+            "Date": "2026-10-30",
+            "Title": "Customer-Managed Telecom Providers Become Configurable",
+            "Description": "From this date a tenant that needs to keep SMS or voice can actually select and configure a telecom provider from the Microsoft Security Store, then stand up the carrier contract and pilot it. Note the wording carefully, because secondary write-ups have compressed this into 'organizations must configure their own telecom provider by October 30' - that is wrong and would invent a deadline that does not exist. Microsoft's own sentence is 'Beginning October 30, 2026, customers who need to continue using SMS or voice will be able to select and configure a telecom provider from the Microsoft Security Store' - the capability opens on this date. The only hard deadline remains 2027-02-01, when Microsoft-provided delivery stops. Verified 2026-08-09 against the Source URL (ms.date 2026-07-29).",
+            "RelatedRuleIDs": ["AUTH002", "AUTH003"],
+            "SourceUrl": "https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement",
+            "ImpactMetric": "PhoneBasedMethodUsers",
+            "ImpactMetricLabel": "users with a phone-based method (SMS/Voice) still registered - only the regulated/operational subset of these needs a telecom provider at all"
+        },
+        {
             "Date": "2026-10-05",
             "Title": "SSPR Stops Accepting Directory-Sourced Contact Info",
             "Description": "SSPR will only accept explicitly registered authentication methods from this date. Directory-sourced attributes synced from on-premises AD (mobilePhone, businessPhone, otherMails) that were never explicitly registered stop working for SSPR verification. Date corrected from an earlier recorded value of 2026-09-07 - re-verified 2026-08-06 against the Source URL (updated by Microsoft 2026-08-04).",
