@@ -3,8 +3,8 @@ function Export-SAWDriftReport {
     .SYNOPSIS
         Renders a Compare-SAWRuleResults comparison into a static HTML drift report.
     .DESCRIPTION
-        Minimal, dependency-free HTML report (same style as Export-SAWHtmlReport.ps1 - no
-        Bootstrap/Chart.js, self-contained single file) for comparing two assessment runs of
+        Minimal, dependency-free HTML report (no Bootstrap/Chart.js, self-contained single
+        file, so it can be emailed on its own) for comparing two assessment runs of
         the same tenant. Regressions are shown first (they're what an assessor needs to act on
         immediately), then improvements, then applicability changes and rule-set changes, then
         the roster bucket deltas. Unchanged rules are summarized as a count only - showing all

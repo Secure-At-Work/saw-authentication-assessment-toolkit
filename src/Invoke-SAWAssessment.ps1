@@ -5,9 +5,9 @@
 .DESCRIPTION
     Wires together every collector/normalizer pair from spec section 6 - Authentication
     Methods, Conditional Access, Authentication Strengths, Registration, Temporary Access
-    Pass, Passkeys, Sign-In Logs, and Audit Logs - with the shared Invoke-SAWRulesEngine,
-    Export-SAWHtmlReport (flat table), and Export-SAWDashboard (multi-section Bootstrap/
-    Chart.js dashboard). Read-only end to end; never modifies tenant configuration.
+    Pass, Passkeys, Sign-In Logs, and Audit Logs - with the shared Invoke-SAWRulesEngine and
+    Export-SAWDashboard (multi-section Bootstrap/Chart.js dashboard). Read-only end to end;
+    never modifies tenant configuration.
 .PARAMETER UseSampleData
     Run against the bundled sample data instead of a live tenant. Requires no Graph connection
     and skips Connect-SAWGraph entirely.
@@ -53,18 +53,15 @@
     Path to a per-engagement override JSON file (same shape as a baseline preset), layered on
     top of -Baseline (explicit or auto-detected) for one-off tweaks specific to this
     engagement. Optional; can be used with or without -Baseline.
-.PARAMETER ReportPath
-    Output path for the generated flat HTML report. Defaults to
-    <OutputRoot>/<tenant-slug>/<run-timestamp>/assessment-report.html so repeated runs (and
-    runs against different tenants) never overwrite each other. Pass explicitly to pin a fixed
-    location instead (e.g. for scripting/CI that always wants the latest run at a known path).
 .PARAMETER DashboardPath
     Output path for the generated dashboard's index.html. Defaults to
     <OutputRoot>/<tenant-slug>/<run-timestamp>/dashboard/index.html (a vendor/ subfolder is
-    created alongside it). Same override behavior as -ReportPath.
+    created alongside it) so repeated runs, and runs against different tenants, never overwrite
+    each other. Pass explicitly to pin a fixed location instead (e.g. for scripting/CI that
+    always wants the latest run at a known path).
 .PARAMETER OutputRoot
-    Base directory under which per-tenant, per-run report/dashboard output is namespaced when
-    -ReportPath/-DashboardPath are not explicitly given. Defaults to reports/.
+    Base directory under which per-tenant, per-run dashboard output is namespaced when
+    -DashboardPath is not explicitly given. Defaults to reports/.
 .PARAMETER HistoryPath
     Base directory for persisted JSON result snapshots, one per run, used for drift comparison
     across runs (see Invoke-SAWDriftReport.ps1). Defaults to history/. Each snapshot lands at
@@ -136,7 +133,6 @@ param(
 
     [string]$BaselineOverridePath,
 
-    [string]$ReportPath,
 
     [string]$DashboardPath,
 
@@ -167,11 +163,10 @@ if (-not $HistoryPath) { $HistoryPath = Join-Path (Join-Path $PSScriptRoot '..')
 
 # Deliberately a truthiness test rather than $PSBoundParameters.ContainsKey(): ContainsKey is a
 # method call on a generic dictionary, which ConstrainedLanguage mode blocks ("Cannot invoke method.
-# Method invocation is supported only on core types"). Under CLM both variables silently came back
-# $null, so an explicitly passed -ReportPath was overwritten by the generated path below. Both
-# parameters are [string] with no default, so an unbound parameter is '' and this is equivalent for
-# every case except -ReportPath '', which isn't a usable path anyway. Same idiom as $baselineWasExplicit.
-$reportPathWasExplicit = [bool]$ReportPath
+# Method invocation is supported only on core types"). Under CLM this silently came back $null, so
+# an explicitly passed -DashboardPath was overwritten by the generated path below. The parameter is
+# [string] with no default, so an unbound parameter is '' and this is equivalent for every case
+# except -DashboardPath '', which isn't a usable path anyway. Same idiom as $baselineWasExplicit.
 $dashboardPathWasExplicit = [bool]$DashboardPath
 
 $ErrorActionPreference = 'Stop'
@@ -214,7 +209,6 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'rules' 'Get-SAWHistoryTrend.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'Get-SAWTimelineMilestones.ps1')
 . (Join-Path $PSScriptRoot 'rules' 'ConvertTo-SAWRegistrationFlowScenarios.ps1')
-. (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWHtmlReport.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'Export-SAWDashboard.ps1')
 . (Join-Path $PSScriptRoot 'dashboard' 'ConvertTo-SAWMarkdownHtml.ps1')
 
@@ -237,9 +231,6 @@ $runTimestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $tenantSlug = $tenantProfile.Slug
 Write-Verbose "Invoke-SAWAssessment: tenant slug '$tenantSlug', run timestamp '$runTimestamp'"
 
-if (-not $reportPathWasExplicit) {
-    $ReportPath = Join-Path $OutputRoot $tenantSlug $runTimestamp 'assessment-report.html'
-}
 if (-not $dashboardPathWasExplicit) {
     $DashboardPath = Join-Path $OutputRoot $tenantSlug $runTimestamp 'dashboard' 'index.html'
 }
@@ -462,9 +453,6 @@ $nudgeSignInLogs = if ($MethodUsageDaysBack -gt 0) { $methodUsageSignInsRaw } el
 $nudgeSignInWindow = if ($MethodUsageDaysBack -gt 0) { $MethodUsageDaysBack } else { 7 }
 $nudgeForecast = ConvertTo-SAWNudgeForecast -Roster $userRoster -RegistrationRaw $registrationRaw -AuthenticationMethodsPolicy $authRaw -AdminSsprEnabled ([bool]$authorizationPolicyRaw.allowedToUseSSPR) -SecurityInfoRegistrationBlockedByCa $securityInfoRegistrationBlocked -SignInLogs $nudgeSignInLogs -SignInWindowDays $nudgeSignInWindow -Verbose:$VerbosePreference
 
-Write-Verbose 'Invoke-SAWAssessment: generating HTML report'
-$report = Export-SAWHtmlReport -RuleResults $results -TenantDisplayName $tenantProfile.DisplayName -TenantId $tenantProfile.TenantId -RunTimestamp $runTimestamp -BaselineName $baselineDisplayName -DomainServicesDetected $tenantProfile.DomainServicesDetected -OutputPath $ReportPath -Verbose:$VerbosePreference
-
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
 # Embeds docs/reading-the-report.md as a "Reading This Report" tab so the explainer travels
 # with the dashboard file itself (e.g. when the dashboard/ folder is zipped and handed to a
@@ -488,7 +476,6 @@ foreach ($result in $results) {
         $result.RuleID, $result.Category, $result.Setting, $result.Expected, $result.Actual, $result.Severity, $result.Status)
 }
 Write-Host ''
-Write-Host "Report written to: $($report.FullName)"
 Write-Host "Dashboard written to: $($dashboard.FullName)"
 if ($snapshotPath) {
     Write-Host "History snapshot written to: $snapshotPath"

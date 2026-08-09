@@ -3,11 +3,17 @@ function Export-SAWDashboard {
     .SYNOPSIS
         Renders rules engine results into the full Secure At Work dashboard (spec section 9).
     .DESCRIPTION
-        Unlike Export-SAWHtmlReport (a single flat table), this produces a multi-section
-        Bootstrap/Chart.js dashboard: an Overview with status/category charts, a prioritized
-        Risk Findings & Recommendations list, and per-category detail tabs. Both the flat
-        report and the dashboard are legitimate outputs per the spec section 3 architecture
-        diagram (Rules Engine -> Dashboard, HTML Report, ...).
+        The single HTML output of an assessment run: a multi-section Bootstrap/Chart.js
+        dashboard with an Overview carrying status/category charts, a prioritized Risk Findings
+        & Recommendations list, a remediation roadmap, user-journey detail, and policy
+        inventories.
+
+        There used to be a second, flat-table renderer alongside this one
+        (Export-SAWHtmlReport.ps1), kept from before this dashboard existed. It was removed once
+        it started actively misleading rather than merely duplicating: every section added after
+        it (roadmap, nudge forecast, FIDO2 key inventory, Staged Rollout and its caveats) landed
+        here only, so the flat report would show e.g. SSPR001 red with no sign that Staged
+        Rollout qualifies that finding for the tenant in question. One renderer means one answer.
 
         Bootstrap and Chart.js are vendored locally under src/dashboard/vendor/ (no CDN
         reference) per spec section 5 ("Everything runs locally"). This function copies that

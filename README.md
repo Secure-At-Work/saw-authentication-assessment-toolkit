@@ -23,8 +23,8 @@ src/
   rules/             Secure At Work rule definitions (JSON, no logic), the rules engine,
                       Get-SAWBaselineOverrides.ps1 (customer baseline loader), and
                       Compare-SAWRuleResults.ps1 (drift comparison between two snapshots)
-  dashboard/          Export-SAWHtmlReport.ps1 (flat table), Export-SAWDashboard.ps1
-                      (Bootstrap/Chart.js dashboard, vendored locally under vendor/), and
+  dashboard/          Export-SAWDashboard.ps1 (Bootstrap/Chart.js dashboard, vendored
+                      locally under vendor/) and
                       Export-SAWDriftReport.ps1 (flat drift comparison report)
 tests/              Pester tests, mirroring src/ (see tests/README.md - can't run locally
                     on this machine, see docs/powershell-coding-notes.md)
@@ -40,9 +40,10 @@ history/            Per-tenant, per-run JSON result snapshots for drift comparis
 
 All 8 collectors from spec section 6 are implemented (Authentication Methods, Conditional
 Access, Authentication Strengths, Registration, Temporary Access Pass, Passkeys, Sign-In
-Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section 9) and flat
-HTML report both work, and the live-Graph path has been run successfully against a real
-tenant. There are currently **30 rules** in `src/rules/` (AUDIT, AUTH, BOOT, CA, PASS, RCAMP, REG,
+Analysis, Audit Logs), each with a Pester test file. The dashboard (spec section 9) works, and
+the live-Graph path has been run successfully against a real tenant. The dashboard is now the
+single report output; the flat HTML report that used to sit beside it has been removed (see
+"Output" below for why). There are currently **30 rules** in `src/rules/` (AUDIT, AUTH, BOOT, CA, PASS, RCAMP, REG,
 SIGNIN, SSPR, STR, TAP families) - every one of them mapped to the Microsoft Learn article backing
 it in [docs/references.md](docs/references.md). Beyond the rules themselves, the dashboard has:
 
@@ -63,16 +64,30 @@ it in [docs/references.md](docs/references.md). Beyond the rules themselves, the
     material.
   - A fifth **"Reading This Report"** tab is added alongside these four whenever a reading guide
     is supplied (see below) - this is the one thing that stayed a separate tab from before.
-- **Secure At Work branding**: the navbar, links, active tabs, and card styling use Secure At
-  Work's own palette (primary blue `#0064da`, dark variant `#2b57a7`), sourced directly from
-  `secureatwork.nl`'s computed CSS custom properties rather than guessed. Applied as CSS variable
-  overrides on top of vendored Bootstrap 5.3 in [Export-SAWDashboard.ps1](src/dashboard/Export-SAWDashboard.ps1)
-  (search for "Secure At Work brand palette"), not a fork of Bootstrap's CSS itself. Deliberately
-  left alone: the green/yellow/red/grey traffic-light status colors (Bootstrap's
-  success/warning/danger/secondary) - those are functional semantics the reader relies on to
-  scan results quickly, not a place for brand color to compete for attention. No external font
-  or asset dependency was added; the site's licensed display font isn't embeddable, so a system
-  sans-serif stack (Helvetica Neue/Segoe UI first) approximates its grotesque feel instead.
+- **Secure At Work branding and visual design**: the palette (primary blue `#0064da`, dark
+  variant `#2b57a7`) is sourced directly from `secureatwork.nl`'s computed CSS custom properties
+  rather than guessed, and applied as CSS variable overrides on top of vendored Bootstrap 5.3 in
+  [Export-SAWDashboard.ps1](src/dashboard/Export-SAWDashboard.ps1) (search for "Secure At Work
+  brand palette"), not a fork of Bootstrap's CSS. On top of that:
+  - A **gradient hero** header whose headline is the *tenant name*, since a consultant with
+    several reports open needs to tell them apart at a glance. Run metadata sits in pill chips
+    alongside one headline number: open findings, counted as Red + Yellow and excluding Grey,
+    because Grey means "not applicable to this tenant" and folding it in would inflate the count
+    with items nobody can act on.
+  - **KPI tiles** ordered Red-first with tinted tabular-figure numerals, and **status badges** as
+    tinted pills rather than solid fills, which shouted louder than the findings they labelled.
+    All four badge tints pass WCAG AA against their own background (6.07:1 to 6.78:1, computed
+    rather than eyeballed).
+  - **Sticky tab bar** (several panes are long tables), **dark mode** following the OS setting and
+    applied before first paint, and **print styles** that expand every tab pane, drop the chrome,
+    and force light - because these get handed over as PDFs.
+  - Deliberately left alone: green/yellow/red/grey remain traffic-light *semantics* the reader
+    relies on to scan results, not a place for brand colour to compete for attention. The hero
+    also keeps its own colour pair rather than reusing the primary blue, which dark mode lightens
+    for text contrast and would otherwise wash the header out.
+  - No external font or asset dependency was added; the site's licensed display font isn't
+    embeddable, so a system sans-serif stack (Helvetica Neue/Segoe UI first) approximates its
+    grotesque feel instead.
 
 - A **passkey dynamic migration opt-out check** (AUTH006), two **security info registration
   checks** on Conditional Access (CA004, CA005), and a check for **phishing-resistant strength
@@ -574,21 +589,25 @@ Privileged Identity Management (PIM) - it's *eligible* but wasn't *activated* be
 only after a fresh connection: run `Disconnect-MgGraph` and re-run the script, since an
 already-issued token won't pick up a role activated after the fact.
 
-Output lands in `reports/<tenant-slug>/<run-timestamp>/assessment-report.html` (flat table)
-and `.../dashboard/index.html` (full dashboard - self-contained with its own `vendor/`
-subfolder, so the whole `dashboard/` directory can be zipped up and handed to a client
-without needing internet access to render). Pass `-ReportPath`/`-DashboardPath` explicitly to
-pin a fixed location instead (e.g. for scripting/CI that always wants the latest run at a
-known path).
+Output lands in `reports/<tenant-slug>/<run-timestamp>/dashboard/index.html`, shipping with its
+own `vendor/` subfolder, so the whole `dashboard/` directory can be zipped up and handed to a
+client without needing internet access to render. Pass `-DashboardPath` explicitly to pin a
+fixed location instead (e.g. for scripting/CI that always wants the latest run at a known path).
 
-**Both files carry an unmistakable "which environment, which point in time" banner** - a dark
-bar right at the top with the tenant's display name, tenant ID, and the run's timestamp
+A second, flat-table `assessment-report.html` used to be written alongside it and has been
+removed. It predated the dashboard, and every section added afterwards (remediation roadmap,
+nudge forecast, FIDO2 key inventory, Staged Rollout and its caveats) went into the dashboard
+only - so it had stopped being a smaller view of the same answer and started being a different,
+staler one. `-ReportPath` is gone with it.
+
+**The report carries an unmistakable "which environment, which point in time" header** - the
+tenant's display name as the page headline, plus tenant ID and the run's timestamp
 (reformatted from the folder-naming `yyyyMMdd-HHmmss` to `yyyy-MM-dd HH:mm:ss`), and the same
 information in the browser tab `<title>`. Useful with more than one report open at once -
 different tenants, or repeat runs of the same one after a remediation round - since the tab bar
 alone tells them apart without needing to hover or click in. Omitted entirely (no empty banner)
-when tenant/timestamp weren't supplied, e.g. calling `Export-SAWDashboard.ps1`/
-`Export-SAWHtmlReport.ps1` directly outside the orchestrator.
+when tenant/timestamp weren't supplied, e.g. calling `Export-SAWDashboard.ps1` directly
+outside the orchestrator.
 
 The dashboard also embeds [docs/reading-the-report.md](docs/reading-the-report.md) as its own
 **"Reading This Report"** tab, alongside the four assessment tabs described above - so the explainer of

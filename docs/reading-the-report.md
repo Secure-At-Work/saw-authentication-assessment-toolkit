@@ -29,16 +29,18 @@ former may still need passwords and SSPR for longer. The toolkit auto-detects wh
 tenant matches and picks the matching baseline; every report states which baseline was used, so
 you always know what "target" a given assessment was measured against.
 
-## The two report files
+## The report file
 
-Every run produces two files, in `reports/<tenant>/<run-timestamp>/`:
+Every run produces one report, at `reports/<tenant>/<run-timestamp>/dashboard/index.html`:
+the results, plus context, trends, a prioritized work plan, and supporting detail. It ships with
+its own `vendor/` folder, so zip the whole `dashboard/` directory to share it - the page needs
+those files alongside it and won't render correctly on its own. No internet access required to
+view it.
 
-- **`assessment-report.html`** - a flat table: every check, its result, and its severity. Quick
-  to scan, easy to export/print, no interactivity.
-- **`dashboard/index.html`** - the full picture: the same results, plus context, trends, a
-  prioritized work plan, and supporting detail. This is the one worth spending time in. It's
-  self-contained (its own `vendor/` folder ships with it), so the whole `dashboard/` folder can
-  be zipped and shared without needing internet access to view it.
+Earlier versions also wrote a flat `assessment-report.html` next to it. That's gone. It dated
+from before this dashboard existed, and every section added since landed in the dashboard only,
+so it had started to disagree with the dashboard about the same tenant rather than just repeat
+it. One file, one answer.
 
 The rest of this document walks through the dashboard, tab by tab.
 

@@ -30,7 +30,6 @@ tests/
     Get-SAWTimelineMilestones.Tests.ps1
     ConvertTo-SAWRegistrationFlowScenarios.Tests.ps1
   dashboard/
-    Export-SAWHtmlReport.Tests.ps1
     Export-SAWDashboard.Tests.ps1
     Export-SAWDriftReport.Tests.ps1
     ConvertTo-SAWMarkdownHtml.Tests.ps1
