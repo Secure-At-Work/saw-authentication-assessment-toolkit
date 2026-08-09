@@ -338,6 +338,21 @@ it in [docs/references.md](docs/references.md). Beyond the rules themselves, the
 
 Not yet built: Markdown/Excel/JSON report exports (spec section 14).
 
+**Known issue, highest priority:**
+- **PASS001/PASS002 read Graph properties Microsoft has deprecated.**
+  `fido2AuthenticationMethodConfiguration.isAttestationEnforced` and `.keyRestrictions` are marked
+  in the v1.0 reference as deprecated, to be removed **October 2027**, superseded by
+  `passkeyProfiles` (with a `defaultPasskeyProfile` that mirrors the legacy settings at migration
+  time). Five call sites here read the old properties and none read the new one:
+  `ConvertTo-SAWNormalizedPasskeys`, `ConvertTo-SAWFido2KeyInventory`, `ConvertTo-SAWNudgeForecast`,
+  `ConvertTo-SAWRegistrationFlowScenarios`, `ConvertTo-SAWAuthenticationMethodsInventory`.
+  Each coerces with `[bool]`, so an absent property reads as `$false` and renders as "attestation
+  not enforced" — a **false negative on a security control**, not a visible failure. A tenant
+  already on passkey profiles whose profile has diverged from the mirrored values may read wrong
+  today, so this is not purely future-dated. Fix is to read `passkeyProfiles` with a fallback to the
+  legacy properties, and to say "couldn't determine" rather than "not enforced" when neither is
+  present. Needs a live migrated tenant to confirm real-world shape before building.
+
 **Possible future work:**
 - **Per-user legacy MFA state** (`perUserMfaState` - Disabled/Enabled/Enforced, via
   `GET /beta/users/{id}/authentication/requirements`). Not currently collected - unlike

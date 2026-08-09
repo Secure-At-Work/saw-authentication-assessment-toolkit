@@ -50,6 +50,57 @@ If you read nothing else:
   clearest configuration recommendation to come out of the 2026 attack research, and it is two
   toggles in the same blade.
 
+## First, what a passkey actually is
+
+Everything below depends on this, and it takes two minutes. If the mechanism is already familiar,
+skip ahead.
+
+A password is a **shared secret**. You know it, the service knows it, and authentication means
+sending your copy so the service can compare. Every problem with passwords follows from that one
+property: a secret that has to be transmitted can be intercepted, replayed, guessed, reused across
+sites, or typed into a convincing fake. One-time codes and push approvals don't fix this. They just
+add a second short-lived secret, which can also be relayed by someone standing in the middle.
+
+A passkey is **not** a shared secret. When a user registers one, their device generates a pair of
+mathematically related keys. The **private key** stays on the device and is never transmitted
+anywhere, ever. The **public key** goes to Entra, and it is not sensitive: it can only *verify*
+signatures, never create them.
+
+Signing in then works by challenge and response. Entra sends a fresh random challenge. The device
+signs it with the private key. Entra checks the signature against the stored public key. Nothing
+reusable crosses the network, so there is nothing for an attacker to capture and replay later.
+
+Two details in that exchange are what actually kill phishing, and they are worth knowing by name
+because the rest of this post refers back to them:
+
+- **Origin binding.** Before signing, the browser records the real domain of the page that asked
+  for the signature, and it records the true one — a malicious page cannot forge this value.
+  That domain is part of what gets signed. So when a user lands on a lookalike site sitting in
+  front of the real one, the signature is bound to the attacker's domain and Entra rejects it. This
+  is the crucial difference from a one-time code: with a code, the proxy simply reads what the user
+  typed and forwards it. With a passkey there is no code, and nothing for the proxy to pass along.
+  The credential is also scoped to the site it was created for, so it cannot be offered elsewhere.
+- **Challenge freshness and signature counters.** Every sign-in uses a new single-use challenge, so
+  an old signature is worthless. Hardware authenticators additionally keep a counter that ticks up
+  with each use, letting the service notice a cloned credential.
+
+Both of those guarantees are the *service's* job to enforce. That distinction matters, because it
+is precisely where the 2026 research found the cracks — not in the cryptography, which held.
+
+Two more terms you'll meet in your own tenant settings:
+
+- **Device-bound versus synced.** A device-bound passkey is generated inside one piece of hardware
+  (a security key, or a laptop's TPM) and cannot leave it. A **synced** passkey is copied by a
+  password manager into a cloud vault so it works across the user's phone, tablet and laptop. Both
+  are real passkeys and both defeat phishing. The difference is custody: a synced key's safety
+  ultimately rests on the account protecting that vault, which usually means a password again.
+- **AAGUID and attestation.** Every authenticator model reports an identifier for its make and
+  model, the AAGUID. **Attestation** is Entra demanding cryptographic proof of that identity at
+  registration, which lets you allow only authenticator models you have approved. This is the
+  toggle that separates "any passkey" from "a passkey from hardware we trust."
+
+With that in place, the rest of this post is about what to do with it.
+
 ## Why now: the attacker's side of this
 
 The uncomfortable framing is that this is a cat-and-mouse game, and announcing a migration to
@@ -860,19 +911,29 @@ phishing-resistant authenticator with no hardware to buy, and it avoids the cros
 problem entirely: the credential lives on the same machine where the Temporary Access Pass was
 entered, so there is no handoff to a phone that needs its own separate sign-in.
 
-The deployment decision that matters is the trust model, and the practical guidance from the field
-is to use **cloud Kerberos trust** where you can. Marco Wohler's
+The deployment decision that matters is the trust model, and here Microsoft and practitioners agree.
+Microsoft's own planning guide states that "Windows Hello for Business cloud Kerberos trust is the
+recommended deployment model when compared to the *key trust model*," and it is the only hybrid
+option that needs no PKI at all. Marco Wohler's
 [write-up of WHfB in practice for SMBs](https://medium.com/@kmuitspice/windows-hello-for-business-whfb-in-practice-smb-it-spice-93800f834725)
-calls it "the newest and by far the simplest way to enable secure WHfB": it creates a virtual
-read-only domain controller object in on-premises AD and needs no certificate connector, no PKI
-management, and no extra servers. Key trust remains reasonable where certificate infrastructure
-already exists. Certificate trust is the legacy path, needs a dedicated Intune Certificate
-Connector, and is worth actively avoiding in a small environment.
+reaches the same conclusion from the field, calling it "the newest and by far the simplest way to
+enable secure WHfB."
 
-That choice is not only an operational preference. As noted in the Staged Rollout section, WHfB
-hybrid *certificate* trust with the federation server acting as registration authority is one of
-the scenarios Microsoft does not support during a federated-to-managed migration, so picking
-certificate trust can strand exactly the users you are trying to move.
+Certificate trust is worth actively avoiding in a small environment, and the reason is stronger
+than "more moving parts." Per Microsoft's compatibility table, hybrid certificate trust **only**
+supports federated authentication: it does not work with password hash sync or pass-through
+authentication, so Active Directory must be federated using AD FS. That makes it the one trust
+model that actively holds you in federation. Combine it with the Staged Rollout section above, where
+WHfB hybrid certificate trust with the federation server acting as registration authority is
+explicitly unsupported during a federated-to-managed migration, and certificate trust manages to be
+both the thing keeping you federated and the thing that breaks when you try to leave.
+
+One correction worth making, because it circulates as received wisdom: WHfB does **not** require
+devices to be Entra joined or hybrid joined. Microsoft's supported-join-types table lists
+**Microsoft Entra registered** alongside joined and hybrid joined for both cloud-only and hybrid
+deployments. Cloud Kerberos trust does have real version floors, though — Windows 10 21H2 with
+KB5010415 or Windows 11 21H2 with KB5010414, and domain controllers on Server 2016 with KB3534307
+or later — so that is the prerequisite worth checking, rather than join type.
 
 One field-tested gotcha worth carrying across from that article, because it produces a support
 ticket that looks like an authentication failure and isn't: when Kerberos authentication fails,

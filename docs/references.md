@@ -657,6 +657,39 @@ Authenticator" is a separate row that is. AUTH001 checks that Authenticator is e
 page supports as a baseline; it is not an endorsement of push as a target state, and the rule's
 Phase 1 placement already reflects that.
 
+**PASS001/PASS002 read two properties Microsoft has deprecated (found 2026-08-09, NOT yet fixed).**
+`fido2AuthenticationMethodConfiguration.isAttestationEnforced` and `.keyRestrictions` are both
+marked in Microsoft's v1.0 Graph reference (ms.date 2026-03-04) as "deprecated and will be removed
+in October 2027. Use the **passkeyProfiles** property." The replacement is a `passkeyProfile`
+collection plus a `defaultPasskeyProfile` that, per the same page, "is automatically created when
+migrating to passkey profiles and initially mirrors the tenant's legacy global passkey (FIDO2)
+authentication methods policy settings."
+
+Five places in this toolkit read the deprecated properties and nothing reads `passkeyProfiles`:
+`ConvertTo-SAWNormalizedPasskeys` (PASS001/PASS002/PASS003), `ConvertTo-SAWFido2KeyInventory`,
+`ConvertTo-SAWNudgeForecast` (suppressor detection), `ConvertTo-SAWRegistrationFlowScenarios`, and
+`ConvertTo-SAWAuthenticationMethodsInventory`.
+
+Why this is worse than an ordinary deprecation: every one of those call sites coerces the value with
+`[bool]`, so a missing property becomes `$false`, which renders as **"attestation not enforced"** and
+**"key restrictions not enforced"**. That is a false negative on a security control that looks like a
+real finding, the same failure mode as the beta-property bug recorded above. The risk is not only
+future-dated either — a tenant already migrated to passkey profiles whose profile has since diverged
+from the mirrored legacy values could read wrong today. Verify against a live migrated tenant before
+assuming the October 2027 date is the whole exposure. Source:
+[fido2AuthenticationMethodConfiguration](https://learn.microsoft.com/graph/api/resources/fido2authenticationmethodconfiguration).
+
+**Two claims in a secondary explainer did not survive checking (2026-08-09).** A thalpius.com post on
+passkey cryptography was reviewed for this project. Its dates were accurate and are now recorded in
+`config/timeline-milestones.json`. Two other claims were not: it refers to a `passkeyType` setting for
+choosing device-bound versus synced, which does not appear on the v1.0 resource (the real mechanism is
+`passkeyProfiles`), and it lists Entra Join or Hybrid Join as a Windows Hello prerequisite, where
+Microsoft's own supported-join-types table also lists **Microsoft Entra registered**. The post carries
+an explicit disclaimer that "several values and behaviors described in this post fall outside
+Microsoft's documented ranges and were only confirmed through direct testing in a single tenant,"
+which is exactly the case for treating a good secondary source as a pointer to check rather than a
+fact to copy.
+
 **Linux passkey support is described inconsistently.** The compatibility matrix lists Chrome, Edge,
 and Firefox on Linux as supported for passkey sign-in, while the registration campaign article
 states "Linux users aren't nudged. FIDO2 passkeys aren't available on Linux." These are different
