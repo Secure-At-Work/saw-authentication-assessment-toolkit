@@ -189,10 +189,12 @@ The campaign's own state is itself three-valued, not on/off: `disabled`, `enable
 configured target/snooze settings apply exactly as set), or `default` (which the admin center
 labels "Microsoft managed": Microsoft's own recommended defaults apply instead, currently
 documented as targeting passkeys over Authenticator, a 1-day snooze, unlimited snoozes, and
-targeting every MFA-capable user). Worth flagging explicitly: **Microsoft's own reference docs
-for this exact setting contradict each other**. The resource reference page states the default
-value is `disabled`, while the how-to article describes "Microsoft managed" as an
-actively-rolling-out set of new defaults. And even taking the how-to article at face value, a
+targeting every MFA-capable user). Worth flagging explicitly: **at the time of writing, Microsoft's
+own reference docs for this exact setting contradict each other**. The resource reference page
+states the default value is `disabled`, while the how-to article describes "Microsoft managed" as
+an actively-rolling-out set of new defaults. That's a documentation bug rather than a product one,
+so it may well be tidied up by the time you read this. Check both pages rather than assuming this
+observation still holds. And even taking the how-to article at face value, a
 start date Microsoft announces isn't a guarantee: tenants are migrated onto the new defaults in
 batches on Microsoft's own schedule, invisible from the tenant side. A tenant reading "Microsoft
 managed" today could be on the old behavior, the new one, or partway through, regardless of how
@@ -377,10 +379,13 @@ One practical constraint that catches people staging this: you can include or ex
 **one group**, not several. Piloting to three departments means one group containing all three,
 not three include targets.
 
-One structural nuance worth carrying into the next section: Conditional Access is validated only
-for the **second** factor. It doesn't see, and can't override, what System-Preferred Authentication
-decides to show at the first factor: authentication happens first, and only afterward does
-Conditional Access evaluate authorization.
+One nuance worth carrying into the next section, with a caveat about its shelf life: Conditional
+Access is validated only for the **second** factor. It doesn't see, and can't override, what
+system-preferred authentication decides to show at the first factor, because authentication happens
+first and only afterward does Conditional Access evaluate authorization. The caveat is that
+Microsoft files this under "Known limitations" rather than describing it as designed behavior, and
+a known limitation is a candidate for being fixed. Treat it as true today rather than as
+architecture, and re-check it before building a control that depends on it staying true.
 
 ### Conditional Access on the registration page itself
 
@@ -557,8 +562,8 @@ tracing through, step by step, against your own tenant's real settings:
    ordinary sign-in.
 4. **CA-Gated Registration**: how an enabled "Register security information" policy reshapes
    every flow above, including whether it suppresses campaign nudges or locks out TAP-only users,
-   plus the fixed reminder that this CA scope never overrides System-Preferred Authentication's
-   first-factor choice.
+   plus the reminder that, as things currently stand, this CA scope doesn't override
+   system-preferred authentication's first-factor choice.
 
 Each step is either happening today, given your tenant's real settings, or it isn't: this is not
 a generic description of how Entra works in the abstract, it's a trace specific to your
@@ -828,6 +833,17 @@ One habit worth borrowing regardless of any of the above: check the `ms.date` on
 article before relying on a date it states. Two SSPR dates referenced in an earlier version of this
 piece had both moved by the time it was rechecked, and their order relative to each other had
 reversed. Secondary sources, this one included, go stale faster than the primary ones do.
+
+A subtler version of the same habit, and the one that catches people out more often: watch for
+claims of *permanence*, not just claims about dates. Two categories in particular are worth
+distrusting. Anything Microsoft publishes under a **"Known limitations"** heading is, by
+definition, something they may intend to fix, so building a control that depends on a limitation
+persisting is building on sand. And anything presented as a fixed order or a fixed default is
+worth re-reading, because Microsoft states outright that the system-preferred credential order "is
+dynamic and updates as the security landscape changes," and duly moved certificate-based
+authentication from ninth place to third in March 2026. An earlier draft of this post described
+that order as fixed. It wasn't, and saying so confidently would have quietly misled anyone who
+took it at face value.
 
 ---
 *Secure At Work, Microsoft 365 &amp; Entra ID security assessments.*
