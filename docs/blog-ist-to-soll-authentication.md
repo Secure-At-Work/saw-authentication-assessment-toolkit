@@ -56,18 +56,20 @@ specific groups), and method-specific settings that change what the method actua
 - **The registration campaign** (`registrationEnforcement.authenticationMethodsRegistrationCampaign`):
   state (a genuine three-way Disabled/Enabled/Microsoft-managed, not on/off), which method it
   targets (`microsoftAuthenticator` or `fido2`), snooze duration, and whether snoozes are limited
-  (forced registration after three skips) or unlimited. See Part 2 for why "Microsoft managed"
-  specifically deserves its own paragraph.
+  (forced registration after three skips) or unlimited. Part 2, on how these mechanisms actually
+  interact, covers why "Microsoft managed" specifically deserves its own paragraph.
 - **System-preferred multifactor authentication**, found in the portal under Authentication
   methods > Settings, and called `systemCredentialPreferences` if you're reading the policy through
   Graph: a genuinely separate
   setting, easy to conflate with the registration campaign but controlling something different:
   not what gets *nudged for registration*, but what gets *presented at sign-in* for a credential
-  the user already has. Covered in full in Part 2.
-- **`policyMigrationState`**: whether the tenant has actually finished migrating off the legacy
+  the user already has. Covered in full in Part 2, on how the pieces interact.
+- **`policyMigrationState`**: not a setting you tune but a status value, reporting whether the
+  tenant has actually finished migrating off the legacy
   per-user MFA policy and legacy SSPR policy onto this one. Deceptively easy to assume is a
-  solved problem simply because those legacy policies can no longer be *edited*. See Part 3 for
-  why that's a real, checkable gap, not just historical housekeeping.
+  solved problem simply because those legacy policies can no longer be *edited*. Part 3, on what a
+  defensible target state looks like, covers why that's a real, checkable gap rather than
+  historical housekeeping.
 
 Target scoping matters here more than it looks: `excludeTargets` lives on the base
 `authenticationMethodConfiguration` type common to every method, while each method has its own
@@ -649,8 +651,9 @@ Microsoft Security Store from September 18, 2026, and configurable from October 
 scoped to "Register security information" that demands a custom authentication strength without
 a TAP escape, a user with no phishing-resistant method yet (exactly the population this whole
 rollout is trying to move) can be locked out of the very page that would let them register one.
-This is the same mechanism described in Part 2, just now colliding with a live Microsoft rollout
-instead of a hypothetical.
+This is the same mechanism described in Part 2, where the registration page's Conditional Access
+gate was covered in the abstract, just now colliding with a live Microsoft rollout instead of a
+hypothetical.
 
 **The migration order is Phases 1 through 4, applied here specifically:**
 
@@ -693,8 +696,8 @@ exists, and it's worth checking explicitly rather than assuming it's covered by 
    the later item looks simpler.
 3. Drive the people-side work (who needs nudging toward a phishing-resistant method, who has a
    fallback to remove, who's at risk from an upcoming Microsoft deadline) off the per-user data
-   from Part 1, and trace the four end-to-end flows from Part 2 whenever a specific mechanism's
-   behavior is in question rather than assumed.
+   from Part 1's inventory, and trace the four end-to-end user flows from Part 2 whenever a
+   specific mechanism's behavior is in question rather than assumed.
 4. Check upcoming Microsoft-driven deadlines against your own timeline. Some of this work happens
    on Microsoft's schedule regardless, which changes what's worth prioritizing manually versus
    what's coming either way.
