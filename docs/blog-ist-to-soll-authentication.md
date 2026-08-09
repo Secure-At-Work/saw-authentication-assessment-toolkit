@@ -145,9 +145,15 @@ policy says.
 Two separate windows serve two separate purposes. A short window (7 days is a reasonable
 default) checks for successful legacy authentication or device-code-flow sign-ins, both of which
 bypass modern Conditional Access controls entirely and are a red flag wherever they still
-succeed. A second, deliberately wider window (90 days is a reasonable default) checks whether
-*registered* methods are actually being *used*: registration alone doesn't mean a method still
-works, the device it lived on might be gone. Audit logs separately catch unexpected credential
+succeed. A second, deliberately wider window checks whether *registered* methods are actually
+being *used*: registration alone doesn't mean a method still works, the device it lived on might
+be gone. Be careful what you ask for on that second one, though, because Entra caps how far back
+you can look: sign-in logs are retained for **seven days on Entra ID Free and 30 days on P1 or
+P2**, full stop. Request 90 days and you get back whatever was retained, with nothing in the
+response telling you the window was truncated. So 30 days is the real ceiling for most tenants,
+and any "not used recently" conclusion means "not within retention," never "not ever." If you
+genuinely need a longer history, that's an argument for routing sign-in logs to Azure Monitor or
+a storage account, not for asking Graph for a window it cannot serve. Audit logs separately catch unexpected credential
 changes on break-glass accounts and CA policy modifications made by applications rather than
 people, both classic incident indicators.
 
@@ -237,10 +243,11 @@ rollout even when both are technically "enabled." The practical fix, if cross-de
 bootstrap actually matters for a given tenant, is a short-lived multi-use TAP scoped to
 onboarding rather than a strict one-time-use TAP.
 
-### Two announced changes that shift this ground in late 2026
+### Three announced changes that shift this ground in late 2026
 
-Both of the following are announced but not yet shipped at the time of writing, and both change the
-bootstrap picture enough to be worth designing around now rather than reacting to later.
+All three of the following are announced but not yet shipped at the time of writing, and each
+changes the bootstrap picture enough to be worth designing around now rather than reacting to
+later.
 
 **A passkey becomes registerable as a first MFA method.** Today the awkwardness is circular: you
 want people on passkeys, but the registration path often assumes they already have some other MFA
@@ -277,6 +284,26 @@ deliberately, because it is exactly the sort of risk that produces no signal unt
 help and can't get it. The fix is unglamorous: identify who has only a device-bound credential and
 get them a portable backup (a synced passkey, or a passkey in Microsoft Authenticator) as a
 deliberate act, rather than assuming the prompts will keep handling it. They won't.
+
+**Passwordless users get a way to change a password they've never used.** This one closes a gap
+that sounds like a footnote and isn't. Onboard someone the modern way, TAP into a passkey on day
+one, and they may go their entire time at the company without ever typing their password. The
+password still exists in the directory, though. It is still an authentication factor. And the day
+something actually needs it, a legacy app, a break-glass procedure, a support process that hasn't
+caught up, they cannot change it: changing a password today means either knowing the current one
+(they don't) or going through SSPR (which they may never have registered for, particularly since
+the SSPR registration interrupt can be skipped indefinitely when no MFA registration policy sits
+alongside it, as covered just below). A stale password nobody knows and nobody can rotate is not a
+great thing to have quietly accumulating across a passwordless population.
+
+From late October 2026, users can change their Entra password from My Sign-Ins by authenticating
+with a passkey, FIDO2 key or Windows Hello for Business, with no knowledge of the current password
+and no SSPR registration required. Two details decide whether you actually get this, and both are
+easy to skim past: it is **off by default** and needs an administrator to switch it on, and it is
+**tenant-wide with no per-user or per-group scoping** at release, so it's on for everyone or for
+nobody. Nothing happens to you here. This is one you have to go and choose, which in practice makes
+it exactly the sort of change that gets read in a Message Center post, nodded along with, and then
+never actioned.
 
 ### The SSPR "two-gate" and its trap
 
@@ -640,7 +667,9 @@ broader September rollout.
 
 **The opt-out covers only the first date.** Setting
 `authenticationMethodsPolicy.optOutSettings.passkeyDynamicMigration` to `true` (via the **beta**
-Graph endpoint, the one setting on this policy that doesn't exist on `v1.0`) excludes the tenant
+Graph endpoint, since Microsoft's `v1.0` reference for this policy doesn't list this setting,
+system-preferred multifactor authentication, or the reconfirmation interval, all three of which
+appear only on the beta reference) excludes the tenant
 from the automatic enablement and registration-campaign rollout for a defined runway. It does
 **not** touch the February 1 enforcement in any way; that date applies to every tenant regardless.
 Organizations with a genuine regulatory or operational need to keep an SMS/Voice channel have a
@@ -701,15 +730,13 @@ exists, and it's worth checking explicitly rather than assuming it's covered by 
 4. Check upcoming Microsoft-driven deadlines against your own timeline. Some of this work happens
    on Microsoft's schedule regardless, which changes what's worth prioritizing manually versus
    what's coming either way.
-5. Re-assess periodically rather than once. New Microsoft rollouts and new gaps discovered shift
-   what SOLL means over time, so periodic re-assessment stays worthwhile even after reaching a
-   clean state. (This is the part a repeatable, read-only assessment like the Secure At Work
-   Authentication Assessment Toolkit is built to make easy: a phased work plan of exactly what's
-   still open and in what order, a per-user triage list, and a trend view across repeat runs, so
-   the sequencing above doesn't have to be re-derived by hand every time.)
-6. Once every Phase 5 item is genuinely satisfied, the tenant matches its SOLL target, for now.
-   New Microsoft rollouts and new checks shift what SOLL means over time, which is why periodic
-   re-assessment stays worthwhile even after reaching that point.
+5. Re-assess periodically rather than once, and treat "every Phase 5 item satisfied" as a state
+   you hold rather than a finish line you cross. SOLL moves: Microsoft ships rollouts on its own
+   schedule, and each one can turn a previously clean tenant into one with a new gap, as most of
+   the late-2026 dates above demonstrate. (This is the part a repeatable, read-only assessment
+   like the Secure At Work Authentication Assessment Toolkit is built to make easy: a phased work
+   plan of exactly what's still open and in what order, a per-user triage list, and a trend view
+   across repeat runs, so the sequencing above doesn't have to be re-derived by hand every time.)
 
 ## Sources and further reading
 
@@ -746,9 +773,10 @@ here:
 they can't be linked publicly, the references below point at
 [mc.merill.net](https://mc.merill.net), Merill Fernando's community mirror, which makes them
 checkable by anyone: [MC1450133](https://mc.merill.net/message/MC1450133) (passkey as a first MFA
-method) and [MC1450134](https://mc.merill.net/message/MC1450134) (Windows Hello for Business and
-macOS Platform SSO as standalone MFA factors). Check your own tenant's Message Center before
-treating either as final.
+method), [MC1450134](https://mc.merill.net/message/MC1450134) (Windows Hello for Business and
+macOS Platform SSO as standalone MFA factors), and
+[MC1437671](https://mc.merill.net/message/MC1437671) (passwordless password change in My Sign-Ins).
+Check your own tenant's Message Center before treating any of them as final.
 
 **With thanks to:**
 
