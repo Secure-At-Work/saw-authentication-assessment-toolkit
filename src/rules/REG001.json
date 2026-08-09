@@ -1,7 +1,7 @@
 {
     "RuleID": "REG001",
     "Category": "Registration",
-    "Setting": "All Privileged Admins MFA Registered",
+    "Setting": "All Privileged Admins MFA Capable",
     "Expected": "Enabled",
     "Severity": "High",
     "Phase": 3,

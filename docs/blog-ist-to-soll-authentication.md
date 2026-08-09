@@ -331,10 +331,34 @@ endpoint security work; the two address different stages of the same token's lif
 
 ### Per-user registration data
 
-The single richest data source in the whole inventory: for every user,
-`userRegistrationDetails` reports `isAdmin`, `isMfaRegistered`, `isSsprEnabled`,
-`isSsprRegistered`, and, crucially, `methodsRegistered`, the actual list of methods that
-specific person has set up. This is what tells you, per user, whether they:
+The single richest data source in the whole inventory. For every user, `userRegistrationDetails`
+reports `isAdmin`, the SSPR pair `isSsprEnabled` / `isSsprRegistered`, and, crucially,
+`methodsRegistered` — the actual list of methods that specific person has set up.
+
+**Pick the right MFA field, because two of them look interchangeable and are not.** Microsoft
+defines them one word apart:
+
+| Field | Microsoft's wording |
+|---|---|
+| `isMfaRegistered` | "has registered a strong authentication method … The method **may not necessarily be allowed** by the authentication methods policy." |
+| `isMfaCapable` | "has registered a strong authentication method … The method **must be allowed** by the authentication methods policy." |
+
+Coverage built on `isMfaRegistered` counts people who *cannot actually complete MFA*, because the
+only method they registered has since been switched off tenant-wide. Use **`isMfaCapable`** for any
+readiness number you intend to act on.
+
+This matters most at exactly the wrong moment. Turn off SMS and Voice — Phase 4 of this very post —
+and those users keep `isMfaRegistered = true` on a dead registration while `isMfaCapable` correctly
+flips to false. A coverage metric on the wrong field looks healthiest precisely when it has become
+least true. (This toolkit had that bug until 2026-08-09.)
+
+The *gap* between the two fields is worth reporting in its own right: someone who is registered but
+not capable appears on no "not registered" list, and is one policy change away from being locked out
+of their own MFA. There's an equivalent pair for SSPR — `isSsprCapable` is exactly
+`isSsprEnabled AND isSsprRegistered` — and `isPasswordlessCapable`, which is the direct, policy-aware
+measure of phishing-resistant coverage.
+
+Per user, this is what tells you whether they: 
 
 - Have **no phishing-resistant method at all** and need active nudging toward one.
 - Have a phishing-resistant method **and** still have a phone-based fallback registered

@@ -690,6 +690,38 @@ Microsoft's documented ranges and were only confirmed through direct testing in 
 which is exactly the case for treating a good secondary source as a pointer to check rather than a
 fact to copy.
 
+**REG001/REG002 measured `isMfaRegistered` instead of `isMfaCapable` (found and fixed 2026-08-09).**
+The two `userRegistrationDetails` properties differ by one clause in Microsoft's own reference
+(ms.date 2024-07-22):
+
+> `isMfaRegistered` — "Indicates whether the user has registered a strong authentication method for
+> multifactor authentication. The method **may not necessarily be allowed** by the authentication
+> methods policy."
+
+> `isMfaCapable` — "Indicates whether the user has registered a strong authentication method for
+> multifactor authentication. The method **must be allowed** by the authentication methods policy."
+
+Coverage on `isMfaRegistered` counts users who cannot complete MFA, because the only method they
+registered has since been disabled tenant-wide. The failure is worst at the worst time: a customer
+following this toolkit's own Phase 4 advice to retire SMS and Voice pushes exactly those users into
+`registered = true, capable = false`, so the coverage number looks healthiest at the moment it
+becomes least true.
+
+Both rules now read `isMfaCapable`, and the *gap* between the two fields is surfaced as its own
+warning — a registered-but-not-capable user appears on no "not registered" list and is one policy
+change away from losing their own MFA. Rules renamed to match what they measure ("MFA Capable",
+"MFA Capability Coverage"); RuleIDs are unchanged, so drift history still lines up.
+
+Why it survived: the sample fixture had `isMfaRegistered == isMfaCapable` for all ten users, so the
+divergence was never exercised. One fixture user now deliberately diverges. This is the third bug in
+this repo caused by synthetic data that never disagrees with itself — the other two being the beta
+authentication-policy properties and the passkey-profile deprecation. Source:
+[userRegistrationDetails](https://learn.microsoft.com/graph/api/resources/userregistrationdetails).
+
+Not yet used, and worth considering: **`isPasswordlessCapable`** is the direct, policy-aware measure
+of phishing-resistant coverage, which is this whole project's goal. The toolkit currently infers that
+from `methodsRegistered` buckets instead.
+
 **Linux passkey support is described inconsistently.** The compatibility matrix lists Chrome, Edge,
 and Firefox on Linux as supported for passkey sign-in, while the registration campaign article
 states "Linux users aren't nudged. FIDO2 passkeys aren't available on Linux." These are different

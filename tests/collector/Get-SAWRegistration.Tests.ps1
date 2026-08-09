@@ -97,7 +97,7 @@ Describe 'ConvertTo-SAWNormalizedRegistration' {
 
         $result = $raw | ConvertTo-SAWNormalizedRegistration
 
-        ($result | Where-Object { $_.Setting -eq 'All Privileged Admins MFA Registered' }).State | Should -Be 'Enabled'
+        ($result | Where-Object { $_.Setting -eq 'All Privileged Admins MFA Capable' }).State | Should -Be 'Enabled'
     }
 
     It 'flags a gap when any admin is missing MFA registration' {
@@ -110,7 +110,7 @@ Describe 'ConvertTo-SAWNormalizedRegistration' {
 
         $result = $raw | ConvertTo-SAWNormalizedRegistration
 
-        ($result | Where-Object { $_.Setting -eq 'All Privileged Admins MFA Registered' }).State | Should -Be 'Disabled'
+        ($result | Where-Object { $_.Setting -eq 'All Privileged Admins MFA Capable' }).State | Should -Be 'Disabled'
     }
 
     It 'reports the admin check as Disabled when there are no admins at all' {
@@ -122,7 +122,7 @@ Describe 'ConvertTo-SAWNormalizedRegistration' {
 
         $result = $raw | ConvertTo-SAWNormalizedRegistration
 
-        ($result | Where-Object { $_.Setting -eq 'All Privileged Admins MFA Registered' }).State | Should -Be 'Disabled'
+        ($result | Where-Object { $_.Setting -eq 'All Privileged Admins MFA Capable' }).State | Should -Be 'Disabled'
     }
 
     It 'reports coverage Enabled when at least 90 percent of users are MFA registered' {

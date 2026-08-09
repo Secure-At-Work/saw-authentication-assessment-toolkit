@@ -4,7 +4,7 @@ function ConvertTo-SAWNormalizedRegistration {
         Normalizes raw per-user registration details into Secure At Work capability checks.
     .DESCRIPTION
         Scans every user's registration record and derives three aggregate facts: whether
-        every admin account is MFA registered, whether overall MFA registration coverage
+        every admin account is MFA CAPABLE, whether overall MFA capability coverage
         across all users meets a 90% target, and - among users the tenant actually allows to
         use self-service password reset (isSsprEnabled) - whether SSPR registration coverage
         meets a 90% target. All thresholds are evaluated here (not in a rule JSON) per spec
@@ -39,8 +39,19 @@ function ConvertTo-SAWNormalizedRegistration {
         $users = $RawResponse.value
         if (-not $users) { $users = @() }
 
+        # isMfaCapable, NOT isMfaRegistered. Microsoft's own wording is the whole reason:
+        #   isMfaRegistered - "has registered a strong authentication method ... The method MAY NOT
+        #                      NECESSARILY BE ALLOWED by the authentication methods policy."
+        #   isMfaCapable    - "... The method MUST BE ALLOWED by the authentication methods policy."
+        # Coverage built on isMfaRegistered therefore counts people who cannot actually complete
+        # MFA, because the only method they registered has since been disabled tenant-wide. That
+        # overstates readiness, and it gets worse precisely as a customer follows this toolkit's
+        # own Phase 4 advice to turn off SMS and Voice: those users keep isMfaRegistered = true on
+        # the strength of a now-dead registration while isMfaCapable correctly flips to false.
+        # The metric would have looked healthiest at the exact moment it became least true.
         $totalUsers = 0
-        $mfaRegisteredUsers = 0
+        $mfaCapableUsers = 0
+        $mfaRegisteredNotCapable = 0
         $adminUsers = 0
         $adminUsersMissingMfa = 0
         $ssprEnabledUsers = 0
@@ -48,14 +59,28 @@ function ConvertTo-SAWNormalizedRegistration {
 
         foreach ($user in $users) {
             $totalUsers++
-            if ($user.isMfaRegistered) { $mfaRegisteredUsers++ }
+            if ($user.isMfaCapable) { $mfaCapableUsers++ }
+
+            # The gap between the two is itself a finding, not noise: this user registered a strong
+            # method and the policy no longer permits it. They are one policy change away from
+            # being locked out of their own MFA, and they will not appear in any "not registered"
+            # list. Counted here so the verbose stream and the roster can name them.
+            if ($user.isMfaRegistered -and -not $user.isMfaCapable) {
+                $mfaRegisteredNotCapable++
+                Write-Verbose "ConvertTo-SAWNormalizedRegistration: '$($user.userPrincipalName)' is MFA REGISTERED but not MFA CAPABLE - their registered method isn't allowed by the authentication methods policy"
+            }
+
             if ($user.isAdmin) {
                 $adminUsers++
-                if (-not $user.isMfaRegistered) {
+                if (-not $user.isMfaCapable) {
                     $adminUsersMissingMfa++
-                    Write-Verbose "ConvertTo-SAWNormalizedRegistration: admin '$($user.userPrincipalName)' is not MFA registered"
+                    Write-Verbose "ConvertTo-SAWNormalizedRegistration: admin '$($user.userPrincipalName)' is not MFA capable"
                 }
             }
+
+            # SSPR needs no equivalent change: isSsprEnabled AND isSsprRegistered together are
+            # exactly Microsoft's definition of isSsprCapable ("registered the required number of
+            # methods AND allowed to perform SSPR by policy"), so this was already policy-aware.
             if ($user.isSsprEnabled) {
                 $ssprEnabledUsers++
                 if ($user.isSsprRegistered) { $ssprRegisteredUsers++ }
@@ -67,21 +92,25 @@ function ConvertTo-SAWNormalizedRegistration {
         $coveragePercent = 0
         $coverageMeetsTarget = $false
         if ($totalUsers -gt 0) {
-            $coveragePercent = $mfaRegisteredUsers / $totalUsers * 100
+            $coveragePercent = $mfaCapableUsers / $totalUsers * 100
             $coverageMeetsTarget = $coveragePercent -ge 90
         }
 
-        Write-Verbose ("ConvertTo-SAWNormalizedRegistration: {0}/{1} users MFA registered ({2:N1}%); {3}/{4} admins missing MFA" -f `
-            $mfaRegisteredUsers, $totalUsers, $coveragePercent, $adminUsersMissingMfa, $adminUsers)
+        Write-Verbose ("ConvertTo-SAWNormalizedRegistration: {0}/{1} users MFA capable ({2:N1}%); {3}/{4} admins not MFA capable; {5} registered-but-not-capable" -f `
+            $mfaCapableUsers, $totalUsers, $coveragePercent, $adminUsersMissingMfa, $adminUsers, $mfaRegisteredNotCapable)
+
+        if ($mfaRegisteredNotCapable -gt 0) {
+            Write-Warning "$mfaRegisteredNotCapable user(s) have a registered MFA method that the authentication methods policy no longer allows. They count as registered but cannot actually complete MFA. Run with -Verbose to list them."
+        }
 
         @{
             Category = 'Registration'
-            Setting  = 'All Privileged Admins MFA Registered'
+            Setting  = 'All Privileged Admins MFA Capable'
             State    = ConvertTo-SAWStateLabel $allAdminsMfaRegistered
         }
         @{
             Category = 'Registration'
-            Setting  = 'Overall MFA Registration Coverage At Least 90 Percent'
+            Setting  = 'Overall MFA Capability Coverage At Least 90 Percent'
             State    = ConvertTo-SAWStateLabel $coverageMeetsTarget
         }
 

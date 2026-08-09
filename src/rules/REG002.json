@@ -1,7 +1,7 @@
 {
     "RuleID": "REG002",
     "Category": "Registration",
-    "Setting": "Overall MFA Registration Coverage At Least 90 Percent",
+    "Setting": "Overall MFA Capability Coverage At Least 90 Percent",
     "Expected": "Enabled",
     "Severity": "Medium",
     "Phase": 3,
