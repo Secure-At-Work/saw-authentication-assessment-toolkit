@@ -522,6 +522,61 @@ effect. Source:
 [how-to-connect-staged-rollout](https://learn.microsoft.com/entra/identity/hybrid/connect/how-to-connect-staged-rollout),
 ms.date 2026-07-22. Verified 2026-08-09.
 
+### Attack research behind the "why now" framing (backs the two-tier target state)
+
+Not Microsoft sources, and not backing a pass/fail rule. Recorded because the blog's threat
+framing and its high-value-account recommendations rest on them, and because **patch status is
+the part most likely to go stale**: two of the three issues below were fixed or partly fixed
+between discovery and publication, so anything written from this section needs its status
+re-checked before reuse.
+
+**Michael Grafnetter (SpecterOps), *Pass-the-Passkey Family of Attacks*, 17 July 2026**, presented
+at Black Hat USA 2026. Read 2026-08-09 from the published PDF (v2). Three vulnerabilities:
+
+| Issue | Status as of the paper |
+|---|---|
+| Windows wrote complete WebAuthn assertions to an event log readable by unprivileged, including remote, authenticated users | **Fixed 2026-07-14**, CVE-2026-34348. Patched systems truncate the signature to 6 bytes. Microsoft rated 6.5 Medium; researcher filed 8.6 High |
+| Entra ID did not enforce WebAuthn assertion replay protection | **Partially fixed**, May 2026, via signature-counter tracking. Still open for Windows Hello: "Windows Hello passkeys on Entra ID registered devices remain vulnerable to replay, because Windows Hello always sends a counter value of 0" |
+| Credential UI window handle spoofing, enabling trustworthy-looking prompt flooding | **Not fixed.** MSRC assessed it Low severity, Defense in Depth category, 2026-06-04 |
+
+The two claims that change our advice, quoted:
+
+> "The exploit satisfies the phishing-resistant multi-factor authentication requirement enforced by
+> conditional access policies."
+
+> "For high-value accounts, we recommend using device-bound passkeys instead of synced ones, and
+> enforcing attestation to ensure that only genuine and approved authenticators are used."
+
+Also relevant: testing against Microsoft 365 E5 users with Entra Identity Protection and Defender
+for Identity produced no alerts. The paper's administrator recommendations map almost directly onto
+PASS001 (enforce attestation for high-value users), PASS003 (device-bound over synced), and a
+caveat on CA003/CA006 ("do not rely solely on the phishing-resistant multi-factor authentication
+requirement in conditional access policies for high-value identities and applications").
+
+The **shadow passkey** technique is why registration coverage and audit review are separate
+concerns in this toolkit: an actor holding `UserAuthenticationMethod.ReadWrite.All` or
+`UserAuthMethod-Passkey.ReadWrite.All` can register a passkey *on behalf of* another user, which
+survives a password reset and **raises** the target's phishing-resistant coverage number. A metric
+that goes the wrong way when attacked is worth knowing about.
+
+**Dirk-jan Mollema, *Borrowing Windows Hello Keys for Authentication and Persistence***, read
+2026-08-09. Preconditions are a compromised user session on a WHfB-enrolled device plus ordinary
+user privileges, no local admin. The Windows Hello key signs assertions through CNG without a PIN
+or biometric prompt, working from cached state, because Remote Desktop support requires
+device-independent key use. Chain: sign assertion, request a Primary Refresh Token valid 90 days,
+register further devices. The persistence step that matters for reading registration data is that
+using the WHfB key counts as fresh MFA, so the attacker can enrol additional passkeys. Mollema
+frames this as a consequence of the design rather than a fixable bug, so the response is detection;
+his query filters `SigninLogs` for Windows Hello sign-ins where `DeviceDetail.deviceId` is empty.
+
+**Marco Wohler, *Windows Hello for Business (WHfB) in practice*** (Medium), read 2026-08-09.
+Practitioner source, not vendor documentation, and used only for deployment guidance: cloud
+Kerberos trust as the default for SMB ("the newest and by far the simplest way to enable secure
+WHfB"), certificate trust as the legacy path needing an Intune Certificate Connector, and the
+`FarKdcTimeout` ten-minute Kerberos retry causing mapped drives to look disconnected. The
+certificate-trust point corroborates, from a different direction, the Staged Rollout limitation
+recorded above.
+
 ## Platform compatibility claims
 
 Every platform/browser/app support claim in

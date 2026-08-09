@@ -1,15 +1,165 @@
 # From IST to SOLL: A Field Guide to Modernizing Entra ID Authentication
 
-Microsoft has set a hard timeline for retiring SMS and voice call as sign-in methods in
-Microsoft Entra ID, and passkeys become the default authentication experience along the way.
-That announcement is what usually starts this conversation, but SMS/Voice retirement is really
-just one deadline sitting inside a much bigger picture: what your tenant's authentication
-configuration actually *is* today (**IST**), how all of its moving parts actually interact with
-each other, and what a deliberately chosen target state (**SOLL**) looks like for your specific
-tenant, plus the order you need to move through to get there safely. This post covers all of
-that. (We use the Secure At Work Authentication Assessment Toolkit to run this kind of
-assessment against real tenants; it's mentioned where relevant, but the guidance below applies
-whether or not you're using it.)
+Microsoft is retiring SMS and voice call as sign-in methods in Entra ID, and making passkeys the
+default. That announcement is what usually starts this conversation, and it gets read as a
+compliance deadline: something to be done by a date, on Microsoft's schedule.
+
+It is worth understanding why the deadline exists. Microsoft is not retiring SMS because it is
+old. It is retiring SMS because attackers stopped bothering with passwords years ago and went
+after the second factor instead, and adversary-in-the-middle phishing kits now defeat one-time
+codes and push approvals as a matter of routine. The deadline is the defender's side of an arms
+race, and it is already several moves in.
+
+Which is also why "turn on passkeys" is not the end of the story. Through 2026, security
+researchers have been taking the passkey layer apart in public, with working tools. Some of what
+they found is patched. Some of it is not. And several of their recommendations are configuration
+choices, in your tenant, that no deadline will make for you.
+
+So this post is about three questions, in order:
+
+1. **What is actually at risk**, and what the current attack research does and doesn't change.
+2. **What your tenant looks like today** (**IST**), how to inventory it, and why each piece
+   matters. This is the part most people skip, and it is the part that determines whether
+   anything you do next is safe.
+3. **What "good" looks like for your tenant specifically** (**SOLL**), the five phases to get
+   there, and why the order is not negotiable.
+
+We use the Secure At Work Authentication Assessment Toolkit to run this kind of assessment
+against real tenants. It's mentioned where relevant, but everything below applies whether or not
+you use it.
+
+## The short version
+
+If you read nothing else:
+
+- **Inventory before you change anything.** Entra's authentication behaviour is the sum of eight
+  separately configured surfaces. Any one of them read alone will mislead you. A Conditional
+  Access policy requiring MFA means nothing if the users it targets only have SMS registered.
+- **Sequence matters more than speed.** Enforcing MFA before people have registered a method
+  locks them out. Removing SMS before a stronger method is registered removes someone's only
+  working factor. There is a correct order: capability, then registration, then removal, then
+  enforcement.
+- **Tell people before Microsoft does.** Several of these changes now arrive on Microsoft's
+  schedule whether or not you have communicated them. You can find out in advance exactly who
+  will be interrupted.
+- **Phishing-resistant is a direction, not a finish line.** Requiring a phishing-resistant
+  authentication strength in Conditional Access is the right move and you should still do it. It
+  is not, on its own, sufficient for your highest-value accounts, and the research below is
+  specific about why.
+- **For admins, prefer device-bound passkeys and enforce attestation.** This is the single
+  clearest configuration recommendation to come out of the 2026 attack research, and it is two
+  toggles in the same blade.
+
+## Why now: the attacker's side of this
+
+The uncomfortable framing is that this is a cat-and-mouse game, and announcing a migration to
+passkeys does not end it. It moves it. Two pieces of published research from 2026 are worth
+knowing about before you decide what your target state is, because both of them change specific
+configuration decisions rather than just adding background anxiety.
+
+### Passkeys are being attacked as an implementation, not as a cryptosystem
+
+At Black Hat USA 2026, Michael Grafnetter of SpecterOps presented the
+[Pass-the-Passkey family of attacks](https://specterops.io/wp-content/uploads/sites/3/2026/08/Pass-the-Passkey_A4_v2.pdf):
+three exploitable zero-day vulnerabilities in Windows 11 and Entra ID, more than twenty attack
+techniques, and open-source tooling to reproduce them.
+
+The important thing to understand is *where* the weaknesses were. WebAuthn's phishing resistance
+comes from two properties: the browser records the true origin of the page (so a phishing site
+cannot obtain a usable assertion), and each ceremony uses a fresh single-use challenge with a
+signature counter (so an old assertion cannot be replayed). The cryptography holds. What
+Grafnetter found is that the surrounding implementation did not:
+
+- **Windows wrote complete WebAuthn assertions into an event log** readable by authenticated
+  unprivileged users, including remote ones. Patched on 14 July 2026 (CVE-2026-34348); fully
+  updated systems now truncate the signature so the logged event is still useful for
+  troubleshooting but no longer replayable. Microsoft rated it 6.5 Medium; the researcher filed
+  it at 8.6 High.
+- **Entra ID did not enforce replay protection** on WebAuthn assertions. Microsoft silently
+  deployed signature-counter tracking in May 2026, which fixes this for FIDO2 security keys that
+  maintain a counter. It is a partial fix: per the paper, "Windows Hello passkeys on Entra ID
+  registered devices remain vulnerable to replay, because Windows Hello always sends a counter
+  value of 0." Some synced-passkey implementations don't maintain counters either.
+- **A Credential UI window handle spoofing issue** lets malware raise Windows authentication
+  dialogs that look trustworthy, and flood the user with them until one is approved. Microsoft
+  assessed this as Low severity in the Defense in Depth category, which in practice means it is
+  not being fixed.
+
+Two findings from that work deserve to be read twice by anyone who has just finished rolling out
+a phishing-resistant Conditional Access policy. First: the exploit "satisfies the
+phishing-resistant multi-factor authentication requirement enforced by conditional access
+policies." Second: during testing against users licensed for Microsoft 365 E5, with Entra
+Identity Protection and Defender for Identity active, "no alerts or other security signals were
+generated."
+
+The paper's own recommendation to administrators is correspondingly blunt: *do not rely solely on
+the phishing-resistant MFA requirement in Conditional Access for high-value identities and
+applications*, keep Windows 11 current, enforce passkey attestation for high-value users, and
+prefer device-bound passkeys over synced ones for those accounts.
+
+### Windows Hello keys can be borrowed without the PIN
+
+Separately, Dirk-jan Mollema published
+[Borrowing Windows Hello Keys for Authentication and Persistence](https://dirkjanm.io/borrowing-windows-hello-keys/).
+The preconditions are modest: a compromised user session on a device with Windows Hello for
+Business enrolled, and ordinary user privileges. No local administrator required.
+
+Because Windows Hello has to support Remote Desktop scenarios, the key can be used to sign
+assertions through the CNG interface without prompting for a PIN or biometric at all, working
+instead from cached state. From there an attacker can sign the assertion needed to request a
+Primary Refresh Token, valid for 90 days and renewable. The persistence step is the one that
+matters most for how you read your own registration data: using the Windows Hello key counts as
+performing fresh MFA, so an attacker can use it to *enrol additional passkeys*. A user who shows
+as healthily registered for a phishing-resistant method can be healthily registered for the
+attacker's method too.
+
+Mollema is explicit that this is largely a consequence of how Windows Hello is designed rather
+than a bug with a clean fix, so the practical response is detection. His suggested signal is
+sign-ins where Windows Hello authenticated but no device ID is present, which is unusual outside
+of incognito sessions:
+
+```kusto
+SigninLogs
+| where AuthenticationDetails has '"authenticationMethod":"Windows Hello for Business"'
+| where DeviceDetail.deviceId == ""
+```
+
+Worth pairing with generic monitoring for unexpected new Windows devices being registered by
+users, since device registration is the pivot in the chain.
+
+### The other persistence path: passkeys registered *for* a user
+
+One more technique is worth naming because it is invisible in exactly the reports most people
+use to measure progress. Entra supports administrative passkey registration: an admin can enrol a
+passkey on behalf of another user. This exists for a good reason, such as mailing pre-registered
+security keys to remote hires.
+
+An attacker holding `UserAuthenticationMethod.ReadWrite.All` or
+`UserAuthMethod-Passkey.ReadWrite.All` can call the same API to plant what the paper calls a
+**shadow passkey**: a persistent credential on a high-value account that keeps working after the
+legitimate user changes their password, because a passkey is an independent factor. It shows up
+in a registration report as an *increase* in phishing-resistant coverage.
+
+This is the reason the assessment described below treats a per-user registration inventory and an
+audit-log review as two different things, and why "coverage went up" is not automatically good
+news. Registration counts answer "can this user authenticate strongly." They do not answer "did
+this user register that themselves."
+
+### None of this is an argument against passkeys
+
+It would be easy to read the above and conclude that the whole migration is theatre. That is not
+what the researchers say, and it is not what the data says. Grafnetter's own conclusion is that
+passkeys "are still a significant improvement over passwords," and that organizations should
+"adopt them as soon as possible."
+
+The correct reading is narrower and more useful: passkeys decisively win the fight they were
+designed for, which is credential phishing at scale. The residual attacks above almost all
+require code execution on the user's device or an already-privileged foothold in the tenant. That
+is a real risk and a much smaller and more expensive one than "an employee typed their password
+into a lookalike page." You are trading a cheap, high-volume, remote attack for an expensive,
+targeted, local one. That is what winning a round looks like in this game. It is not the same as
+the game ending, which is why the target state below distinguishes between what is good enough for
+the workforce and what is good enough for a Global Administrator.
 
 ## Why this is harder than it looks
 
@@ -642,8 +792,14 @@ abstract:
   registered a method to satisfy it.
 - **FIDO2 attestation and key restrictions enforced**, and a defined policy on whether
   cloud-synced passkeys (Google Password Manager, iCloud Keychain, and similar) are acceptable or
-  whether only device-bound credentials are, a real, defensible choice either way depending on
-  your risk appetite.
+  whether only device-bound credentials are. For the general workforce this is a genuine
+  either-way judgment call. For high-value accounts it is no longer especially balanced: the 2026
+  attack research recommends device-bound over synced, and attestation enforced, specifically for
+  those users. The reasoning is that a synced passkey's private key exists in more than one place
+  and rests in a cloud vault, so a phishing-resistant credential ends up only as strong as the
+  password guarding that vault. Researchers have demonstrated exporting usable private keys from
+  password-manager vaults in cleartext, at which point the credential can be replayed from
+  anywhere with no access to the original device.
 - **SSPR registration coverage** among SSPR-enabled users, and, the narrower and easier-to-miss
   check, **admins correctly excluded from the user-facing SSPR policy whenever admin SSPR has
   been deliberately disabled**, closing exactly the trap described above.
@@ -660,6 +816,69 @@ abstract:
   That's a real blind spot: a method that looks Disabled in the modern policy can still be usable
   in practice via the legacy one. The fix (Microsoft's own automated migration guide) is
   documented as fully reversible, so there's no reason to delay it once you know to look for it.
+
+### Two tiers, not one: the workforce and the accounts worth attacking individually
+
+The single most useful structural change to come out of the 2026 research is that a target state
+with one tier is now clearly wrong. The economics differ too much between an ordinary employee
+and a Global Administrator to justify one answer.
+
+For the **general workforce**, the goal is to make bulk remote phishing stop working. Passkeys in
+Microsoft Authenticator, Windows Hello for Business, or synced passkeys from a reputable provider
+all achieve that. Synced passkeys are a legitimate choice here, and often the pragmatic one:
+recovery after a lost phone is signing back into a vault rather than a helpdesk ticket and a
+re-enrolment, and they reach further back on old Android hardware than Authenticator does. The
+residual attacks described earlier need code execution on the user's device, which is a different
+and much more expensive problem than a lookalike login page.
+
+For **high-value accounts**, treat the residual attacks as in scope, because for these accounts
+an attacker will pay that cost. Concretely:
+
+- **Device-bound passkeys, not synced ones.** No copy of the private key in a cloud vault.
+- **Attestation enforced**, so only authenticator models you approve can be registered at all.
+  Note the interaction flagged elsewhere in this post: attestation and key restrictions suppress
+  the registration-campaign nudge and disable the Bluetooth-proximity cross-device bootstrap, so
+  scope this to the admin population rather than switching it on tenant-wide by reflex.
+- **Do not treat a phishing-resistant Conditional Access policy as the whole control.** It is
+  necessary and you should have it. But the published exploit satisfied exactly that requirement,
+  so pair it with a compliant-device requirement, Privileged Identity Management so the role isn't
+  standing, and privileged access workstations where the risk justifies it. Defence in depth here
+  is not a platitude; it is the specific researcher recommendation.
+- **Monitor registration events, not just registration counts.** A shadow passkey planted on an
+  admin account raises your phishing-resistant coverage percentage. Coverage metrics cannot
+  distinguish it from good news. The audit log can.
+- **Watch for Windows Hello sign-ins with no device ID**, using the KQL query quoted earlier, plus
+  unexpected new device registrations.
+
+Neither tier is "done." Both are positions you hold and re-check, which is the argument for
+running this as a repeatable assessment rather than a one-off project.
+
+### If Windows Hello for Business is part of your answer
+
+For most hybrid SMB tenants it should be, because it turns the laptop the user already has into a
+phishing-resistant authenticator with no hardware to buy, and it avoids the cross-device bootstrap
+problem entirely: the credential lives on the same machine where the Temporary Access Pass was
+entered, so there is no handoff to a phone that needs its own separate sign-in.
+
+The deployment decision that matters is the trust model, and the practical guidance from the field
+is to use **cloud Kerberos trust** where you can. Marco Wohler's
+[write-up of WHfB in practice for SMBs](https://medium.com/@kmuitspice/windows-hello-for-business-whfb-in-practice-smb-it-spice-93800f834725)
+calls it "the newest and by far the simplest way to enable secure WHfB": it creates a virtual
+read-only domain controller object in on-premises AD and needs no certificate connector, no PKI
+management, and no extra servers. Key trust remains reasonable where certificate infrastructure
+already exists. Certificate trust is the legacy path, needs a dedicated Intune Certificate
+Connector, and is worth actively avoiding in a small environment.
+
+That choice is not only an operational preference. As noted in the Staged Rollout section, WHfB
+hybrid *certificate* trust with the federation server acting as registration authority is one of
+the scenarios Microsoft does not support during a federated-to-managed migration, so picking
+certificate trust can strand exactly the users you are trying to move.
+
+One field-tested gotcha worth carrying across from that article, because it produces a support
+ticket that looks like an authentication failure and isn't: when Kerberos authentication fails,
+Windows waits ten minutes before retrying, which makes mapped network drives appear disconnected
+after boot or when roaming. Reducing `FarKdcTimeout` to one minute resolves it without weakening
+anything.
 
 ### Platform and browser gaps that turn "enabled" into "broken" for someone
 
@@ -707,10 +926,10 @@ not just theoretical risk:
 | Phase | Goal | Typical actions |
 |---|---|---|
 | **1. Foundation & Visibility** | Safe immediately, nothing depends on anything else | Block legacy authentication; enable Authenticator, FIDO2, and TAP; check platform/browser compatibility against Microsoft's own matrix; audit log and break-glass hygiene; TAP hardening (one-time-use, shorter lifetime) |
-| **2. Enable Phishing-Resistant Capability** | Give users something strong to actually register | Turn on FIDO2 self-service registration, attestation, key restrictions; define and be ready to enforce a phishing-resistant authentication strength |
+| **2. Enable Phishing-Resistant Capability** | Give users something strong to actually register | Turn on FIDO2 self-service registration; decide the Windows Hello trust model (cloud Kerberos trust for most hybrid SMB tenants); scope attestation and key restrictions to high-value accounts rather than tenant-wide, since both suppress the Phase 3 nudge; define and be ready to enforce a phishing-resistant authentication strength |
 | **3. Drive Registration Coverage** | Get people actually registered, using the bootstrap from Phase 2 | Work out who will be interrupted and tell them *before* switching anything on; run the registration campaign; close admin and overall MFA registration gaps; raise SSPR registration coverage |
 | **4. Retire Weak Fallback Methods** | Remove the downgrade path, only once it's safe to | Turn off SMS/Voice, but only after Phase 3's coverage is genuinely high enough |
-| **5. Enforce via Conditional Access** | Make the target state mandatory, last | Require MFA for all users; require compliant device or phishing-resistant auth for admins; once adoption is broad enough, tighten the all-user policy from plain MFA to a phishing-resistant authentication strength to close the MFA downgrade path |
+| **5. Enforce via Conditional Access** | Make the target state mandatory, last | Require MFA for all users; require compliant device or phishing-resistant auth for admins; once adoption is broad enough, tighten the all-user policy from plain MFA to a phishing-resistant authentication strength to close the MFA downgrade path. For high-value accounts, layer rather than stop here: the published exploit satisfied a phishing-resistant requirement, so add compliant device, PIM, and registration-event monitoring on top |
 
 Concretely: enforcing "MFA required for everyone" (Phase 5) before enough users have a registered
 method (Phase 3) risks locking people out entirely. Pushing users to register a passkey before a
@@ -853,6 +1072,29 @@ here:
 - [Authentication flows in Conditional Access](https://learn.microsoft.com/entra/identity/conditional-access/concept-authentication-flows)
   for device code flow being high risk, and for the protocol-tracking and Device Registration
   Service traps that come with blocking it.
+
+**Security research** is where the "why now" in this post comes from, and all of it is worth
+reading in full rather than via my summary:
+
+- Michael Grafnetter (SpecterOps), [Pass-the-Passkey Family of
+  Attacks](https://specterops.io/wp-content/uploads/sites/3/2026/08/Pass-the-Passkey_A4_v2.pdf),
+  17 July 2026, presented at Black Hat USA 2026. Three zero-days, 20+ techniques, open-source
+  tooling, and the clearest published statement of what to do differently for high-value accounts.
+  Everything quoted here about the event-log assertion leak (CVE-2026-34348, patched 14 July
+  2026), the Entra ID replay gap (partially fixed May 2026, still open for Windows Hello because
+  it always sends counter 0), the Credential UI spoofing issue (assessed Low, Defense in Depth),
+  and shadow passkeys comes from this paper.
+- Dirk-jan Mollema, [Borrowing Windows Hello Keys for Authentication and
+  Persistence](https://dirkjanm.io/borrowing-windows-hello-keys/), for the no-PIN key use, the
+  PRT chain, the "counts as fresh MFA so we can add more passkeys" persistence step, and the
+  detection query reproduced above.
+- Marco Wohler, [Windows Hello for Business (WHfB) in
+  practice](https://medium.com/@kmuitspice/windows-hello-for-business-whfb-in-practice-smb-it-spice-93800f834725),
+  for the cloud-Kerberos-trust recommendation and the `FarKdcTimeout` gotcha.
+
+Both attack papers are explicit that passkeys remain a large improvement over passwords and
+should still be adopted. If this post has left the opposite impression, that is my error and not
+theirs.
 
 **Message Center posts** cover changes announced but not yet in the product documentation. Since
 they can't be linked publicly, the references below point at
