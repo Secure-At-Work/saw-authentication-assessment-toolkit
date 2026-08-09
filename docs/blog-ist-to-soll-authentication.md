@@ -28,6 +28,30 @@ We use the Secure At Work Authentication Assessment Toolkit to run this kind of 
 against real tenants. It's mentioned where relevant, but everything below applies whether or not
 you use it.
 
+## How to read this
+
+It's long, because the subject is. You are not meant to read it end to end in one go. Three routes
+through it:
+
+| If you have | Read |
+|---|---|
+| **Five minutes** | The short version, immediately below. That's the whole argument. |
+| **Twenty minutes** | The short version, then *Why now* (what you're defending against), then *Part 3* (what good looks like) and *Part 4* (the order to do it in). |
+| **You're doing the work** | All of it, but treat **Part 2 as reference rather than narrative**. It's the longest section by far and it exists to be returned to when a specific mechanism misbehaves, not to be absorbed in one sitting. |
+
+Contents:
+
+1. [The short version](#the-short-version)
+2. [First, what a passkey actually is](#first-what-a-passkey-actually-is) — skip if the mechanism is familiar
+3. [Why now: the attacker's side](#why-now-the-attackers-side-of-this) — the 2026 research, and what it changes
+4. [Why this is harder than it looks](#why-this-is-harder-than-it-looks) — the eight surfaces
+5. [Part 1: Inventorying IST](#part-1-inventorying-ist-what-to-collect-and-why-each-piece-matters) — what to collect
+6. [Part 2: How it all works together](#part-2-how-it-all-actually-works-together) — the reference section
+7. [Part 3: SOLL, what "good" looks like](#part-3-soll-what-good-looks-like-and-why-it-isnt-one-size-fits-all)
+8. [Part 4: The five phases, in order](#part-4-the-path-from-ist-to-soll-five-phases-and-why-the-order-matters)
+9. [Part 5: SMS/Voice retirement worked through](#part-5-the-smsvoice-retirement-worked-through-the-whole-framework)
+10. [The practical workflow](#the-practical-workflow-in-short) and [sources](#sources-and-further-reading)
+
 ## The short version
 
 If you read nothing else:
@@ -343,20 +367,26 @@ policy says.
 
 ### Sign-in and audit logs
 
-Two separate windows serve two separate purposes. A short window (7 days is a reasonable
-default) checks for successful legacy authentication or device-code-flow sign-ins, both of which
-bypass modern Conditional Access controls entirely and are a red flag wherever they still
-succeed. A second, deliberately wider window checks whether *registered* methods are actually
-being *used*: registration alone doesn't mean a method still works, the device it lived on might
-be gone. Be careful what you ask for on that second one, though, because Entra caps how far back
-you can look: sign-in logs are retained for **seven days on Entra ID Free and 30 days on P1 or
-P2**, full stop. Request 90 days and you get back whatever was retained, with nothing in the
-response telling you the window was truncated. So 30 days is the real ceiling for most tenants,
-and any "not used recently" conclusion means "not within retention," never "not ever." If you
-genuinely need a longer history, that's an argument for routing sign-in logs to Azure Monitor or
-a storage account, not for asking Graph for a window it cannot serve. Audit logs separately catch unexpected credential
-changes on break-glass accounts and CA policy modifications made by applications rather than
-people, both classic incident indicators.
+Two separate windows serve two separate purposes:
+
+- **A short window** (7 days is a reasonable default) catches successful legacy-authentication or
+  device-code-flow sign-ins. Both bypass modern Conditional Access entirely, so either one
+  succeeding is a red flag.
+- **A deliberately wider window** checks whether *registered* methods are actually being *used*.
+  Registration alone doesn't prove a method still works — the device it lived on may be long gone.
+
+Be careful what you ask for on that second one. Entra caps how far back you can look: sign-in logs
+are retained **seven days on Entra ID Free, 30 days on P1 or P2**. Full stop.
+
+Ask for 90 days and you get back whatever was retained, with nothing in the response telling you the
+window was truncated. So 30 days is the real ceiling for most tenants, and any "not used recently"
+conclusion means *not within retention*, never *not ever*. If you genuinely need longer history,
+that's an argument for routing sign-in logs to Azure Monitor or a storage account — not for asking
+Graph for a window it cannot serve.
+
+Audit logs are a separate job: they catch unexpected credential changes on break-glass accounts, and
+Conditional Access policy modifications made by applications rather than people. Both are classic
+incident indicators.
 
 ### Tenant profile
 
@@ -373,47 +403,66 @@ looking at.
 
 ### The registration campaign
 
-A registration campaign nudges users to set up either Microsoft Authenticator or a passkey.
-Never both at once: it's one target method per tenant. Users complete their normal sign-in and
-MFA first; only then are they prompted. If they decline ("Skip for now"), the snooze duration
-(0–14 days, configurable) determines when they're asked again; if "limited snoozes" is enabled,
-they're forced to register after three skips, otherwise they can defer indefinitely. For a
-passkey campaign specifically, the nudge is evaluated **per device-and-browser combination**, not
-per user account. A user with a Windows Hello for Business credential is skipped on Windows +
-Chrome, but still nudged the moment they sign in from a Mac, because that credential doesn't
-transfer. A user is never nudged in the same session they just registered a method in. And the
-nudge is silently suppressed for anyone blocked from reaching the registration page by a
-Conditional Access policy, which is exactly why the CA trap below matters: a lockout there isn't
-loud, it's just an absence of a prompt nobody notices.
+A registration campaign nudges users to set up either Microsoft Authenticator or a passkey — never
+both at once. It's one target method per tenant.
 
-The campaign's own state is itself three-valued, not on/off: `disabled`, `enabled` (your own
-configured target/snooze settings apply exactly as set), or `default` (which the admin center
-labels "Microsoft managed": Microsoft's own recommended defaults apply instead, currently
-documented as targeting passkeys over Authenticator, a 1-day snooze, unlimited snoozes, and
-targeting every MFA-capable user). Worth flagging explicitly: **at the time of writing, Microsoft's
-own reference docs for this exact setting contradict each other**. The resource reference page
-states the default value is `disabled`, while the how-to article describes "Microsoft managed" as
-an actively-rolling-out set of new defaults. That's a documentation bug rather than a product one,
-so it may well be tidied up by the time you read this. Check both pages rather than assuming this
-observation still holds. And even taking the how-to article at face value, a
-start date Microsoft announces isn't a guarantee: tenants are migrated onto the new defaults in
-batches on Microsoft's own schedule, invisible from the tenant side. A tenant reading "Microsoft
-managed" today could be on the old behavior, the new one, or partway through, regardless of how
-long ago Microsoft's announced date has passed. If you need certainty about what a specific user
-is actually being shown, check that tenant directly rather than trusting the stated default.
+The mechanics:
+
+- Users complete their normal sign-in and MFA **first**. Only then are they prompted.
+- Declining ("Skip for now") starts the snooze, configurable from 0 to 14 days.
+- With **limited snoozes** on, they're forced to register after three skips. Without it, they can
+  defer indefinitely.
+
+Three behaviours catch people out:
+
+- **The passkey nudge is evaluated per device-and-browser combination**, not per user account. A
+  user with Windows Hello for Business is skipped on Windows + Chrome, then nudged the moment they
+  sign in from a Mac, because that credential doesn't travel.
+- **Nobody is nudged in the same session they just registered in.**
+- **The nudge is silently suppressed** for anyone a Conditional Access policy blocks from reaching
+  the registration page. That's why the CA trap below matters: the failure isn't loud, it's just an
+  absent prompt that nobody notices.
+
+The campaign's state is three-valued, not on/off:
+
+| State | What it means |
+|---|---|
+| `disabled` | Off. |
+| `enabled` | Your configured targeting and snooze settings apply exactly as set. |
+| `default` | Shown in the admin center as **"Microsoft managed"**. Microsoft's own defaults apply instead: currently documented as targeting passkeys over Authenticator, a 1-day snooze, unlimited snoozes, and every MFA-capable user in scope. |
+
+Two warnings about that third value.
+
+**Microsoft's own docs contradict each other on it.** At the time of writing, the resource reference
+says the default is `disabled`, while the how-to article describes "Microsoft managed" as a
+new set of defaults actively rolling out. That's a documentation bug, not a product one, so it may
+be tidied up by the time you read this — check both pages rather than trusting this observation.
+
+**And an announced start date is not a guarantee.** Tenants are moved onto new defaults in batches,
+on Microsoft's schedule, and that progress is invisible from inside the tenant. A tenant reading
+"Microsoft managed" today could be on the old behaviour, the new one, or midway between, no matter
+how long ago the announced date passed. If you need certainty about what a specific user is being
+shown, check that tenant directly.
 
 There's one more way a campaign can quietly do nothing, and it's the one most likely to catch out
-someone who has otherwise done everything right. Microsoft documents that users are not nudged at
-all if their passkey profile carries any of these restrictions: synced-only, device-bound-only,
-attestation enforced, or AAGUID key restrictions. Read that list again with a hardening mindset,
-because two of those items are things a security-conscious admin actively wants. Enforce
-attestation so only vetted authenticators can register, add an AAGUID allow-list so only approved
-key models are accepted, then switch on a registration campaign to drive adoption, and the
-campaign reaches nobody. Nothing errors. The admin center shows the campaign as configured and
-enabled. Registration coverage simply doesn't move, and the obvious conclusion ("users are
-ignoring the prompt") is wrong, because there was no prompt. The same restriction also blocks the
-automatic switch to passkey targeting under Microsoft-managed state. If you're going to run a
-campaign and enforce attestation, sequence them: drive registration first, tighten afterwards.
+someone who has otherwise done everything right.
+
+Microsoft documents that users are **not nudged at all** if their passkey profile carries any of
+these: synced-only, device-bound-only, attestation enforced, or AAGUID key restrictions.
+
+Read that list again with a hardening mindset. Two of those are things a security-conscious admin
+actively wants.
+
+So: enforce attestation so only vetted authenticators can register. Add an AAGUID allow-list so only
+approved models are accepted. Switch on a registration campaign to drive adoption. The campaign now
+reaches nobody.
+
+Nothing errors. The admin center shows the campaign configured and enabled. Registration coverage
+simply doesn't move — and the obvious conclusion, *users are ignoring the prompt*, is wrong. There
+was no prompt. The same restriction also blocks the automatic switch to passkey targeting under
+Microsoft-managed state.
+
+**The fix is sequencing, not choosing.** Drive registration first, tighten afterwards.
 
 ### The Temporary Access Pass as bootstrap mechanism
 
@@ -427,23 +476,32 @@ happen within 10 minutes of the TAP sign-in, which is why organizations doing de
 plus WHfB setup in one sitting often either issue two single-use TAPs, or enable a multi-use TAP
 so the same code covers both steps without a hard clock running underneath.
 
-There's a second nuance worth knowing before rolling out passkeys specifically, and it only shows
-up when the device the TAP is entered on isn't the device the passkey will live on. Registering
-"Passkey in Microsoft Authenticator" from a laptop, with the phone as the target for the actual
-credential, is genuinely supported: Microsoft's Security Info flow hands off to the phone through
-a QR code or an app-open prompt. What it doesn't do is carry the laptop's TAP session over. The
-phone has to independently sign in and complete MFA inside the Authenticator app itself, as its
-own separate step. For a brand-new user whose only credential is a single one-time-use TAP, that's
-a problem: the TAP is already spent reaching Security Info on the laptop, so there's nothing left
-to authenticate the phone with. Microsoft does document a fallback for exactly this gap, a
-Bluetooth-proximity "WebAuthn flow" that skips the second sign-in, but it's explicitly unavailable
-whenever FIDO2 attestation is enforced. Push both settings toward their generally-recommended
-values (a one-time-use TAP, and attestation enforced) at the same time, and a brand-new user can
-end up with no route through this specific bootstrap path at all. Windows Hello for Business
-doesn't have this problem, since it's bound to the same device the TAP was entered on and never
-needs a handoff, which is the real reason WHfB rollout can look further along than passkey
-rollout even when both are technically "enabled." The practical fix, if cross-device passkey
-bootstrap actually matters for a given tenant, is a short-lived multi-use TAP scoped to
+**The cross-device trap.** There's a second nuance, and it only appears when the device the TAP is
+entered on isn't the device the passkey will live on.
+
+Registering "Passkey in Microsoft Authenticator" from a laptop, with the phone holding the actual
+credential, is supported. Security Info hands off to the phone via a QR code or an app-open prompt.
+
+What it does *not* do is carry the laptop's TAP session across. The phone has to sign in and
+complete MFA inside the Authenticator app as its own separate step.
+
+For a brand-new user, that's a dead end. Their only credential was a single one-time-use TAP, and it
+was spent reaching Security Info on the laptop. There is nothing left to authenticate the phone
+with.
+
+Microsoft documents a fallback for exactly this gap — a Bluetooth-proximity "WebAuthn flow" that
+skips the second sign-in. It is explicitly unavailable whenever FIDO2 attestation is enforced.
+
+So push both settings to their generally-recommended values at the same time, one-time-use TAP *and*
+attestation enforced, and a brand-new user has no route through this bootstrap path at all. Neither
+setting is wrong. The combination is.
+
+Windows Hello for Business sidesteps this entirely: it's bound to the same machine the TAP was
+entered on, so there's no handoff. That is the real reason WHfB rollouts often look further along
+than passkey rollouts even when both are technically "enabled."
+
+The fix, if cross-device passkey bootstrap matters for a given tenant, is a short-lived multi-use
+TAP scoped to
 onboarding rather than a strict one-time-use TAP.
 
 ### If the tenant is still federated, TAP does one more thing
@@ -642,20 +700,27 @@ resources" policy simply never reaches it). Anyone who's completed first-factor 
 or not they have MFA registered yet, can reach that page unchallenged. The fix is a policy that
 explicitly targets the user action and requires at least a plain `mfa` grant control.
 
-The second failure mode is the opposite: such a policy exists, but overshoots. A policy scoped to
-`urn:user:registersecurityinfo` governs *how* and *where* users are allowed to
-register or update their security info, often used to confine that to a trusted network or
-compliant device during onboarding. The trap: if that policy's grant control is a **custom
-authentication strength** whose `allowedCombinations` doesn't include
-`temporaryAccessPassOneTime` or `temporaryAccessPassMultiUse`, a user relying on a TAP as their
-only way in (precisely the population being pushed toward passkey registration by every
-mechanism above) can never reach the page that would let them register one. A plain `mfa`
-built-in control doesn't cause this; a TAP generically satisfies that. Only a custom strength
-without a TAP escape hatch does. And as of **2026-07-06**, this same policy scope additionally
-governs Windows Hello for Business and macOS Platform SSO credential registration too, which it
-previously didn't evaluate at all. That widens the blast radius of any policy that already has this
-gap. This CA policy governs whether the registration page is *reachable*: it still has no say over
-what System-Preferred Authentication presents on the way there.
+The second failure mode is the opposite: such a policy exists, but overshoots.
+
+A policy scoped to `urn:user:registersecurityinfo` governs *how* and *where* users may register or
+update security info — often used to confine that to a trusted network or compliant device during
+onboarding. Reasonable.
+
+**The trap.** If that policy's grant control is a **custom authentication strength** whose
+`allowedCombinations` omits `temporaryAccessPassOneTime` and `temporaryAccessPassMultiUse`, then a
+user whose only way in is a TAP can never reach the page that would let them register something
+better. That is precisely the population every mechanism above is pushing toward passkey
+registration.
+
+Note what does *not* cause this: a plain `mfa` built-in control is fine, because a TAP satisfies it
+generically. Only a custom strength with no TAP escape hatch does it.
+
+As of **2026-07-06** this same scope also governs Windows Hello for Business and macOS Platform SSO
+registration, which it previously didn't evaluate at all — widening the blast radius of any policy
+that already has this gap.
+
+One boundary worth keeping straight: this policy controls whether the registration page is
+*reachable*. It has no say over what System-Preferred Authentication presents on the way there.
 
 ### Who actually gets interrupted, and why you owe them a heads-up
 
@@ -821,52 +886,51 @@ worth deciding deliberately, ideally auto-detected as a starting point from a si
 `organization.onPremisesSyncEnabled` (hybrid vs. cloud-native) and then adjusted for your
 specific risk appetite, rather than assumed.
 
-A representative checklist of what "good" actually requires, to make SOLL concrete rather than
-abstract:
+Here is what "good" actually requires, to make SOLL concrete rather than abstract. The checklist
+first, then the three items that need more than a line.
 
-- **Block legacy authentication tenant-wide** and **require MFA for all users** via Conditional
-  Access, the foundational pair almost everything else assumes is already in place. Treat that
-  requirement as a floor, not the finish line: a plain "require MFA" grant control accepts
-  whichever method a user has registered, including a weaker one, and that gap is exactly what
-  an MFA downgrade attack targets. An adversary-in-the-middle proxy can tell Entra the current
-  browser doesn't support a passkey and fall back to something weaker the user also has
-  registered, and a plain MFA requirement has no way to object, because it was satisfied.
-  Requiring a specific authentication strength instead of "any MFA" closes that fallback, since
-  the strength itself defines which methods are acceptable. Rolling that out tenant-wide, not
-  just for admins, only makes sense once phishing-resistant methods are broadly registered
-  (Phase 3 below); until then, plain MFA is a legitimate interim state, not a failure.
-- **Privileged access protection for admins**, as a composite rather than one hard-coded
-  control: a compliant device requirement *or* a phishing-resistant authentication strength
-  requirement for admin roles, either one satisfies the intent.
-- **Admin and overall MFA registration coverage** at or above a defined threshold, since a
-  Conditional Access requirement is meaningless if the people it targets never actually
-  registered a method to satisfy it.
-- **FIDO2 attestation and key restrictions enforced**, and a defined policy on whether
-  cloud-synced passkeys (Google Password Manager, iCloud Keychain, and similar) are acceptable or
-  whether only device-bound credentials are. For the general workforce this is a genuine
-  either-way judgment call. For high-value accounts it is no longer especially balanced: the 2026
-  attack research recommends device-bound over synced, and attestation enforced, specifically for
-  those users. The reasoning is that a synced passkey's private key exists in more than one place
-  and rests in a cloud vault, so a phishing-resistant credential ends up only as strong as the
-  password guarding that vault. Researchers have demonstrated exporting usable private keys from
-  password-manager vaults in cleartext, at which point the credential can be replayed from
-  anywhere with no access to the original device.
-- **SSPR registration coverage** among SSPR-enabled users, and, the narrower and easier-to-miss
-  check, **admins correctly excluded from the user-facing SSPR policy whenever admin SSPR has
-  been deliberately disabled**, closing exactly the trap described above.
-- **A phishing-resistant registration bootstrap actually available** (self-service FIDO2, or
-  TAP), without which every downstream registration push has nowhere for a brand-new user to
-  start.
-- **Legacy MFA/SSPR policy migration actually completed**, the one item on this list that isn't
-  ambiguous or judgment-dependent at all. Microsoft announced deprecating the legacy per-user MFA
-  policy and legacy SSPR policy back in March 2023, and since September 30, 2025 they can no
-  longer be *edited*. That's easy to mistake for "solved." It isn't. Per Microsoft's own
-  migration-states table, a tenant sitting at `premigration` or `migrationInProgress` still has
-  those now-frozen legacy settings *actively respected* for who can register and use which
-  method, layered invisibly on top of whatever the modern Authentication Methods Policy says.
-  That's a real blind spot: a method that looks Disabled in the modern policy can still be usable
-  in practice via the legacy one. The fix (Microsoft's own automated migration guide) is
-  documented as fully reversible, so there's no reason to delay it once you know to look for it.
+| What | Why it's on the list |
+|---|---|
+| **Block legacy authentication** tenant-wide | Everything else assumes it. Legacy protocols bypass Conditional Access entirely. |
+| **Require MFA for all users** | The floor, not the finish line — see below. |
+| **Privileged access protection for admins** | A compliant device requirement *or* a phishing-resistant strength for admin roles. Either satisfies the intent; it doesn't have to be one specific control. |
+| **Admin and overall MFA registration coverage** above a set threshold | A Conditional Access requirement is meaningless if the people it targets never registered a method that can satisfy it. |
+| **FIDO2 attestation and key restrictions enforced** | Plus a decided position on synced passkeys — see below. |
+| **SSPR registration coverage** among SSPR-enabled users | And the easy-to-miss one: admins excluded from the user-facing SSPR policy whenever admin SSPR is deliberately off. |
+| **A registration bootstrap that actually exists** | Self-service FIDO2, or TAP. Without one, every downstream registration push has nowhere for a brand-new user to start. |
+| **Legacy MFA/SSPR policy migration completed** | The only unambiguous item here — see below. |
+
+**Why "require MFA" is a floor.** A plain *require MFA* grant control accepts whichever method the
+user has registered, including a weak one. That is exactly what an MFA downgrade attack targets: an
+adversary-in-the-middle proxy tells Entra the browser can't do passkeys, Entra falls back to
+something weaker the user also has, and the policy raises no objection, because it *was* satisfied.
+
+Requiring a specific authentication **strength** closes that fallback, because the strength defines
+which methods count. Rolling that out tenant-wide only makes sense once phishing-resistant methods
+are broadly registered (Phase 3). Until then, plain MFA is a legitimate interim state, not a failure.
+
+**Synced passkeys: decide, don't drift.** For the general workforce this is a genuine either-way
+call. For high-value accounts it isn't especially balanced any more — the 2026 research recommends
+device-bound plus attestation for those users specifically.
+
+The reasoning is custody. A synced passkey's private key exists in more than one place and rests in
+a cloud vault, so a phishing-resistant credential ends up only as strong as the password guarding
+that vault. Researchers have demonstrated exporting usable private keys from password-manager vaults
+in cleartext, after which the credential can be replayed from anywhere, with no access to the
+original device.
+
+**Legacy policy migration is the one with no judgment call in it.** Microsoft announced deprecating
+the legacy per-user MFA and SSPR policies in March 2023, and since 30 September 2025 they can no
+longer be *edited*.
+
+That is easy to mistake for "solved." It isn't. Per Microsoft's own migration-states table, a tenant
+sitting at `premigration` or `migrationInProgress` still has those frozen legacy settings **actively
+respected** for who may register and use which method — layered invisibly on top of whatever the
+modern Authentication Methods Policy says.
+
+The practical consequence: a method that reads *Disabled* in the modern policy can still be usable
+via the legacy one. Microsoft's automated migration guide is documented as fully reversible, so
+there is no reason to delay once you know to look.
 
 ### Two tiers, not one: the workforce and the accounts worth attacking individually
 
