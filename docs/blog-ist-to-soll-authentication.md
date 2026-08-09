@@ -335,14 +335,47 @@ user-experience impact, confirmed against Microsoft's own concept article
   with a password and a passkey registered gets prompted with the passkey first, at *first*-factor
   sign-in, ahead of the password screen entirely.
 
-The ranking itself is fixed and documented: Temporary Access Pass outranks everything (recovery
-takes priority), then passkey, then certificate-based authentication, then Microsoft Authenticator
-notifications, then weaker MFA methods, then telephony (SMS/voice), then password last. The user
-can always back out via "Sign in another way," but the *default* screen they see changes, which is
-exactly the kind of thing that generates a wave of "why does my sign-in look different" tickets if
-nobody was told to expect it. The Microsoft-managed behavior is being **gradually rolled out
-through August 2026**, so two tenants that have both left this setting untouched may currently be
-experiencing different things, purely based on where they are in that rollout.
+The ranking is published, and worth reading in full rather than assuming, because it is explicitly
+**not fixed**. Microsoft's own words: "The method order is dynamic and updates as the security
+landscape changes." As published today:
+
+| Rank | Credential | Satisfies |
+|---|---|---|
+| 1 | Temporary Access Pass | First factor + MFA |
+| 2 | Passkey (security keys, passkeys in Authenticator, synced passkeys, WHfB, macOS Platform SSO) | First factor + MFA |
+| 3 | Certificate-based authentication | First factor, or first factor + MFA |
+| 4 | Microsoft Authenticator notifications | First factor + MFA |
+| 5 | External MFA | MFA |
+| 6 | TOTP (hardware or software) | MFA |
+| 7 | Telephony (SMS and voice) | MFA |
+| 8 | QR code | First factor |
+| 9 | Password | First factor |
+
+That "dynamic" caveat is not theoretical: certificate-based authentication used to sit **last** in
+this order because of known issues, and moved to **third** on March 18, 2026 once they were
+resolved. If you have CBA deployed, that reordering has a sharp edge Microsoft flags directly:
+under the Microsoft-managed state, users on a device that has no certificate will **fail
+immediately** during CBA and have to select "Sign in another way" manually to get anywhere. A
+method jumping from ninth to third is exactly the kind of change nobody re-reads the ranking for.
+
+Two more behaviors worth knowing. Windows Hello for Business and macOS Platform SSO only work as a
+first factor, so at first-factor sign-in they're offered **only when the user most recently signed
+in with a passkey**; if their only registered passkey is one of those two and their last sign-in
+wasn't a passkey, the system skips it and offers the next method down instead. And federated users
+are exempt at the first factor entirely: they keep going to their own identity provider, with
+system-preferred applying only to their second factor.
+
+The user can always back out via "Sign in another way," but the *default* screen they see changes,
+which is exactly the kind of thing that generates a wave of "why does my sign-in look different"
+tickets if nobody was told to expect it. The Microsoft-managed behavior is being **gradually rolled
+out through August 2026**, so two tenants that have both left this setting untouched may currently
+be experiencing different things, purely based on where they are in that rollout. Microsoft is
+explicit about how to tell: if first-factor sign-in doesn't reflect the ranking while the state
+reads Microsoft managed, the rollout simply hasn't reached that tenant yet.
+
+One practical constraint that catches people staging this: you can include or exclude exactly
+**one group**, not several. Piloting to three departments means one group containing all three,
+not three include targets.
 
 One structural nuance worth carrying into the next section: Conditional Access is validated only
 for the **second** factor. It doesn't see, and can't override, what System-Preferred Authentication

@@ -240,6 +240,51 @@ retained. "No interactive sign-in in the window" therefore always means "none wi
 never "none ever", and a dormant account is indistinguishable from someone who simply didn't sign
 in interactively during the window.
 
+### The system-preferred credential ranking, and that it is not fixed
+
+Verified in full 2026-08-09. The published order is TAP (1), passkey (2), certificate-based
+authentication (3), Microsoft Authenticator notifications (4), external MFA (5), TOTP (6),
+telephony (7), QR code (8), password (9). Passkey at rank 2 explicitly "includes security keys,
+passkeys in Authenticator app, synced passkeys, Windows Hello for Business, and macOS Platform SSO."
+
+The order is explicitly not stable:
+
+> "The method order is dynamic and updates as the security landscape changes."
+
+> "Certificate-based authentication (CBA) was previously placed last in the system-preferred
+> authentication order due to known issues... Now that those issues are resolved, starting March
+> 18th, 2026, certificate-based authentication moved to the third position."
+
+With a consequence worth carrying, given CBA moved up six places:
+
+> "users on devices without certificates will fail immediately during CBA and must manually select
+> **Sign in another way** to continue with an alternate method."
+
+On the three states, which is what the toolkit's inventory row reports:
+
+> "**Enabled** - System-preferred authentication applies to second-factor only... **Microsoft
+> managed** - System-preferred authentication applies to both first-factor and second-factor
+> authentication."
+
+On the rollout, and how a tenant can tell where it stands:
+
+> "The **Microsoft managed** state behavior affects both first-factor and multifactor
+> authentication and is being gradually deployed to tenants through August 2026. If your tenant or
+> users don't experience system-preferred authentication as the first factor when the **State** is
+> **Microsoft managed**, the rollout isn't deployed yet for your tenant."
+
+Also relevant to the WHfB-only population the report flags: device-bound passkeys are offered at
+first factor only conditionally.
+
+> "If the user's only registered passkey is Windows Hello for Business or macOS Platform SSO, and
+> the user's most recent sign-in wasn't with a passkey, system-preferred authentication skips it at
+> the first factor and prompts the next highest-ranked method."
+
+And a staging constraint: "You can only include one group for system-preferred authentication."
+
+Source: [concept-system-preferred-authentication](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication)
+(ms.date 2026-04-15, updated 2026-07-17). Verified 2026-08-09.
+
 ### Passkey registration is not supported for guest users (backs the Guest triage bucket)
 
 > "Registration of passkey (FIDO2) credentials isn't supported for internal or external guest users,
