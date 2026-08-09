@@ -58,7 +58,9 @@ specific groups), and method-specific settings that change what the method actua
   targets (`microsoftAuthenticator` or `fido2`), snooze duration, and whether snoozes are limited
   (forced registration after three skips) or unlimited. See Part 2 for why "Microsoft managed"
   specifically deserves its own paragraph.
-- **System-Preferred Authentication** (`systemCredentialPreferences`): a genuinely separate
+- **System-preferred multifactor authentication**, found in the portal under Authentication
+  methods > Settings, and called `systemCredentialPreferences` if you're reading the policy through
+  Graph: a genuinely separate
   setting, easy to conflate with the registration campaign but controlling something different:
   not what gets *nudged for registration*, but what gets *presented at sign-in* for a credential
   the user already has. Covered in full in Part 2.
@@ -125,7 +127,8 @@ specific person has set up. This is what tells you, per user, whether they:
 
 ### The authorization policy: the admin SSPR trap
 
-One field, easy to miss entirely: `allowedToUseSSPR` on `/policies/authorizationPolicy`. By
+One setting, easy to miss entirely, and one you won't stumble across in the portal because it has
+no switch there: `allowedToUseSSPR` on `/policies/authorizationPolicy`, readable only via Graph. By
 default, administrator accounts get self-service password reset through their own **built-in
 two-gate policy** (two methods required, security questions prohibited), completely independent
 of whatever the general SSPR configuration says for end users. `allowedToUseSSPR` is the actual
@@ -179,7 +182,7 @@ configured target/snooze settings apply exactly as set), or `default` (which the
 labels "Microsoft managed": Microsoft's own recommended defaults apply instead, currently
 documented as targeting passkeys over Authenticator, a 1-day snooze, unlimited snoozes, and
 targeting every MFA-capable user). Worth flagging explicitly: **Microsoft's own reference docs
-for this exact field contradict each other**. The resource reference page states the default
+for this exact setting contradict each other**. The resource reference page states the default
 value is `disabled`, while the how-to article describes "Microsoft managed" as an
 actively-rolling-out set of new defaults. And even taking the how-to article at face value, a
 start date Microsoft announces isn't a guarantee: tenants are migrated onto the new defaults in
@@ -287,7 +290,8 @@ the broken, confusing prompt described above.
 ### System-Preferred Authentication: a different mechanic from everything above
 
 Every mechanism so far governs *registration*: what gets set up, and when a user is nudged to set
-something up. System-Preferred Authentication (`systemCredentialPreferences`) is something else
+something up. System-preferred multifactor authentication (`systemCredentialPreferences` in Graph,
+and under Authentication methods > Settings in the portal) is something else
 entirely: it governs what gets **presented at sign-in** for a credential the user *already has*.
 Easy to conflate with the registration campaign, and genuinely a distinct setting with distinct
 user-experience impact, confirmed against Microsoft's own concept article
@@ -634,7 +638,7 @@ broader September rollout.
 
 **The opt-out covers only the first date.** Setting
 `authenticationMethodsPolicy.optOutSettings.passkeyDynamicMigration` to `true` (via the **beta**
-Graph endpoint, the one field on this policy that doesn't exist on `v1.0`) excludes the tenant
+Graph endpoint, the one setting on this policy that doesn't exist on `v1.0`) excludes the tenant
 from the automatic enablement and registration-campaign rollout for a defined runway. It does
 **not** touch the February 1 enforcement in any way; that date applies to every tenant regardless.
 Organizations with a genuine regulatory or operational need to keep an SMS/Voice channel have a
