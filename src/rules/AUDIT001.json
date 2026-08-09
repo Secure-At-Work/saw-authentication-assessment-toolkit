@@ -6,5 +6,5 @@
     "Severity": "High",
     "Phase": 1,
     "PhaseName": "1. Foundation & Visibility",
-    "Recommendation": "Investigate any password or credential change on break-glass accounts outside a planned, documented rotation. Unexpected changes may indicate compromise or informal handling of emergency-access credentials that should be tightly controlled."
+    "Recommendation": "Investigate any password or credential change on break-glass accounts outside a planned, documented rotation. Unexpected changes may indicate compromise or informal handling of emergency-access credentials that should be tightly controlled. Note that Microsoft's current guidance for these accounts is passwordless: choose a passkey (FIDO2, recommended) or certificate-based authentication, because those satisfy the mandatory MFA requirements that a long password alone no longer does. A tenant still running password-based break-glass accounts has a second finding here beyond the credential-change question. Pair this rule with alerting rather than periodic review: Microsoft's own checklist is to 'monitor all sign-in and audit log activity for emergency access accounts with alerts to detect unnecessary or unauthorized use', and to validate the accounts at least every 90 days."
 }

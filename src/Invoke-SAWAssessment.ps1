@@ -165,8 +165,14 @@ if (-not $RulesPath) { $RulesPath = Join-Path $PSScriptRoot 'rules' }
 if (-not $OutputRoot) { $OutputRoot = Join-Path (Join-Path $PSScriptRoot '..') 'reports' }
 if (-not $HistoryPath) { $HistoryPath = Join-Path (Join-Path $PSScriptRoot '..') 'history' }
 
-$reportPathWasExplicit = $PSBoundParameters.ContainsKey('ReportPath')
-$dashboardPathWasExplicit = $PSBoundParameters.ContainsKey('DashboardPath')
+# Deliberately a truthiness test rather than $PSBoundParameters.ContainsKey(): ContainsKey is a
+# method call on a generic dictionary, which ConstrainedLanguage mode blocks ("Cannot invoke method.
+# Method invocation is supported only on core types"). Under CLM both variables silently came back
+# $null, so an explicitly passed -ReportPath was overwritten by the generated path below. Both
+# parameters are [string] with no default, so an unbound parameter is '' and this is equivalent for
+# every case except -ReportPath '', which isn't a usable path anyway. Same idiom as $baselineWasExplicit.
+$reportPathWasExplicit = [bool]$ReportPath
+$dashboardPathWasExplicit = [bool]$DashboardPath
 
 $ErrorActionPreference = 'Stop'
 

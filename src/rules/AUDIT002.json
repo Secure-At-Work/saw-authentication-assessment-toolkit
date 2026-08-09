@@ -6,5 +6,5 @@
     "Severity": "Medium",
     "Phase": 1,
     "PhaseName": "1. Foundation & Visibility",
-    "Recommendation": "Review Conditional Access policy changes initiated by an application or service principal rather than a named administrator. Confirm the automation is expected and appropriately scoped, since unattributed changes to security policy are a governance risk."
+    "Recommendation": "Review Conditional Access policy changes initiated by an application or service principal rather than a named administrator. Confirm the automation is expected and appropriately scoped, since unattributed changes to security policy are a governance risk. Two common benign explanations before treating this as suspicious: a policy-as-code pipeline, which Microsoft explicitly recommends ('adopt a policy-as-code workflow with source control and continuous integration so changes are reviewable, testable, and reversible'), and the Conditional Access Optimization Agent in Security Copilot, which can create or update a policy from a suggestion in a single click and will appear as a non-human actor. Where changes should be harder to make regardless of who makes them, enable protected actions, which require additional verification before anyone creates, modifies, or deletes a Conditional Access policy."
 }

@@ -6,5 +6,5 @@
     "Severity": "Medium",
     "Phase": 1,
     "PhaseName": "1. Foundation & Visibility",
-    "Recommendation": "Review successful device code flow sign-ins. This flow is a known phishing vector (device code phishing) and should be restricted via Conditional Access to trusted scenarios only."
+    "Recommendation": "Review successful device code flow sign-ins. Microsoft describes this flow as 'a high-risk authentication method that can be part of a phishing attack or used to access corporate resources on unmanaged devices' and recommends blocking it wherever possible. Restrict it with a Conditional Access authentication flows condition, scoped to the few genuine cases (typically input-constrained devices such as conference room hardware or signage). Two traps to plan around before enabling the block. Protocol tracking: once a session has used device code flow that state survives token refreshes, so later requests in the same session are also subject to the policy even when they aren't device code flow. And a policy targeting all resources is enforced against the Device Registration Service, which breaks device registration that depends on this flow unless that resource (client ID 01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9) is excluded. Measure current usage first via the sign-in logs 'authentication protocol' filter, or run the policy in report-only mode."
 }

@@ -16,10 +16,13 @@ caught (see "Known corrections" at the bottom).
 
 ## Conventions
 
-- **Verified** means someone opened the live page and confirmed the specific claim, on the date
-  shown. It does not mean the page hasn't changed since.
+- **Verified** means someone opened the live page and confirmed that the page *states the specific
+  claim*, on the date shown. Confirming the link resolves is not verification: two rows survived
+  months that way before the 2026-08-09 pass found the pages never said the thing. It also does not
+  mean the page hasn't changed since.
 - **Carried over** means the citation predates this review and was not re-opened during it. Treat
-  those as good but slightly colder.
+  those as good but slightly colder. As of 2026-08-09 no rows are in this state; the definition
+  stays because new rules arrive this way.
 - Where a rule's claim rests on a *specific sentence*, that sentence is quoted, because paraphrase
   is where accuracy usually goes missing.
 
@@ -29,17 +32,17 @@ caught (see "Known corrections" at the bottom).
 
 | Rule | What it claims | Primary source | Last verified |
 |---|---|---|---|
-| **AUDIT001** | Break-glass credential changes should be deliberate and reviewed | [Manage emergency access accounts](https://learn.microsoft.com/entra/identity/role-based-access-control/security-emergency-access) | Carried over |
-| **AUDIT002** | Conditional Access changes made by applications rather than people warrant review | [Conditional Access overview](https://learn.microsoft.com/entra/identity/conditional-access/overview) | Carried over |
-| **AUTH001** | Microsoft Authenticator should be enabled | [What are authentication methods?](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods) | Carried over |
+| **AUDIT001** | Break-glass credential changes should be deliberate and reviewed | [Manage emergency access accounts](https://learn.microsoft.com/entra/identity/role-based-access-control/security-emergency-access) | **2026-08-09** |
+| **AUDIT002** | Conditional Access changes made by applications rather than people warrant review | [Plan a Conditional Access deployment, "Govern and manage policies at scale"](https://learn.microsoft.com/entra/identity/conditional-access/plan-conditional-access#govern-and-manage-policies-at-scale) | **2026-08-09** (citation replaced) |
+| **AUTH001** | Microsoft Authenticator should be enabled | [Microsoft Entra authentication overview](https://learn.microsoft.com/entra/identity/authentication/overview-authentication) | **2026-08-09** (URL corrected) |
 | **AUTH002 / AUTH003** | SMS and Voice are being retired and should be moved off | [Passkeys by default and retirement of SMS and voice](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement) | **2026-08-07** |
 | **AUTH004** | FIDO2 / passkeys should be enabled | [How to enable passkeys (FIDO2)](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
 | **AUTH005** | Temporary Access Pass should be enabled as a bootstrap method | [Configure a Temporary Access Pass](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-temporary-access-pass) | **2026-08-07** |
 | **AUTH006** | `passkeyDynamicMigration = true` opts the tenant **out** of the automatic rollout | [SMS/voice retirement, "Temporarily opt out"](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement) | **2026-08-07** |
-| **AUTH007** | Unmigrated legacy MFA/SSPR policy is still actively respected | [Migration between policies](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage#migration-between-policies) | Carried over |
+| **AUTH007** | Unmigrated legacy MFA/SSPR policy is still actively respected | [Migration between policies](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage#migration-between-policies) | **2026-08-09** |
 | **BOOT001** | A bootstrap path (self-service FIDO2 or TAP) must exist before registration can be driven | [TAP article](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-temporary-access-pass) + [passkey self-service toggle](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
 | **CA001** | Legacy authentication should be blocked via CA, targeting Exchange ActiveSync + Other clients | [Block legacy authentication with Conditional Access](https://learn.microsoft.com/entra/identity/conditional-access/policy-block-legacy-authentication) | **2026-08-07** |
-| **CA002** | MFA should be required for all users | [Require MFA for all users](https://learn.microsoft.com/entra/identity/conditional-access/policy-all-users-mfa-strength) | Carried over |
+| **CA002** | MFA should be required for all users | [Require MFA for all users](https://learn.microsoft.com/entra/identity/conditional-access/policy-all-users-mfa-strength) | **2026-08-09** |
 | **CA003** | Admin protection via compliant device *or* phishing-resistant strength | [Authentication strengths overview](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-strengths) | **2026-08-07** |
 | **CA004** | A phishing-resistant strength gating security-info registration locks out TAP-only users | [Authentication strengths overview](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-strengths) | **2026-08-07** |
 | **CA005** | Resource targeting and user-action targeting are mutually exclusive per policy | [Targeting resources in Conditional Access](https://learn.microsoft.com/entra/identity/conditional-access/concept-conditional-access-cloud-apps) | **2026-08-07** |
@@ -48,11 +51,11 @@ caught (see "Known corrections" at the bottom).
 | **PASS002** | Key restrictions allow/block specific models by AAGUID | [Passkey profiles, "Key Restriction Policy"](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
 | **PASS003** | Synced passkeys are phishing-resistant but have a different custody model | [Synced vs device-bound passkeys](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
 | **RCAMP001 / RCAMP002** | The campaign nudges registration and can target Authenticator or passkey | [Run a registration campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign) | **2026-08-07** |
-| **REG001 / REG002** | Per-user registration state is readable and coverage is measurable | [Authentication methods activity report](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity) | Carried over |
+| **REG001 / REG002** | Per-user registration state is readable and coverage is measurable | [Authentication methods activity report](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity) | **2026-08-09** |
 | **SIGNIN001** | Successful legacy-auth sign-ins are visible in sign-in logs | [Block legacy auth, "Identify legacy authentication use"](https://learn.microsoft.com/entra/identity/conditional-access/policy-block-legacy-authentication) | **2026-08-07** |
-| **SIGNIN002** | Device code flow is a known phishing vector worth monitoring | [Device code flow](https://learn.microsoft.com/entra/identity-platform/v2-oauth2-device-code) | Carried over |
+| **SIGNIN002** | Device code flow is a known phishing vector worth monitoring | [Authentication flows as a condition in Conditional Access, "Device code flow"](https://learn.microsoft.com/entra/identity/conditional-access/concept-authentication-flows#device-code-flow) | **2026-08-09** (citation replaced) |
 | **SSPR001** | Directory-sourced contact info stops satisfying SSPR on a fixed date | [SSPR authentication data](https://learn.microsoft.com/entra/identity/authentication/howto-sspr-authenticationdata) | 2026-08-06 |
-| **SSPR002** | Admins run on their own two-gate SSPR policy | [Administrator reset policy differences](https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy#administrator-reset-policy-differences) | Carried over |
+| **SSPR002** | Admins run on their own two-gate SSPR policy | [Administrator reset policy differences](https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy#administrator-reset-policy-differences) | **2026-08-09** |
 | **STR001** | Built-in Phishing-resistant MFA strength = FIDO2, WHfB/platform credential, CBA (multifactor) | [Authentication strengths overview](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-strengths) | **2026-08-07** |
 | **TAP001** | One-time use is a supported TAP policy setting (default `False`) | [TAP policy settings table](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-temporary-access-pass) | **2026-08-07** |
 | **TAP002** | 8 hours is Microsoft's own default maximum TAP lifetime (range 10 min to 30 days) | [TAP policy settings table](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-temporary-access-pass) | **2026-08-07** |
@@ -351,6 +354,115 @@ Note on sourcing: a secondary write-up of these changes gave a less precise Phas
 Message Center posts themselves. The dates recorded in this repo come from the MC posts, which is
 also why they're worth re-checking directly rather than from any summary, including this one.
 
+### Device code flow is high risk in Microsoft's own words (backs SIGNIN002)
+
+The protocol reference page that SIGNIN002 originally cited is a developer document and contains no
+security warning at all. The Conditional Access page for authentication flows does, verbatim:
+
+> "Device code flow is a high-risk authentication method that can be part of a phishing attack or
+> used to access corporate resources on unmanaged devices."
+
+> "Allow device code flow only where necessary. Microsoft recommends blocking device code flow
+> wherever possible."
+
+The same page names the mechanism for acting on the finding: an **authentication flows** condition in
+Conditional Access that explicitly targets device code flow, plus a sign-in-log **authentication
+protocol** filter for measuring current usage before blocking. Two operational traps worth knowing
+before recommending the block. First, *protocol tracking*: once a session has used device code flow,
+that state persists through refreshes, so later non-device-code requests in the same session are also
+subject to the policy. Second, since early September 2024 these policies are enforced against the
+**Device Registration Service** when the policy targets all resources, which breaks device
+registration that relies on device code flow unless that resource (client ID
+`01cb2876-7ebd-4aa4-9cc9-d28bd4d359a9`) is excluded. Source:
+[concept-authentication-flows](https://learn.microsoft.com/entra/identity/conditional-access/concept-authentication-flows),
+ms.date 2026-03-24. Verified 2026-08-09.
+
+### Reviewing who changes Conditional Access policy (backs AUDIT002)
+
+Microsoft's guidance for this sits in the deployment-planning article, not the Conditional Access
+overview. Under "Govern and manage policies at scale":
+
+> "**Protect policy changes.** Enable protected actions to require additional verification before
+> anyone creates, modifies, or deletes Conditional Access policies."
+
+> "Adopt a policy-as-code workflow with source control and continuous integration so changes are
+> reviewable, testable, and reversible."
+
+One benign explanation for an application rather than a person appearing as the actor on a policy
+change: the **Conditional Access Optimization Agent** (Security Copilot) can create or update
+policies from a suggestion in one click. A tenant running that agent will legitimately show
+non-human policy authorship, so AUDIT002 findings should be triaged against whether the agent is
+provisioned rather than treated as suspicious by default. Source:
+[plan-conditional-access](https://learn.microsoft.com/entra/identity/conditional-access/plan-conditional-access#govern-and-manage-policies-at-scale),
+ms.date 2026-06-01. Verified 2026-08-09.
+
+### Break-glass guidance is now passwordless (affects AUDIT001's framing)
+
+The emergency-access article no longer describes break-glass accounts as long-password accounts
+excluded from MFA. It now instructs:
+
+> "Choose one of these passwordless authentication methods for your emergency access accounts. These
+> methods satisfy the mandatory multifactor authentication requirements" — passkey (FIDO2)
+> (recommended), or certificate-based authentication.
+
+The monitoring claim AUDIT001 rests on is unchanged and explicit:
+
+> "Monitor all sign-in and audit log activity for emergency access accounts with alerts to detect
+> unnecessary or unauthorized use."
+
+Also newly explicit, and relevant to CA003/CA004 exclusion advice: report-only policies do **not**
+need an emergency-account exclusion, and validation drills are expected "at least every 90 days."
+Source:
+[security-emergency-access](https://learn.microsoft.com/entra/identity/role-based-access-control/security-emergency-access),
+ms.date 2026-06-04. Verified 2026-08-09.
+
+### What survives "Migration Complete" (refines AUTH007)
+
+The migration-state table is exact, and confirms the claim:
+
+> Pre-migration — "Legacy policy settings are respected."
+> Migration in Progress — "Legacy policy settings are respected."
+> Migration Complete — "Legacy policy settings are ignored."
+
+But "ignored" is not "gone." The same page states that after full migration two parts of the legacy
+SSPR policy stay live: the **Number of methods required to reset** control, and the **SSPR
+administrator policy**. Independently, the SSPR policy article says the admin policy "doesn't depend
+upon the Authentication methods policy" — so an admin can register and use a method for SSPR that the
+Authentication methods policy disables. Both facts mean a tenant reading `migrationComplete` still has
+authentication behaviour that the Authentication methods policy does not describe. Sources:
+[concept-authentication-methods-manage](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage#migration-between-policies)
+(ms.date 2025-03-04) and
+[concept-sspr-policy](https://learn.microsoft.com/entra/identity/authentication/concept-sspr-policy#administrator-reset-policy-differences)
+(ms.date 2026-05-26). Verified 2026-08-09.
+
+### Authentication strength is incompatible with external authentication methods (caveats CA002/CA006)
+
+CA006 treats a plain `mfa` grant control as weaker than an authentication strength. There is one
+legitimate reason a tenant runs the plain control, and Microsoft flags it on the CA002 template page:
+
+> "External authentication methods are currently incompatible with authentication strength. You
+> should use the **Require multifactor authentication** grant control."
+
+A tenant using a third-party MFA provider through external authentication methods therefore *has* to
+use the plain control. CA006 should be read alongside whether the tenant has an external method
+configured, rather than as an unconditional finding. Source:
+[policy-all-users-mfa-strength](https://learn.microsoft.com/entra/identity/conditional-access/policy-all-users-mfa-strength),
+ms.date 2026-03-24. Verified 2026-08-09.
+
+### Registration reporting lags by up to 36 hours and omits disabled users (caveats REG001/REG002)
+
+> "The data in the report is not updated in real-time and may reflect a latency of up to 36 hours."
+
+> "User accounts that were recently deleted, also known as soft-deleted users, are not listed in user
+> registration details. Same for disabled users."
+
+Two consequences for the roster this toolkit builds. A registration that happened yesterday may not
+appear, so a run immediately after a registration push understates coverage. And because disabled
+users are excluded from the source report, roster totals are a count of *enabled, non-deleted* users,
+which will not reconcile against a raw user count. Source:
+[howto-authentication-methods-activity](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity),
+ms.date 2025-10-22. Verified 2026-08-09.
+
 ## Platform compatibility claims
 
 Every platform/browser/app support claim in
@@ -410,6 +522,27 @@ the state as observed and attaches a "Rollout timing not confirmed" badge rather
 behavior, because the tenant's actual behavior depends on where Microsoft is in its own batch
 rollout, which is not observable through Graph.
 
+**Two citations did not support their claims (corrected 2026-08-09).** Re-opening the eight
+"carried over" rows found two where the page was real, the claim was true, but the page did not say
+it. SIGNIN002 cited the OAuth device-authorization-grant protocol reference for "device code flow is
+a known phishing vector" — that page is developer documentation and carries no security warning
+whatsoever. AUDIT002 cited the Conditional Access overview for "policy changes made by applications
+warrant review" — that page describes what Conditional Access is and never discusses change
+governance. Both now cite pages that state the claim in Microsoft's own words (see the quoted
+sections above). This is the failure mode that a "last verified" date alone does not catch: the date
+records that *someone looked*, not that what they found actually said the thing.
+
+**AUTH001's source URL had been retired (corrected 2026-08-09).**
+`.../authentication/concept-authentication-methods` now redirects to
+`.../authentication/overview-authentication`. The redirect works, so the link was never broken and
+nothing looked wrong. Worth noting alongside the URL change: that page's recommendation is
+phishing-resistant methods (Windows Hello for Business, passkeys/FIDO2, certificate-based
+authentication), and Microsoft Authenticator *push* is not in that list — it appears in the methods
+table as MFA- and SSPR-capable but not as phishing-resistant, while "Passkey in Microsoft
+Authenticator" is a separate row that is. AUTH001 checks that Authenticator is enabled, which the
+page supports as a baseline; it is not an endorsement of push as a target state, and the rule's
+Phase 1 placement already reflects that.
+
 **Linux passkey support is described inconsistently.** The compatibility matrix lists Chrome, Edge,
 and Firefox on Linux as supported for passkey sign-in, while the registration campaign article
 states "Linux users aren't nudged. FIDO2 passkeys aren't available on Linux." These are different
@@ -429,3 +562,11 @@ Re-verification is worth doing before any customer-facing deliverable that quote
 minimum whenever a Microsoft rollout milestone passes. Checking a page takes under a minute: open
 it, compare its last-updated date against the "Last verified" column, and read the specific
 paragraph the claim rests on.
+
+Read the paragraph, not just the page. The 2026-08-09 pass re-opened all eight remaining
+"carried over" rows and found three problems, none of which a broken link would have revealed: two
+citations pointed at real, current, topically-adjacent pages that never made the claim, and one URL
+had been silently redirected to a renamed article. The test to apply is "can I quote a sentence from
+this page that says this?" — if the answer is a paraphrase, the citation is decoration. Where the
+answer is yes, put the sentence in "Key claims, quoted" so the next person doesn't have to re-derive
+it.
