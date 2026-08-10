@@ -82,6 +82,49 @@ more than a single 300-second request can return. Fixed by:
   date-bounded query is still large for a busy tenant - collection stops early and returns
   whatever was gathered rather than hanging again.
 
+## WAM cannot be disabled for this toolkit, and that's fine - use -UseDeviceCode instead
+
+Came up when a user asked why running the toolkit prompts for sign-in twice. Two independent
+things are both true and worth separating:
+
+1. **A confirmed, still-open SDK bug** causes intermittent double-authentication on
+   Microsoft.Graph.Authentication 2.26+ with no root cause identified by Microsoft -
+   [microsoftgraph/msgraph-sdk-powershell#3319](https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3319),
+   status "Needs Investigation" as of this writing. Nothing this toolkit's code can do about
+   that; it lives in the SDK.
+2. **Expected one-time re-consent** whenever `Connect-SAWGraph.ps1`'s scope list changes (as it
+   did when `Policy.Read.HybridAuthentication` was added for Staged Rollout) - a fresh Entra
+   consent screen on top of the normal WAM sign-in, the first time only, then cached.
+
+The instinctive fix - disable WAM and fall back to plain browser sign-in - **does not work for
+this toolkit**, confirmed via
+[a WAM deep-dive published 2026-08-09](https://msendpointmgr.com/2026/08/09/microsoft-graph-sdk-wam/)
+that quotes the SDK's own authentication documentation directly:
+
+> "Sign-in by Web Account Manager (WAM) is enabled by default on Windows and cannot be disabled.
+> Setting this option to $False will have no effect on Windows systems. Except if you use your
+> own app."
+
+`Set-MgGraphOption -DisableLoginByWAM $true` is only honored when `Connect-MgGraph` is called
+with a custom `-ClientId` from your own Entra app registration - which additionally needs two
+redirect URIs configured (`http://localhost` for the browser path, plus
+`ms-appx-web://Microsoft.AAD.BrokerPlugin/<client-id>` for WAM itself, per the same article).
+Landed in SDK 2.35.0 for custom apps; 2.35.1 needed for the browser fallback to actually take
+effect once set.
+
+`Connect-SAWGraph.ps1` deliberately never passes `-ClientId` - it authenticates with the default
+Microsoft Graph PowerShell app, specifically so nobody has to register an app in a customer's
+tenant just to run a read-only assessment. That design choice is exactly what makes
+`-DisableLoginByWAM` silently do nothing here: setting it and reconnecting with no `-ClientId`
+reproduces the identical WAM prompt, not a browser one, because the setting has no default-app
+code path to attach to.
+
+**The only supported way to avoid WAM with this toolkit is `-UseDeviceCode`** (see
+`Connect-SAWGraph.ps1`'s own `.PARAMETER UseDeviceCode` docs) - one URL and one code, completed
+in any browser, no broker involved at all. If sign-in prompts twice on every single run rather
+than only after a scope change, that's symptom (1) above and `-UseDeviceCode` sidesteps it too,
+since device code flow never touches WAM in the first place.
+
 Lesson for any *new* Graph collector added later: if the endpoint is a log/report/audit
 resource rather than a small, mostly-static policy object, assume it's unbounded and filter
 it from the start - don't wait to find out against a real tenant.

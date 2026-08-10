@@ -86,6 +86,22 @@ function Connect-SAWGraph {
         going through the orchestrator's `| Out-Null` did not). Out-Host forces immediate display
         and produces no further pipeline output of its own, so it's immune to whatever the
         top-level caller does with this function's own return value.
+
+        Do NOT try `Set-MgGraphOption -DisableLoginByWAM $true` as an alternative to this switch -
+        it silently does nothing for this toolkit. Per
+        https://msendpointmgr.com/2026/08/09/microsoft-graph-sdk-wam/, quoting the SDK's own
+        authentication documentation: "Sign-in by Web Account Manager (WAM) is enabled by default
+        on Windows and cannot be disabled. Setting this option to $False will have no effect on
+        Windows systems. Except if you use your own app." The setting is only honored when
+        Connect-MgGraph is called with a custom -ClientId from your own Entra app registration
+        (which additionally needs two redirect URIs configured: http://localhost and
+        ms-appx-web://Microsoft.AAD.BrokerPlugin/<your-client-id>). This toolkit deliberately
+        connects with the default Microsoft Graph PowerShell app (no -ClientId anywhere in
+        $connectArgs below) precisely so nobody has to register an app in the customer's tenant
+        just to run a read-only assessment - so -DisableLoginByWAM is a dead end here by design,
+        not an oversight. -UseDeviceCode is the only supported way to avoid WAM with this toolkit.
+        (Capability landed in SDK 2.35.0 for custom apps, 2.35.1 for the browser fallback to
+        actually take effect - both irrelevant to us for the reason above.)
     .OUTPUTS
         The Microsoft.Graph.Authentication context object (Get-MgContext).
     #>
