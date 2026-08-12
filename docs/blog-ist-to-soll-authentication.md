@@ -514,6 +514,26 @@ on Microsoft's schedule, and that progress is invisible from inside the tenant. 
 how long ago the announced date passed. If you need certainty about what a specific user is being
 shown, check that tenant directly.
 
+**A third question, easy to answer wrong in either direction: does "Microsoft managed" mean you
+can't scope the campaign to a specific group?** No. Microsoft's own admin-center guidance states it
+directly — when Microsoft managed is selected, the target authentication method, snooze duration,
+and snooze count are set automatically and can't be configured, but **include/exclude targets can
+still be configured**. An admin can leave a campaign on "Microsoft managed" and still point it at
+one group.
+
+The real uncertainty sits one level down, and it only shows up when a Microsoft-managed campaign
+has *no* custom targets configured at all — the common case, since flipping the state to "Microsoft
+managed" and leaving everything else untouched is the whole appeal of the setting. Microsoft
+documents that state as rolling out incrementally per tenant: the actual population moves from
+voice-call-or-text-message users to all MFA-capable users, on Microsoft's own batch schedule, and
+which stage a given tenant is currently in isn't exposed through Graph. So the honest answer to
+"who does this campaign actually reach today" is a range, not a number, and the range only
+collapses to a specific group when an admin has explicitly set one — which is a genuinely different
+kind of uncertainty from "campaign targets a group whose membership isn't resolved," even though
+both show up as the same "Scope uncertain" warning on a dashboard forecast card. Telling the two
+apart is worth doing before acting on either: one sends you to go look up a group's membership, the
+other sends you nowhere, because there is no group to look up.
+
 There's one more way a campaign can quietly do nothing, and it's the one most likely to catch out
 someone who has otherwise done everything right.
 
@@ -699,6 +719,25 @@ completion. For administrators, the picture changes entirely: they run on their 
 two-gate policy, independent of the general SSPR setting. That's exactly why `allowedToUseSSPR`
 being explicitly `false` combined with admins still being in-scope for the *user* policy produces
 the broken, confusing prompt described above.
+
+**A third setting hides in a page that doesn't look like it belongs to either gate.** The classic
+**Password reset > Registration** blade — old-style SSPR administration, not the modern
+Authentication Methods policy — carries its own **"Number of days before users are asked to
+reconfirm their authentication information"** field, independent of both settings above. It has no
+Graph v1.0 or beta property found so far; it isn't part of `authenticationMethodsPolicy` at all,
+and the property that looks like it should be the answer, `reconfirmationInDays` (beta), is a
+*different* setting on the *modern* policy. A tool — or a person — reading only the modern policy
+and finding `reconfirmationInDays` empty will report "no periodic reconfirmation configured," and
+be wrong for any tenant where the classic blade's field is set. Worse, this isn't only a
+premigration concern: a live tenant confirmed the classic field can still read a real, non-default
+value (180 days — Microsoft's own SSPR tutorial uses that exact number as its example) with
+`policyMigrationState` showing **Complete** in the admin center. That's a sharper version of the
+same trap Part 3 covers for `migrationComplete` generally — Microsoft names exactly two legacy SSPR
+elements as confirmed to survive full migration (the number-of-methods-required-to-reset control,
+and the admin SSPR policy), and this reconfirmation field was never on that list, which is silence
+about its fate, not a documented "ignored." Until that's resolved one way or the other, the honest
+answer for any tenant is "check the classic blade directly," not "assume the modern policy's silence
+means nobody is asked."
 
 ### System-Preferred Authentication: a different mechanic from everything above
 
