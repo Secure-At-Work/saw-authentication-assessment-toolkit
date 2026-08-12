@@ -840,6 +840,36 @@ document's own rule is "if the answer is a paraphrase, the citation is decoratio
 standard this citation is support-by-structure, not a quotable sentence, and is worth knowing before
 using it as a direct rebuttal to a customer who asks for the exact words.
 
+**The Existing User Re-Registration trace read "no reconfirmation" from the wrong policy (found on
+a live tenant, 2026-08-12).** `ConvertTo-SAWRegistrationFlowScenarios.ps1`'s reconfirmation step
+read only `authenticationMethodsPolicy.reconfirmationInDays` (the modern policy, beta) and reported
+"no periodic reconfirmation interval is configured" whenever it was empty. A live run against a real
+tenant showed the classic **Password reset > Registration** admin blade's own "Number of days before
+users are asked to reconfirm their authentication information" set to 180 - a genuinely separate
+setting this toolkit has never collected, confirmed against Microsoft's own SSPR tutorial:
+
+> "Set **Number of days before users are asked to reconfirm their authentication information** to
+> *180*."
+
+Source: [tutorial-enable-sspr](https://learn.microsoft.com/entra/identity/authentication/tutorial-enable-sspr)
+(ms.date 2025-03-04, updated 2026-05-08). Verified 2026-08-12.
+
+That page places this setting under the exact same "legacy MFA and SSPR policy" deprecation framing
+already established for AUTH007 - the tutorial's own callout, verbatim: "Beginning September 30,
+2025, authentication methods can't be managed in these legacy MFA and SSPR policies." Combined with
+`policyMigrationState`'s documented values (`premigration`/`migrationInProgress` - "legacy policies
+are respected"; `migrationComplete` - "legacy policies are ignored"), a tenant not yet at
+`migrationComplete` can have this legacy reconfirmation cadence actively running while the modern
+`reconfirmationInDays` reads empty - exactly the false negative a live tenant just produced. No
+Graph v1.0 or beta property for this specific legacy setting has been found; `passwordresetpolicy`
+is not a real resource type (confirmed 404 on the Graph reference).
+
+Fixed by having the scenario trace check `policyMigrationState` alongside `reconfirmationInDays`:
+when unset and migration isn't complete, the step now reports a genuinely distinct third state -
+**unknown, not false** - directing the reader to check the legacy blade directly rather than
+asserting reconfirmation is off. See `docs/reading-the-report.md` for how this renders. Worth
+revisiting if a Graph-readable property for the legacy setting is ever found.
+
 ---
 
 ## Maintaining this document

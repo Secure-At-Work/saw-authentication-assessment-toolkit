@@ -13,10 +13,12 @@ BeforeAll {
             [Nullable[int]]$ReconfirmationInDays = $null,
             [string]$SystemPreferredState = 'disabled',
             [bool]$TapUsableOnce = $false,
-            [bool]$Fido2AttestationEnforced = $false
+            [bool]$Fido2AttestationEnforced = $false,
+            [string]$PolicyMigrationState = 'migrationComplete'
         )
         return @{
             reconfirmationInDays = $ReconfirmationInDays
+            policyMigrationState = $PolicyMigrationState
             registrationEnforcement = @{
                 authenticationMethodsRegistrationCampaign = @{
                     state = $CampaignState
@@ -129,6 +131,63 @@ Describe 'ConvertTo-SAWRegistrationFlowScenarios' {
 
         ($reregNo.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }).Applies | Should -Be $false
         ($reregYes.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }).Applies | Should -Be $true
+    }
+
+    Context 'Legacy SSPR reconfirmation setting this toolkit cannot see' {
+        It 'hedges (Applies is "unknown", not false or null) when reconfirmationInDays is unset and policyMigrationState is premigration' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -ReconfirmationInDays $null -PolicyMigrationState 'premigration'
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $rereg = $result | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
+            $step = $rereg.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }
+            # 'unknown' is distinct from $null on purpose: $null means a fixed Microsoft mechanic
+            # with nothing to check, 'unknown' means tenant-conditioned but not Graph-observable -
+            # collapsing them would render the wrong dashboard badge (see Export-SAWDashboard.ps1).
+            $step.Applies | Should -Be 'unknown'
+            $step.Detail | Should -Match 'Password reset > Registration'
+            $rereg.ISTSummary | Should -Match 'Password reset > Registration'
+        }
+
+        It 'hedges the same way when policyMigrationState is migrationInProgress' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -ReconfirmationInDays $null -PolicyMigrationState 'migrationInProgress'
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $rereg = $result | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
+            $step = $rereg.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }
+            $step.Applies | Should -Be 'unknown'
+        }
+
+        It 'asserts confidently (Applies is false, no hedge) when reconfirmationInDays is unset and policyMigrationState is migrationComplete' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -ReconfirmationInDays $null -PolicyMigrationState 'migrationComplete'
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $rereg = $result | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
+            $step = $rereg.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }
+            $step.Applies | Should -Be $false
+            $step.Detail | Should -Not -Match 'Password reset > Registration'
+            $rereg.ISTSummary | Should -Not -Match 'Password reset > Registration'
+        }
+
+        It 'reports the configured cadence directly when reconfirmationInDays IS set, regardless of migration state' {
+            $authPolicy = New-SAWTestAuthMethodsPolicy -ReconfirmationInDays 90 -PolicyMigrationState 'premigration'
+            $authzPolicy = @{ allowedToUseSSPR = $true }
+            $registration = @{ value = @() }
+
+            $result = ConvertTo-SAWRegistrationFlowScenarios -AuthenticationMethodsPolicyRaw $authPolicy -AuthorizationPolicyRaw $authzPolicy -RegistrationRaw $registration -CaPolicyInventory @()
+
+            $rereg = $result | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
+            $rereg.ISTSummary | Should -Match 'every 90 day'
+            ($rereg.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }).Applies | Should -Be $true
+        }
     }
 
     It 'marks the CA-Gated flow not applicable when no enabled policy targets security info registration' {

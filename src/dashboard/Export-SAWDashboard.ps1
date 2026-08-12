@@ -1158,9 +1158,15 @@ $($timelineCardsHtml -join "`n")
             }
 
             $stepsHtml = foreach ($step in $flow.Steps) {
+                # 'unknown' is a distinct third state from $null: $null means a fixed Microsoft
+                # mechanic with nothing tenant-configurable to check. 'unknown' means the opposite
+                # - it IS tenant-conditioned, but this toolkit has no Graph-readable way to observe
+                # it (e.g. a legacy setting with no modern API equivalent found so far) - collapsing
+                # the two into one badge would misrepresent a real gap as an immutable fact.
                 $stepBadge = switch ($step.Applies) {
                     $true { '<span class="badge bg-success">IST: happens today</span>' }
                     $false { '<span class="badge bg-secondary">IST: does not happen today</span>' }
+                    'unknown' { '<span class="badge bg-warning text-dark">Unknown - verify directly</span>' }
                     default { '<span class="badge bg-light text-dark border">Fixed Microsoft behavior</span>' }
                 }
                 @"

@@ -236,6 +236,10 @@ badges:
 - **Fixed Microsoft behavior** (neutral) - not conditioned on any tenant setting; included for
   context (e.g. a passkey registration requiring MFA within the last 5 minutes is true
   everywhere, not something this tenant chose).
+- **Unknown - verify directly** (amber) - the opposite case: this step genuinely IS conditioned
+  on a tenant setting, but this toolkit has no way to read that setting from Graph. Don't read
+  this the same as "Fixed Microsoft behavior" - it means "go check the admin center," not "this
+  is the same everywhere."
 
 The four flows:
 
@@ -269,7 +273,16 @@ The four flows:
   step: at *ordinary* sign-in (not registration), System-Preferred Authentication may already be
   presenting this user's strongest registered method first - not necessarily the one they're
   used to - which is worth knowing before assuming a "why did my sign-in screen change" question
-  is a problem rather than this setting working as configured.
+  is a problem rather than this setting working as configured. **The reconfirmation step can show
+  "Unknown - verify directly" instead of a yes/no answer** when this tenant hasn't finished
+  migrating off the legacy MFA/SSPR policies (`policyMigrationState` isn't `migrationComplete`)
+  and the modern policy has no reconfirmation interval set. That's not indecision - it means the
+  classic **Password reset > Registration** admin blade has its own separate "Number of days
+  before users are asked to reconfirm their authentication information" setting, which this
+  toolkit has no way to read from Graph, and Microsoft documents legacy policy settings as still
+  actively respected until migration completes. Check that blade directly rather than assuming
+  reconfirmation is off - a tenant can have this configured (180 days is Microsoft's own tutorial
+  example) while the modern policy shows nothing.
 - **CA-Gated Registration** - how an enabled Conditional Access policy scoped to "Register
   security information" reshapes every flow above: registration-campaign nudges are suppressed
   entirely (not just delayed) for a blocked user, and a Temporary Access Pass-only user can be
