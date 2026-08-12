@@ -335,7 +335,7 @@ perfectly good phishing-resistant strength defined and sitting completely unused
 
 | It does stop | It does not stop |
 |---|---|
-| Adversary-in-the-middle relay **at the moment a token is issued** — the credential can't be captured by a fake sign-in page and replayed, the way a password or OTP can. | A token that was **already issued** and then stolen off the endpoint afterwards — for example, infostealer malware harvesting session tokens and shipping them to a C2 server for replay. |
+| Adversary-in-the-middle relay **at the moment a token is issued** — the credential can't be captured by a fake sign-in page and replayed, the way a password or OTP can. | A token that was **already issued** and then stolen off the endpoint afterwards — for example, infostealer malware harvesting session tokens and shipping them to an attacker-controlled command-and-control server for replay. |
 
 The second column is an endpoint problem, closed by EDR, application control and next-gen
 antivirus — not by which authentication method was used to sign in.
