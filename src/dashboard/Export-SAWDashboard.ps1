@@ -863,12 +863,15 @@ $($fido2KeyRowsHtml -join "`n")
                 $scopeWarningHtml = @"
       <div class="alert alert-warning small mb-3" role="alert">
         <strong>Scope uncertain.</strong> This campaign is Microsoft managed with no custom
-        include/exclude targets configured, so there is no target group to look up. Microsoft
-        documents this state as an incremental, per-tenant rollout - the effective population
-        moves from SMS/Voice users only to all MFA-capable users - and which stage this tenant is
-        currently in isn't exposed through Graph. The count and list below assume the broader
-        population (all MFA-capable users) as the safer upper bound; the true number currently
-        nudged may be smaller if this tenant hasn't reached that stage yet.
+        include/exclude targets configured, so there is no target group to look up - see the
+        <strong>"Rollout timing not confirmed"</strong> badge on the Registration Campaign row in
+        the <strong>Policy Inventory</strong> tab for the same underlying fact. Microsoft
+        documents this state as an incremental, per-tenant rollout on Microsoft's own batch
+        schedule, not something this toolkit can observe - the effective population moves from
+        SMS/Voice users only to all MFA-capable users, and this tenant may still be on the prior
+        default, mid-transition, or already on the new one. The count and list below assume the
+        broader population (all MFA-capable users) as the safer upper bound; the true number
+        currently nudged may be smaller if this tenant hasn't reached that stage yet.
       </div>
 "@
             }

@@ -92,7 +92,7 @@ Describe 'ConvertTo-SAWNudgeForecast' {
 
             $result.Summary.CampaignScopeUncertain | Should -BeTrue
             $result.Summary.CampaignScopeUncertainReason | Should -Be 'msft-managed-rollout'
-            @($result.Summary.Caveats | Where-Object { $_ -match 'rolling out incrementally per tenant' }).Count | Should -BeGreaterThan 0
+            @($result.Summary.Caveats | Where-Object { $_ -match 'Policy Inventory' }).Count | Should -BeGreaterThan 0
         }
 
         It 'reports scope as certain (no reason) when the campaign explicitly targets all_users, Microsoft managed or not' {

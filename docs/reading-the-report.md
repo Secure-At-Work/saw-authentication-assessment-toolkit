@@ -187,11 +187,17 @@ they call for different follow-up:
   authentication method and snooze settings are locked in that mode.
 - **Microsoft managed, no custom targets configured.** Your campaign is Microsoft managed (state:
   `default`) and you haven't set any include/exclude targets at all - there is no group to look up.
-  Microsoft documents this state as rolling out incrementally per tenant: the effective population
-  moves from SMS/Voice users only to all MFA-capable users, and which stage your tenant is
-  currently in isn't exposed through Graph. The N assumes the broader population (all MFA-capable
-  users) as the safer upper bound; if your tenant hasn't reached that rollout stage yet, the true
-  number currently nudged may be smaller.
+  This is the same fact as the **"Rollout timing not confirmed"** badge on the Registration
+  Campaign row in the **Policy Inventory** tab: Microsoft documents Microsoft-managed settings as
+  rolling out incrementally per tenant, on Microsoft's own batch schedule, not something this
+  toolkit can observe. For this specific setting, the effective population moves from SMS/Voice
+  users only to all MFA-capable users, and which stage your tenant is currently in isn't exposed
+  through Graph. The N assumes the broader population (all MFA-capable users) as the safer upper
+  bound; if your tenant hasn't reached that rollout stage yet, the true number currently nudged may
+  be smaller. The same principle applies to any other setting marked Microsoft managed in this
+  report (e.g. System-Preferred Authentication) - Microsoft managed generally means "on Microsoft's
+  stated default, not customized by this tenant, with rollout timing this toolkit cannot confirm,"
+  not "locked to a specific configuration you can rely on today."
 
 **"Eligible, but a campaign cannot reach them"** is the card to act on differently from the rest.
 These users are forecast to be nudged but did no *interactive* sign-in during the collected window,
