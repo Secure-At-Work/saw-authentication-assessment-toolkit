@@ -152,9 +152,32 @@ function ConvertTo-SAWNudgeForecast {
     }
 
     # Scope certainty: all_users is knowable, a specific group is not without a membership call.
+    # Two genuinely different kinds of "uncertain" exist here, and they need different guidance:
+    #   'group'                - includeTargets names specific group(s). Microsoft's docs confirm
+    #                             include/exclude targets remain configurable even when
+    #                             state is 'default' (Microsoft managed) - only the targeted
+    #                             method/snooze settings are locked in that mode, not targeting.
+    #                             The fix is: go look up who's in the group(s).
+    #   'msft-managed-rollout'  - state is 'default' (Microsoft managed) with NO custom targets
+    #                             configured at all. Microsoft documents this as an incremental,
+    #                             per-tenant rollout where the effective population moves from
+    #                             SMS/Voice users only to all MFA-capable users, and which stage a
+    #                             given tenant is in isn't exposed through Graph. There is no group
+    #                             to go look up - the uncertainty is about Microsoft's own rollout
+    #                             wave, not about tenant configuration.
     $scopedToAllUsers = @($includeTargets | Where-Object { $_.id -eq 'all_users' }).Count -gt 0
     $scopedToSpecificGroups = @($includeTargets | Where-Object { $_.id -and $_.id -ne 'all_users' }).Count
-    $scopeUncertain = ($scopedToSpecificGroups -gt 0) -or ($campaignActive -and -not $scopedToAllUsers -and $scopedToSpecificGroups -eq 0)
+    $scopeUncertainReason = $null
+    if ($scopedToSpecificGroups -gt 0) {
+        $scopeUncertainReason = 'group'
+    }
+    elseif ($campaignActive -and -not $scopedToAllUsers -and $campaignState -eq 'default') {
+        $scopeUncertainReason = 'msft-managed-rollout'
+    }
+    elseif ($campaignActive -and -not $scopedToAllUsers) {
+        $scopeUncertainReason = 'group'
+    }
+    $scopeUncertain = $null -ne $scopeUncertainReason
 
     # Documented tenant-wide suppressors of the campaign nudge.
     # Resolved rather than read directly: isAttestationEnforced/keyRestrictions are deprecated in
@@ -283,7 +306,10 @@ function ConvertTo-SAWNudgeForecast {
         'Several documented suppressors are not visible through Graph (terms-of-use screens, Conditional Access custom controls, existing SSO sessions, Linux clients, Authenticator campaigns on mobile). The forecast over-estimates rather than under-estimates, which is the safer direction when planning a communication.'
         'This forecasts WHO is eligible, not WHEN they will see it. A nudge is UI shown during an interactive sign-in that completes MFA, and Microsoft defines non-interactive sign-ins as requiring no authentication factor and never interrupting the session - so token refreshes, SSO on a joined device, and opening a second Office app on an already-signed-in device cannot show one. A user who rarely does an interactive browser sign-in may stay eligible for weeks without ever being prompted, which is why slow-moving registration coverage is often a reach problem rather than a user-compliance problem.'
     )
-    if ($scopeUncertain) {
+    if ($scopeUncertainReason -eq 'msft-managed-rollout') {
+        $caveats += "The registration campaign is Microsoft managed (state: default) with no custom include/exclude targets. Microsoft documents this as rolling out incrementally per tenant - the effective population moves from SMS/Voice users only to all MFA-capable users - and which stage this tenant is in isn't exposed through Graph. Campaign-driven predictions below assume the broader population (all MFA-capable users) as the safer upper bound."
+    }
+    elseif ($scopeUncertainReason -eq 'group') {
         $caveats += "The registration campaign is scoped to specific groups rather than all users. Group membership isn't resolved (it would need an extra Graph call per group), so campaign-driven predictions below apply only to whoever is actually in those groups."
     }
 
@@ -311,6 +337,7 @@ function ConvertTo-SAWNudgeForecast {
             CampaignTargetsPasskey       = $campaignTargetsPasskey
             CampaignTargetsAuthenticator = $campaignTargetsAuthenticator
             CampaignScopeUncertain       = $scopeUncertain
+            CampaignScopeUncertainReason = $scopeUncertainReason
             PasskeyNudgeSuppressed       = $passkeyNudgeSuppressed
             Suppressors                  = @($suppressors)
             Caveats                      = @($caveats)

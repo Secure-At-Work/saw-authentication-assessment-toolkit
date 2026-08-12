@@ -66,11 +66,40 @@ Describe 'ConvertTo-SAWNudgeForecast' {
             $result.Summary.CampaignTargetsPasskey | Should -BeTrue
         }
 
-        It 'reports scope as uncertain when the campaign targets a specific group rather than all users' {
+        It 'reports scope as uncertain (reason: group) when the campaign targets a specific group rather than all users' {
             $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -IncludeId 'aaaa-bbbb-cccc')
 
             $result.Summary.CampaignScopeUncertain | Should -BeTrue
+            $result.Summary.CampaignScopeUncertainReason | Should -Be 'group'
             @($result.Summary.Caveats | Where-Object { $_ -match 'scoped to specific groups' }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'still reports scope as uncertain (reason: group) for a Microsoft-managed campaign with a specific group target, since Microsoft documents include/exclude targets as configurable even when Microsoft managed' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -State 'default' -IncludeId 'aaaa-bbbb-cccc')
+
+            $result.Summary.CampaignScopeUncertain | Should -BeTrue
+            $result.Summary.CampaignScopeUncertainReason | Should -Be 'group'
+        }
+
+        It 'reports scope as uncertain (reason: msft-managed-rollout), not group, for a Microsoft-managed campaign with no include/exclude targets key at all - the shape Microsoft returns for an untouched Microsoft-managed campaign' {
+            $policy = @{
+                registrationEnforcement            = @{
+                    authenticationMethodsRegistrationCampaign = @{ state = 'default' }
+                }
+                authenticationMethodConfigurations = @()
+            }
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+
+            $result.Summary.CampaignScopeUncertain | Should -BeTrue
+            $result.Summary.CampaignScopeUncertainReason | Should -Be 'msft-managed-rollout'
+            @($result.Summary.Caveats | Where-Object { $_ -match 'rolling out incrementally per tenant' }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'reports scope as certain (no reason) when the campaign explicitly targets all_users, Microsoft managed or not' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy)
+
+            $result.Summary.CampaignScopeUncertain | Should -BeFalse
+            $result.Summary.CampaignScopeUncertainReason | Should -BeNullOrEmpty
         }
     }
 

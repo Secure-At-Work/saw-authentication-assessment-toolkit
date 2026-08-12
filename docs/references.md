@@ -215,6 +215,41 @@ On which app contexts can show a nudge:
 Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
 (ms.date 2026-05-20, updated 2026-07-23). Verified 2026-08-07.
 
+### Microsoft-managed campaigns can still be scoped by group; the real "default" uncertainty is rollout wave, not lock-out (backs `CampaignScopeUncertainReason`)
+
+Prompted by a live-run false-positive question: does selecting "Microsoft managed" for the
+registration campaign lock targeting to All users, making a specific-group scope impossible? No -
+Microsoft's own docs say the opposite for targeting specifically, while locking something else:
+
+> "Select **Microsoft managed** to enable the registration campaign with Microsoft-recommended
+> defaults. When **Microsoft managed** is selected, the target authentication method, snooze
+> duration, and limited number of snoozes are set automatically and can't be configured. **You can
+> still configure include/exclude targets.**"
+
+So a Microsoft-managed campaign (`state: default`) with an admin-configured `includeTargets`
+pointing at specific group(s) is a real, supported configuration - not something the API would
+reject or the portal would grey out. `ConvertTo-SAWNudgeForecast.ps1` treats that case
+(`CampaignScopeUncertainReason = 'group'`) the same way as a fully admin-managed (`state: enabled`)
+group-scoped campaign: the true nudge population needs group-membership lookup this toolkit doesn't
+do.
+
+The separate, more common case - `state: default` with *no* `includeTargets` configured at all
+(the shape seen in this project's sample fixture and in a live tenant run) - has a different root
+cause, documented on the same page under the incremental rollout:
+
+> "**User targeting** changes from voice call or text message users to all MFA capable users."
+
+Read together with the "recommended defaults... automatically... can't be configured" language
+above, this describes a Microsoft-controlled, per-tenant rollout stage that isn't itself exposed
+through Graph: an untouched Microsoft-managed campaign's actual population is either "SMS/Voice
+users only" or "all MFA-capable users" depending on where a given tenant sits in that rollout, and
+there is no group to look up to resolve it - unlike the specific-group case above. This is why the
+toolkit distinguishes `CampaignScopeUncertainReason = 'msft-managed-rollout'` from `'group'` and
+gives different guidance for each (see `docs/reading-the-report.md`).
+
+Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+(ms.date 2026-05-20, updated 2026-07-23). Verified 2026-08-12.
+
 ### Sign-in logs return interactive sign-ins, and retention is capped (backs campaign reachability)
 
 On what the v1.0 endpoint returns, which is what makes "did this user do an interactive sign-in"

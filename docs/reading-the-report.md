@@ -172,13 +172,26 @@ Access custom controls, existing SSO sessions, Linux clients). The forecast deli
 over-estimates, since over-communicating is the cheaper mistake.
 
 **If the passkey or Authenticator campaign card says "Scope uncertain" and shows "up to N users,"**
-that means your registration campaign targets specific group(s) rather than everyone, and this
-toolkit doesn't resolve group membership from Graph (it would need an extra call per group). The N
-is every user tenant-wide who lacks the target method - not filtered down to who's actually in
-your campaign's group(s) - so it's a ceiling, and the real number nudged is very likely smaller.
-Check **Authentication methods > Registration campaign** in the admin center to see which group(s)
-the campaign actually targets, and cross-reference against that group's real membership for an
-accurate count.
+the reason shown depends on how your campaign is configured - there are two different causes, and
+they call for different follow-up:
+
+- **Targets specific group(s).** Your campaign has custom include/exclude targets pointing at
+  group(s) rather than everyone, and this toolkit doesn't resolve group membership from Graph (it
+  would need an extra call per group). The N is every user tenant-wide who lacks the target method
+  - not filtered down to who's actually in your campaign's group(s) - so it's a ceiling, and the
+  real number nudged is very likely smaller. Check **Authentication methods > Registration
+  campaign** in the admin center to see which group(s) the campaign actually targets, and
+  cross-reference against that group's real membership for an accurate count. Note that Microsoft
+  managed mode does **not** prevent this - Microsoft's own documentation confirms include/exclude
+  targets remain configurable even when the campaign is Microsoft managed, only the target
+  authentication method and snooze settings are locked in that mode.
+- **Microsoft managed, no custom targets configured.** Your campaign is Microsoft managed (state:
+  `default`) and you haven't set any include/exclude targets at all - there is no group to look up.
+  Microsoft documents this state as rolling out incrementally per tenant: the effective population
+  moves from SMS/Voice users only to all MFA-capable users, and which stage your tenant is
+  currently in isn't exposed through Graph. The N assumes the broader population (all MFA-capable
+  users) as the safer upper bound; if your tenant hasn't reached that rollout stage yet, the true
+  number currently nudged may be smaller.
 
 **"Eligible, but a campaign cannot reach them"** is the card to act on differently from the rest.
 These users are forecast to be nudged but did no *interactive* sign-in during the collected window,

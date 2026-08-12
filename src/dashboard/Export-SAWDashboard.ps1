@@ -859,7 +859,20 @@ $($fido2KeyRowsHtml -join "`n")
             $scopeUncertainForThisCard = [bool]$g.ScopeSensitive -and $ns.CampaignScopeUncertain
             $countLabel = if ($scopeUncertainForThisCard) { "up to $($g.Count)" } else { "$($g.Count)" }
             $scopeWarningHtml = ''
-            if ($scopeUncertainForThisCard) {
+            if ($scopeUncertainForThisCard -and $ns.CampaignScopeUncertainReason -eq 'msft-managed-rollout') {
+                $scopeWarningHtml = @"
+      <div class="alert alert-warning small mb-3" role="alert">
+        <strong>Scope uncertain.</strong> This campaign is Microsoft managed with no custom
+        include/exclude targets configured, so there is no target group to look up. Microsoft
+        documents this state as an incremental, per-tenant rollout - the effective population
+        moves from SMS/Voice users only to all MFA-capable users - and which stage this tenant is
+        currently in isn't exposed through Graph. The count and list below assume the broader
+        population (all MFA-capable users) as the safer upper bound; the true number currently
+        nudged may be smaller if this tenant hasn't reached that stage yet.
+      </div>
+"@
+            }
+            elseif ($scopeUncertainForThisCard) {
                 $scopeWarningHtml = @"
       <div class="alert alert-warning small mb-3" role="alert">
         <strong>Scope uncertain.</strong> This campaign targets specific group(s) rather than
