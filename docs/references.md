@@ -710,6 +710,56 @@ Feitian's values. This is the reason for the vendor-direct-first rule.
 Kept deliberately, because "we checked and Microsoft had moved it" is more credible than a
 reference list that looks like it was right the first time.
 
+**The passkey nudge-suppressor list only covered 2 of Microsoft's 4 documented conditions, and the
+resolver feeding it had two pre-existing bugs (found and fixed 2026-08-12).** Microsoft's
+`how-to-mfa-registration-campaign` page documents four conditions under which a user's passkey
+profile suppresses the nudge: synced-only, device-bound-only, attestation enforced, AAGUID key
+restrictions (quoted in full earlier in this document). `ConvertTo-SAWNudgeForecast.ps1`'s
+suppressor list only ever checked the last two. The gap was invisible because nothing surfaced it
+as a caveat - `docs/reading-the-report.md` described the same incomplete list to readers as if it
+were complete.
+
+Closed by reading `passkeyProfile.passkeyTypes` (`deviceBound` | `synced`, confirmed as a real
+Graph beta property - [passkeyProfile resource
+type](https://learn.microsoft.com/graph/api/resources/passkeyprofile?view=graph-rest-beta)) from
+the **default** profile specifically, the same simplification `ConvertTo-SAWPasskeyPolicyEffective`
+already uses for `KeyRestrictions` - passkeyTypes is a required field with no "unrestricted" value
+to aggregate toward the way attestation/key-restriction booleans have a safe default, so the
+"every profile must agree" rule used for those two doesn't apply here.
+
+Two unrelated, pre-existing bugs in the same resolver surfaced while adding this and were fixed in
+the same pass:
+
+1. **Dead-code branch order.** `if ($RawConfig.PSObject -and $RawConfig.PSObject.Properties)` was
+   checked before the `elseif ($RawConfig -is [IDictionary])` branch written specifically to
+   handle Hashtable-shaped configs. Every object - Hashtable included - has a non-null
+   `PSObject.Properties`, so the first branch always ran and the second was unreachable. For a
+   Hashtable, `.PSObject.Properties['isAttestationEnforced']` silently returns nothing even when
+   the key exists (`.Contains(...)` is the correct test), so any live tenant whose Graph response
+   came back as a Hashtable - the documented live shape, versus PSCustomObject for sample data -
+   would report "Unknown" regardless of its actual attestation/key-restriction state. Fixed by
+   checking `IDictionary` first.
+2. **Single-item pipeline collapse.** `$profiles = @($RawConfig.passkeyProfiles) | Where-Object
+   { $_ }` - when exactly one profile survives the filter, PowerShell assigns that one object to
+   `$profiles` directly as a bare `Hashtable`, not a 1-element array. `Hashtable.Count` then
+   returns the number of *keys* in the profile (4, typically), not "how many profiles" - silently
+   breaking every `-eq $profiles.Count` comparison used to decide whether attestation/key
+   restrictions are enforced tenant-wide. This specifically breaks the single-profile case, which
+   is the most likely shape for a freshly-migrated tenant (one auto-created default profile).
+   Fixed by wrapping the whole pipeline in an outer `@(...)`.
+
+Neither bug was reachable through this project's own sample data (which exercises the "neither
+legacy properties nor profiles present" Unknown path, not the Hashtable-legacy or single-profile
+paths) - the same "fixture that never disagrees with itself" failure mode already recorded twice
+elsewhere in this document. New Pester coverage in
+`tests/collector/ConvertTo-SAWPasskeyPolicyEffective.Tests.ps1` (previously nonexistent for this
+function despite five call sites) exercises both.
+
+A broader sweep for the same single-item-pipeline-collapse shape elsewhere in `src/` found roughly
+ten more occurrences; whether each is actually exposed to it (i.e., whether `.Count` or similar is
+called on the result) hasn't been checked yet - flagged as a separate follow-up, not fixed in this
+pass.
+
 **SSPR dates moved twice (corrected 2026-08-06).** Both the registration-campaign nudge date and
 the enforcement date changed on Microsoft's own page after they were first recorded here. The nudge
 moved to 2026-11-09 and enforcement to 2026-10-05, which also **reversed their order**: the nudge

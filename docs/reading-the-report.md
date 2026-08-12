@@ -158,11 +158,12 @@ Each card expands to the **named users** behind the count, so the list can go st
 comms tool rather than being re-derived by hand.
 
 **If a warning appears saying the campaign "currently reaches nobody,"** take it seriously: it
-means the tenant has attestation enforced, AAGUID key restrictions, blocked self-service
-registration, or a blocking Conditional Access policy - all of which Microsoft documents as
-suppressing the nudge. The campaign will look correctly configured in the admin center and quietly
-prompt no one. Note this does *not* stop the 2026-09-01 automatic enablement, which Microsoft
-drives independently of your campaign.
+means the tenant has attestation enforced, AAGUID key restrictions, the default passkey profile
+restricted to device-bound-only or synced-only, blocked self-service registration, or a blocking
+Conditional Access policy - all of which Microsoft documents as suppressing the nudge. The
+campaign will look correctly configured in the admin center and quietly prompt no one. Note this
+does *not* stop the 2026-09-01 automatic enablement, which Microsoft drives independently of your
+campaign.
 
 **Treat the counts as a planning estimate, not a guarantee.** Two limits are stated on the section
 itself and are worth repeating: the passkey nudge is evaluated per *device and browser*, not per

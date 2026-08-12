@@ -47,6 +47,16 @@ function ConvertTo-SAWPasskeyPolicyEffective {
         function exists to prevent. ProfileCount and MixedEnforcement are returned so callers can
         say "3 of 4 profiles" rather than flattening the nuance away entirely.
 
+        PasskeyTypeRestriction deliberately does NOT use that same "every profile agrees" rule.
+        Unlike attestation/key restrictions (booleans with a safe "not enforced" default),
+        passkeyTypes is a required field on every profile - there is no unrestricted value to fall
+        back to, so the "all profiles must agree" aggregation used above would either be
+        meaningless (profiles nearly always differ) or silently produce the wrong caveat. Instead
+        this reads the DEFAULT profile's value specifically, the same simplification already used
+        for KeyRestrictions above - the best available single answer for a fundamentally per-group
+        setting, not a tenant-wide guarantee. Callers using this to flag a nudge-suppression
+        caveat should treat it as "worth checking," not as confirmed for every user.
+
         NOT CONFIRMED AGAINST A LIVE MIGRATED TENANT. The shape here follows Microsoft's published
         v1.0 reference (ms.date 2026-03-04). No tenant in this project's reach has migrated to
         passkey profiles yet, so the fallback path is the exercised one and the profiles path is
@@ -59,7 +69,10 @@ function ConvertTo-SAWPasskeyPolicyEffective {
     .OUTPUTS
         Hashtable with AttestationEnforced, KeyRestrictionsEnforced (each $true/$false/$null where
         $null means unknown), IsKnown, Source, ProfileCount, MixedEnforcement, KeyRestrictions
-        (the effective fido2KeyRestrictions-shaped object), and SyncedPasskeysAllowed.
+        (the effective fido2KeyRestrictions-shaped object), SyncedPasskeysAllowed, and
+        PasskeyTypeRestriction (the default profile's passkeyTypes value - 'deviceBound', 'synced',
+        or $null when unrestricted/unknown/not on the profiles path - see the note below on why
+        this is read from the default profile rather than aggregated like AttestationEnforced).
     #>
     [CmdletBinding()]
     param(
@@ -78,6 +91,7 @@ function ConvertTo-SAWPasskeyPolicyEffective {
             MixedEnforcement       = $false
             KeyRestrictions        = $null
             SyncedPasskeysAllowed  = $null
+            PasskeyTypeRestriction = $null
             Summary                = 'Passkey policy could not be determined: neither passkey profiles nor the legacy attestation/key-restriction properties were present in the Graph response.'
         }
 
@@ -86,7 +100,14 @@ function ConvertTo-SAWPasskeyPolicyEffective {
             return $unknown
         }
 
-        $profiles = @($RawConfig.passkeyProfiles) | Where-Object { $_ }
+        # Outer @(...) wraps the WHOLE pipeline, not just its input. Without it, a tenant with
+        # exactly one passkey profile makes Where-Object emit a single object, which PowerShell
+        # then assigns to $profiles as a bare Hashtable rather than a 1-element array - and
+        # Hashtable.Count returns its KEY count (4, for a typical profile), not "how many
+        # profiles". Every "-eq $profiles.Count" check below silently breaks for exactly the
+        # single-profile case a freshly-migrated tenant (one auto-created default profile) is
+        # most likely to have, misreporting attestation/key-restriction enforcement as $false.
+        $profiles = @(@($RawConfig.passkeyProfiles) | Where-Object { $_ })
 
         if ($profiles.Count -gt 0) {
             # attestationEnforcement is an enum, not a boolean. 'registrationOnly' is the only
@@ -114,6 +135,14 @@ function ConvertTo-SAWPasskeyPolicyEffective {
             # profile targets it.
             $syncedAllowed = @($profiles | Where-Object { $_.passkeyTypes -and ([string]$_.passkeyTypes) -match 'synced' }).Count -gt 0
 
+            # See the AGGREGATING ACROSS PROFILES note above: read from the default profile only,
+            # not aggregated the way attestation/key restrictions are. $null covers 'unrecognized
+            # value' the same conservative way $unrecognized already treats attestationEnforcement.
+            $passkeyTypeRestriction = $null
+            if ($defaultProfile -and $defaultProfile.passkeyTypes -in @('deviceBound', 'synced')) {
+                $passkeyTypeRestriction = [string]$defaultProfile.passkeyTypes
+            }
+
             $unrecognized = @($profiles | Where-Object {
                 $_.attestationEnforcement -and $_.attestationEnforcement -notin @('disabled', 'registrationOnly')
             })
@@ -137,6 +166,7 @@ function ConvertTo-SAWPasskeyPolicyEffective {
                 MixedEnforcement        = $mixed
                 KeyRestrictions         = $defaultProfile.keyRestrictions
                 SyncedPasskeysAllowed   = $syncedAllowed
+                PasskeyTypeRestriction  = $passkeyTypeRestriction
                 Summary                 = $summary
             }
         }
@@ -146,14 +176,23 @@ function ConvertTo-SAWPasskeyPolicyEffective {
         # and distinguished from an absent property, which is the whole point of this function.
         $hasLegacyAttestation = $false
         $hasLegacyRestrictions = $false
-        if ($RawConfig.PSObject -and $RawConfig.PSObject.Properties) {
-            $hasLegacyAttestation = [bool]($RawConfig.PSObject.Properties['isAttestationEnforced'])
-            $hasLegacyRestrictions = [bool]($RawConfig.PSObject.Properties['keyRestrictions'])
-        }
-        elseif ($RawConfig -is [System.Collections.IDictionary]) {
+        # IDictionary MUST be checked first. Every object - Hashtable included - has a non-null
+        # .PSObject and .PSObject.Properties, but for a Hashtable that collection exposes the
+        # dictionary's own .NET members (Keys, Values, Count...), not its key-value entries, so
+        # .PSObject.Properties['isAttestationEnforced'] silently returns nothing even when the key
+        # is genuinely present. Checking PSObject.Properties first (as an earlier version of this
+        # function did) made the IDictionary branch below unreachable dead code - live Graph
+        # responses shaped as a Hashtable would always fall through to $unknown regardless of what
+        # they actually contained, exactly the false-negative-as-Unknown failure mode this whole
+        # function exists to prevent, just reintroduced in the fallback path.
+        if ($RawConfig -is [System.Collections.IDictionary]) {
             # Live Graph returns a Hashtable, sample data a PSCustomObject; handle both.
             $hasLegacyAttestation = $RawConfig.Contains('isAttestationEnforced')
             $hasLegacyRestrictions = $RawConfig.Contains('keyRestrictions')
+        }
+        elseif ($RawConfig.PSObject -and $RawConfig.PSObject.Properties) {
+            $hasLegacyAttestation = [bool]($RawConfig.PSObject.Properties['isAttestationEnforced'])
+            $hasLegacyRestrictions = [bool]($RawConfig.PSObject.Properties['keyRestrictions'])
         }
 
         if (-not $hasLegacyAttestation -and -not $hasLegacyRestrictions) {
@@ -172,7 +211,8 @@ function ConvertTo-SAWPasskeyPolicyEffective {
             MixedEnforcement        = $false
             KeyRestrictions         = $RawConfig.keyRestrictions
             SyncedPasskeysAllowed   = $null
-            Summary                 = "Resolved from the tenant-wide isAttestationEnforced/keyRestrictions properties. Microsoft has deprecated both, with removal scheduled for October 2027 in favour of passkey profiles; this tenant hasn't migrated yet, so these are still the live settings."
+            PasskeyTypeRestriction  = $null
+            Summary                 = "Resolved from the tenant-wide isAttestationEnforced/keyRestrictions properties. Microsoft has deprecated both, with removal scheduled for October 2027 in favour of passkey profiles; this tenant hasn't migrated yet, so these are still the live settings. passkeyTypes has no legacy equivalent - a per-type restriction is only possible via passkey profiles, so PasskeyTypeRestriction is always null on this path."
         }
     }
 }

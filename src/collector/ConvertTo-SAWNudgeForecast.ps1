@@ -195,6 +195,12 @@ function ConvertTo-SAWNudgeForecast {
     if ($fido2Effective.KeyRestrictionsEnforced -eq $true) {
         $suppressors += 'FIDO2 AAGUID key restrictions are enforced (PASS002), which Microsoft documents as suppressing the passkey nudge for affected users'
     }
+    if ($fido2Effective.PasskeyTypeRestriction -eq 'deviceBound') {
+        $suppressors += "The default passkey profile restricts registration to device-bound passkeys only, which Microsoft documents as suppressing the passkey nudge for affected users (read from the default profile - see ConvertTo-SAWPasskeyPolicyEffective for why this isn't aggregated across all profiles the way attestation/key restrictions are)"
+    }
+    if ($fido2Effective.PasskeyTypeRestriction -eq 'synced') {
+        $suppressors += "The default passkey profile restricts registration to synced passkeys only, which Microsoft documents as suppressing the passkey nudge for affected users (read from the default profile - see ConvertTo-SAWPasskeyPolicyEffective for why this isn't aggregated across all profiles the way attestation/key restrictions are)"
+    }
     if ($fido2 -and -not $fido2Effective.IsKnown) {
         $suppressors += "FIDO2 attestation and key-restriction state couldn't be read, so any suppression from those two settings is unknown rather than ruled out"
     }

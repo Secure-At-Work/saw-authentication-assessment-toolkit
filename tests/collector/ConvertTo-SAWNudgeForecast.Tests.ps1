@@ -132,6 +132,66 @@ Describe 'ConvertTo-SAWNudgeForecast' {
             $result.Summary.PasskeyCampaignCount | Should -Be 0
             $result.Summary.AutoPasskeySept2026Count | Should -Be 1
         }
+
+        It 'suppresses the passkey campaign when the default passkey profile restricts to device-bound only' {
+            $policy = New-SAWTestNudgePolicy
+            $policy.authenticationMethodConfigurations = @(
+                @{
+                    id             = 'Fido2'
+                    isSelfServiceRegistrationAllowed = $true
+                    defaultPasskeyProfile = 'profile-1'
+                    passkeyProfiles = @(
+                        @{ id = 'profile-1'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $false } }
+                    )
+                }
+            )
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
+            $result.Summary.PasskeyCampaignCount | Should -Be 0
+            @($result.Summary.Suppressors | Where-Object { $_ -match 'device-bound passkeys only' }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'suppresses the passkey campaign when the default passkey profile restricts to synced only' {
+            $policy = New-SAWTestNudgePolicy
+            $policy.authenticationMethodConfigurations = @(
+                @{
+                    id             = 'Fido2'
+                    isSelfServiceRegistrationAllowed = $true
+                    defaultPasskeyProfile = 'profile-1'
+                    passkeyProfiles = @(
+                        @{ id = 'profile-1'; passkeyTypes = 'synced'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $false } }
+                    )
+                }
+            )
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
+            @($result.Summary.Suppressors | Where-Object { $_ -match 'synced passkeys only' }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'does NOT suppress the passkey campaign when the default profile reports an unrecognized passkeyTypes value' {
+            # Not the same as an actual "both types allowed" profile (the schema always requires a
+            # value) - this checks that an unrecognized/future enum value defaults to "not a
+            # restriction this toolkit can act on" rather than being guessed as either direction.
+            $policy = New-SAWTestNudgePolicy
+            $policy.authenticationMethodConfigurations = @(
+                @{
+                    id             = 'Fido2'
+                    isSelfServiceRegistrationAllowed = $true
+                    defaultPasskeyProfile = 'profile-1'
+                    passkeyProfiles = @(
+                        @{ id = 'profile-1'; passkeyTypes = 'unknownFutureValue'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $false } }
+                    )
+                }
+            )
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+        }
     }
 
     Context 'SSPR interrupts' {
