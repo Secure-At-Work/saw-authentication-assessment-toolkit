@@ -910,6 +910,20 @@ already established for AUTH007 - the tutorial's own callout, verbatim: "Beginni
 v1.0 or beta property for this specific legacy setting has been found; `passwordresetpolicy` is not
 a real resource type (confirmed 404 on the Graph reference).
 
+**The classic blade's scope, confirmed 2026-08-12.** A follow-up question worth its own citation:
+does the Registration page's reconfirmation setting apply tenant-wide, or only to whoever the
+Properties page (`Self service password reset enabled: None/Selected/All`) already scoped SSPR to?
+The same tutorial answers this directly, in a Note immediately after the Registration page steps:
+
+> "The interruption to register security information during sign-in only occurs if the conditions
+> configured on the settings are met. **This only applies to users and admin accounts that are
+> enabled to reset passwords using Microsoft Entra self-service password reset.**"
+
+So the Registration page's settings carry no independent scope of their own - they're bounded by
+whatever population Properties already enabled. A Properties page scoped to a 2-user group means
+exactly those 2 users are subject to the reconfirmation interval, not the tenant. Same source, same
+verification pass.
+
 **First fix was itself wrong, corrected same day.** The initial fix hedged only when
 `policyMigrationState` wasn't `migrationComplete`, reasoning from that property's documented values
 (`premigration`/`migrationInProgress` - "legacy policies are respected"; `migrationComplete` -

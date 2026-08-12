@@ -739,6 +739,25 @@ about its fate, not a documented "ignored." Until that's resolved one way or the
 answer for any tenant is "check the classic blade directly," not "assume the modern policy's silence
 means nobody is asked."
 
+**That classic blade doesn't carry its own scope, though — it inherits whoever the Properties page
+already enabled.** The same tutorial's two steps sit right next to each other for a reason: step
+one is **Properties > Self service password reset enabled**, set to *None*, *Selected* (a specific
+group), or *All*; step two is the **Registration** page's "Require users to register" toggle and
+reconfirmation interval, configured on a completely different page. It would be reasonable to
+assume the second page's settings apply tenant-wide regardless of the first, since nothing on the
+Registration page itself mentions scope. Microsoft's own docs rule that out directly, in a Note
+immediately after the Registration steps:
+
+> "The interruption to register security information during sign-in only occurs if the conditions
+> configured on the settings are met. **This only applies to users and admin accounts that are
+> enabled to reset passwords using Microsoft Entra self-service password reset.**"
+
+So a Properties page scoped to *Selected* with a two-person pilot group means the Registration
+page's interrupt and reconfirmation interval apply to exactly those two people — not the tenant.
+Everyone outside that group was never in scope for SSPR at all, so there's nothing for the
+Registration page's settings to interrupt them about. Worth checking directly before reading a
+reconfirmation finding as tenant-wide: it's only as wide as whatever Properties says.
+
 ### System-Preferred Authentication: a different mechanic from everything above
 
 Every mechanism so far governs *registration*: what gets set up, and when a user is nudged to set
