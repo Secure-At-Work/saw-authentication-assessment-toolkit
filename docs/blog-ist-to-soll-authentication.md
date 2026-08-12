@@ -267,10 +267,15 @@ inventory requires, and why each piece earns its place.
 
 ### Authentication Methods Policy
 
-For every method type (Microsoft Authenticator, FIDO2/passkey, SMS, Voice, Email, Temporary
-Access Pass, Software OATH, X.509 Certificate), the policy carries: state (enabled/disabled), who
-it's scoped to (`includeTargets`/`excludeTargets`, down to the `all_users` well-known target or
-specific groups), and method-specific settings that change what the method actually *does*:
+*Collect: for every method — is it on, who for, and with what settings.*
+
+For each method type (Microsoft Authenticator, FIDO2/passkey, SMS, Voice, Email, Temporary
+Access Pass, Software OATH, X.509 Certificate), the policy carries three things: its state
+(enabled/disabled), who it's scoped to (`includeTargets`/`excludeTargets`, down to the `all_users`
+well-known target or specific groups), and method-specific settings that change what the method
+actually *does*.
+
+That third category is where the interesting detail lives:
 
 - **FIDO2**: `isAttestationEnforced` (are only vetted hardware keys accepted, or anything
   claiming to be a passkey), `isSelfServiceRegistrationAllowed` (can a user register one
@@ -302,41 +307,68 @@ typed `includeTargets`. Get the two confused and you'll misread who a policy act
 
 ### Conditional Access policies
 
-Every policy's state, who it targets (all users, specific roles, specific groups), what it
-requires (MFA, compliant device, a custom authentication strength), and specifically whether it
-targets the **"Register security information" user action** (`urn:user:registersecurityinfo`).
-That last one deserves its own callout, because Conditional Access's targeting modes are
-mutually exclusive: a policy scoped to "All resources" does **not** also apply to security-info
-registration. Only a policy explicitly scoped via user actions reaches that flow. Missing this
-distinction is how organizations end up believing registration is protected when it isn't, or,
-in the opposite and more dangerous failure, believing a policy that targets registration also
-covers ordinary sign-in, when it doesn't.
+*Collect: every policy's state, targets, grant controls — and one specific flag most people miss.*
+
+For each policy: its state, who it targets (all users, specific roles, specific groups), and what
+it requires (MFA, a compliant device, a custom authentication strength).
+
+Then one extra question that deserves its own callout: **does the policy target the "Register
+security information" user action?** (`urn:user:registersecurityinfo` in Graph.)
+
+That matters because **Conditional Access targeting modes are mutually exclusive**:
+
+- A policy scoped to "All resources" does **not** also cover security-info registration.
+- Only a policy explicitly scoped via *user actions* reaches that flow.
+
+Miss this and you can fail in either direction. You believe registration is protected when it
+isn't — or, the more dangerous one, you believe a policy targeting registration also covers
+ordinary sign-in, when it does not.
 
 ### Authentication Strengths
 
-Whether a phishing-resistant custom authentication strength exists at all, and, more
-importantly, whether anything actually *requires* it. Defining the strength and enforcing it
-are two different rules; a tenant can have a perfectly good phishing-resistant strength sitting
-unused.
+*Collect: whether a phishing-resistant strength exists — and separately, whether anything requires it.*
 
-Worth being precise about what "phishing-resistant" actually promises here, since it's easy to
-over-claim. It specifically means resistant to adversary-in-the-middle relay at the moment a
-token is issued: the credential can't be captured by a fake sign-in page and replayed, the way a
-password or an OTP code can. It says nothing about a token that's already been issued and then
-gets stolen off the endpoint afterward, for example by infostealer malware harvesting session
-tokens and shipping them to a command-and-control server for replay. That's a different problem,
-closed by endpoint controls (EDR, application control, next-gen antivirus), not by which
-authentication method was used to sign in. Rolling out passkeys is not a substitute for that
-endpoint security work; the two address different stages of the same token's lifecycle.
+Those are two different questions, and only the second one protects anybody. A tenant can have a
+perfectly good phishing-resistant strength defined and sitting completely unused.
+
+**Be precise about what "phishing-resistant" promises**, because it's easy to over-claim:
+
+| It does stop | It does not stop |
+|---|---|
+| Adversary-in-the-middle relay **at the moment a token is issued** — the credential can't be captured by a fake sign-in page and replayed, the way a password or OTP can. | A token that was **already issued** and then stolen off the endpoint afterwards — for example, infostealer malware harvesting session tokens and shipping them to a C2 server for replay. |
+
+The second column is an endpoint problem, closed by EDR, application control and next-gen
+antivirus — not by which authentication method was used to sign in.
+
+So: rolling out passkeys is not a substitute for endpoint security work. The two address
+different stages of the same token's lifecycle.
 
 ### Per-user registration data
 
-The single richest data source in the whole inventory. For every user, `userRegistrationDetails`
-reports `isAdmin`, the SSPR pair `isSsprEnabled` / `isSsprRegistered`, and, crucially,
+*Collect: `userRegistrationDetails` — the single richest source in the whole inventory.*
+
+This is the one that turns a tenant-wide configuration review into a per-person work list. For
+every user it reports `isAdmin`, the SSPR pair `isSsprEnabled` / `isSsprRegistered`, and, crucially,
 `methodsRegistered` — the actual list of methods that specific person has set up.
 
-**Pick the right MFA field, because two of them look interchangeable and are not.** Microsoft
-defines them one word apart:
+**What that buys you.** Six populations, each needing something different:
+
+| Population | Why they're their own group |
+|---|---|
+| **No phishing-resistant method at all** | Needs active nudging toward one. |
+| **Phishing-resistant method *plus* a phone fallback** | A live downgrade-attack surface — an attacker can force the weaker method even though a stronger one exists. Remove the fallback once it's no longer needed. |
+| **Guest / external users** | Microsoft doesn't yet support passkey registration for guests, so nudging them toward one isn't actionable advice. Track separately. |
+| **Windows Hello for Business as their *only* strong method** | WHfB is bound to one device. A real problem for admins who don't routinely sign in interactively from a managed machine. |
+| **Registered a method the tenant has since disabled** | Structurally unusable now — safe to clean up. Same list surfaces methods unused in a long time, a proxy for staleness. |
+| **SMS/Voice as their *only* method** | Exactly the population February 2027's blocking enforcement targets. Prioritise ahead of people who have SMS *alongside* something stronger. |
+
+That last row is the one to start with if you only do one thing with this data.
+
+#### Two field names that look interchangeable and aren't
+
+Worth its own heading, because picking the wrong one quietly produces a number you'll act on.
+
+**Trap one: `isMfaRegistered` versus `isMfaCapable`.** Microsoft's definitions differ by one clause:
 
 | Field | Microsoft's wording |
 |---|---|
@@ -347,19 +379,18 @@ Coverage built on `isMfaRegistered` counts people who *cannot actually complete 
 only method they registered has since been switched off tenant-wide. Use **`isMfaCapable`** for any
 readiness number you intend to act on.
 
-This matters most at exactly the wrong moment. Turn off SMS and Voice — Phase 4 of this very post —
-and those users keep `isMfaRegistered = true` on a dead registration while `isMfaCapable` correctly
-flips to false. A coverage metric on the wrong field looks healthiest precisely when it has become
-least true. (This toolkit had that bug until 2026-08-09.)
+The timing is what makes this bite. Turn off SMS and Voice — Phase 4 of this very post — and those
+users keep `isMfaRegistered = true` on a dead registration while `isMfaCapable` correctly flips to
+false. **A coverage metric on the wrong field looks healthiest precisely when it has become least
+true.** (This toolkit had that bug until 2026-08-09.)
 
-The *gap* between the two fields is worth reporting in its own right: someone who is registered but
-not capable appears on no "not registered" list, and is one policy change away from being locked out
-of their own MFA. SSPR has an equivalent pair — `isSsprCapable` is exactly `isSsprEnabled AND
-isSsprRegistered`.
+The *gap* between the two is worth reporting in its own right: someone registered but not capable
+appears on no "not registered" list, and is one policy change from being locked out of their own
+MFA. SSPR has an equivalent pair — `isSsprCapable` is exactly `isSsprEnabled AND isSsprRegistered`.
 
-**And one more trap, in the field that looks like the answer to this whole post.**
-`isPasswordlessCapable` is policy-aware in the same useful way, so it's tempting to read it as
-"phishing-resistant coverage". It isn't, and the two sets disagree in both directions:
+**Trap two: `isPasswordlessCapable` is not phishing-resistant coverage.** It's policy-aware in the
+same useful way, which makes it tempting to read as the answer to this whole post. It isn't, and the
+two sets disagree in both directions:
 
 - Microsoft's definition covers FIDO2, Windows Hello for Business, **and Microsoft Authenticator
   passwordless phone sign-in**. That last one is push-based — passwordless, but still phishable.
@@ -367,44 +398,36 @@ isSsprRegistered`.
   named in the passwordless definition at all.
 
 So a tenant can raise its passwordless number by pushing phone sign-in without getting meaningfully
-harder to attack. Track passwordless capability *and* phishing resistance as two numbers, and treat
-a widening gap between them as a finding rather than as progress. Measure phishing resistance from
+harder to attack. Track passwordless capability *and* phishing resistance as two numbers, treat a
+widening gap between them as a finding rather than progress, and measure phishing resistance from
 `methodsRegistered` — the actual methods — not from a capability flag.
-
-Per user, this is what tells you whether they: 
-
-- Have **no phishing-resistant method at all** and need active nudging toward one.
-- Have a phishing-resistant method **and** still have a phone-based fallback registered
-  alongside it, a live downgrade-attack surface: an attacker can force the weaker fallback even
-  though a stronger method exists, so the fallback should be removed once it's no longer needed.
-- Are a guest/external user, worth tracking separately since Microsoft doesn't yet support
-  passkey registration for guest accounts, so nudging them toward one isn't actionable advice.
-- Have their *only* phishing-resistant method be Windows Hello for Business, which is bound to
-  one device: a real problem for admins who don't do routine interactive sign-in from a managed
-  machine.
-- Have a registered method that the tenant's own policy has since disabled (structurally can't
-  be used anymore, safe to clean up), or one that hasn't been used in a successful sign-in in a
-  long time (a proxy for staleness, worth a second look).
-- Have SMS/Voice as their *only* registered method: the precise population Microsoft's February
-  2027 blocking enforcement targets, and worth prioritizing ahead of everyone else relying on
-  SMS/Voice alongside something stronger.
 
 ### The authorization policy: the admin SSPR trap
 
-One setting, easy to miss entirely, and one you won't stumble across in the portal because it has
-no switch there: `allowedToUseSSPR` on `/policies/authorizationPolicy`, readable only via Graph. By
-default, administrator accounts get self-service password reset through their own **built-in
-two-gate policy** (two methods required, security questions prohibited), completely independent
-of whatever the general SSPR configuration says for end users. `allowedToUseSSPR` is the actual
-switch that turns *admin* SSPR off. Microsoft's own documentation flags a specific, real trap
-here: disable admin SSPR without also excluding admins from the general user-facing SSPR policy,
-and those admins get stuck, still prompted to register, but shown a message that they can't
-register any method, because admin SSPR is off at the tenant level regardless of what the user
-policy says.
+*Collect: one Graph-only setting with no switch in the portal — `allowedToUseSSPR`.*
+
+You won't stumble across this one, because there is nowhere in the portal to stumble across it. It
+lives on `/policies/authorizationPolicy` and is readable only via Graph.
+
+Here's why it matters. Administrators don't use the general SSPR configuration at all. They get
+password reset through their own **built-in two-gate policy** — two methods required, security
+questions prohibited — completely independent of whatever you've set for end users.
+`allowedToUseSSPR` is the actual switch that turns *admin* SSPR off.
+
+**And that creates a trap Microsoft documents explicitly.** Turn admin SSPR off, but forget to also
+exclude admins from the general user-facing SSPR policy, and here is what those admins experience:
+
+1. They're still prompted to register for SSPR, because the user policy still targets them.
+2. They open the registration page and are told they can't register any method.
+3. They're stuck in that loop, because admin SSPR is off at the tenant level regardless of what the
+   user policy says.
+
+Two settings, each individually defensible, combining into a dead end. That pattern repeats
+throughout this post.
 
 ### Sign-in and audit logs
 
-Two separate windows serve two separate purposes:
+*Collect: two different time windows, for two different questions.*
 
 - **A short window** (7 days is a reasonable default) catches successful legacy-authentication or
   device-code-flow sign-ins. Both bypass modern Conditional Access entirely, so either one
@@ -427,10 +450,14 @@ incident indicators.
 
 ### Tenant profile
 
-`organization.onPremisesSyncEnabled` determines whether this tenant is hybrid (synced with
-on-premises Active Directory, current or former) or cloud-native. This single fact changes what
-"good" means for the rest of the inventory: a hybrid tenant may legitimately still need
-passwords and SSPR for longer than a cloud-native, passwordless-first one.
+*Collect: one field that changes how you judge everything else.*
+
+`organization.onPremisesSyncEnabled` tells you whether this tenant is hybrid (synced with
+on-premises Active Directory, currently or formerly) or cloud-native.
+
+That single fact changes what "good" means for the whole rest of the inventory. A hybrid tenant may
+legitimately still need passwords and SSPR long after a cloud-native, passwordless-first one has
+moved past both. Judge the findings against the right target, not a universal one.
 
 ## Part 2: How it all actually works together
 
@@ -503,15 +530,18 @@ Microsoft-managed state.
 
 ### The Temporary Access Pass as bootstrap mechanism
 
-A TAP is how a user with nothing registered yet gets into the system at all: created by an
-admin, entered at Security Info instead of a password, and good for either one sign-in or
-multiple within its lifetime window. Once signed in with a TAP, the user can register a stronger
-method: a passkey (if FIDO2 self-service registration is allowed), Microsoft Authenticator, or,
-on Windows, join the device and set up Windows Hello for Business in the same flow. There's a
-real operational nuance here: registering a passwordless method with a one-time-use TAP must
-happen within 10 minutes of the TAP sign-in, which is why organizations doing device enrollment
-plus WHfB setup in one sitting often either issue two single-use TAPs, or enable a multi-use TAP
-so the same code covers both steps without a hard clock running underneath.
+A TAP is how a user with nothing registered yet gets into the system at all. An admin creates it,
+the user enters it at Security Info instead of a password, and it's good for either one sign-in or
+several within its lifetime window.
+
+Once signed in with a TAP, they can register something stronger: a passkey (if FIDO2 self-service
+registration is allowed), Microsoft Authenticator, or — on Windows — join the device and set up
+Windows Hello for Business in the same flow.
+
+**One operational nuance to plan around.** Registering a passwordless method with a one-time-use TAP
+must happen within **10 minutes** of the TAP sign-in. That clock is why organizations doing device
+enrolment plus WHfB setup in one sitting typically either issue two single-use TAPs, or enable a
+multi-use TAP so the same code covers both steps without a hard deadline running underneath.
 
 **The cross-device trap.** There's a second nuance, and it only appears when the device the TAP is
 entered on isn't the device the passkey will live on.
@@ -624,16 +654,24 @@ help and can't get it. The fix is unglamorous: identify who has only a device-bo
 get them a portable backup (a synced passkey, or a passkey in Microsoft Authenticator) as a
 deliberate act, rather than assuming the prompts will keep handling it. They won't.
 
-**Passwordless users get a way to change a password they've never used.** This one closes a gap
-that sounds like a footnote and isn't. Onboard someone the modern way, TAP into a passkey on day
-one, and they may go their entire time at the company without ever typing their password. The
-password still exists in the directory, though. It is still an authentication factor. And the day
-something actually needs it, a legacy app, a break-glass procedure, a support process that hasn't
-caught up, they cannot change it: changing a password today means either knowing the current one
-(they don't) or going through SSPR (which they may never have registered for, particularly since
-the SSPR registration interrupt can be skipped indefinitely when no MFA registration policy sits
-alongside it, as covered just below). A stale password nobody knows and nobody can rotate is not a
-great thing to have quietly accumulating across a passwordless population.
+**Passwordless users get a way to change a password they've never used.** This sounds like a
+footnote and isn't.
+
+Onboard someone the modern way — TAP into a passkey on day one — and they may go their entire time
+at the company without ever typing their password. But the password still exists in the directory.
+It is still an authentication factor.
+
+Then something finally needs it: a legacy app, a break-glass procedure, a support process that
+hasn't caught up. And they cannot change it. Changing a password today requires one of two things,
+and they have neither:
+
+- **Knowing the current password.** They don't. They never used it.
+- **Going through SSPR.** They may never have registered for it — particularly since the SSPR
+  registration interrupt can be skipped indefinitely when no MFA registration policy sits alongside
+  it, as covered just below.
+
+A stale password that nobody knows and nobody can rotate, quietly accumulating across a passwordless
+population, is not a great thing to be building.
 
 From late October 2026, users can change their Entra password from My Sign-Ins by authenticating
 with a passkey, FIDO2 key or Windows Hello for Business, with no knowledge of the current password
@@ -726,16 +764,25 @@ architecture, and re-check it before building a control that depends on it stayi
 
 ### Conditional Access on the registration page itself
 
-There are two separate failure modes here, and it's worth naming both before getting into the
-mechanics of either. The first: no policy targets `urn:user:registersecurityinfo` at all, so the
-page where users register a new authentication method has no Conditional Access protection of
-its own, no matter how solid the rest of the baseline looks. A tenant can have legacy auth
-blocked, MFA required for all users, and admin roles protected, and still have zero control over
-this specific page, because none of those policies extend to it (targeting resources and
-targeting user actions are mutually exclusive choices within one policy, so a baseline "All
-resources" policy simply never reaches it). Anyone who's completed first-factor sign-in, whether
-or not they have MFA registered yet, can reach that page unchallenged. The fix is a policy that
-explicitly targets the user action and requires at least a plain `mfa` grant control.
+There are two separate failure modes here, and they fail in opposite directions. Worth naming both
+before getting into the mechanics of either.
+
+**Failure mode one: no policy targets the registration page at all.**
+
+Nothing targets `urn:user:registersecurityinfo`, so the page where users register a new
+authentication method has no Conditional Access protection of its own — no matter how solid the
+rest of the baseline looks.
+
+A tenant can have legacy auth blocked, MFA required for all users, and admin roles protected, and
+*still* have zero control over this specific page. None of those policies extend to it, because
+targeting resources and targeting user actions are mutually exclusive choices within one policy: a
+baseline "All resources" policy simply never reaches it.
+
+The practical result: anyone who has completed first-factor sign-in can reach that page
+unchallenged, whether or not they have MFA registered yet.
+
+The fix is a policy that explicitly targets the user action and requires at least a plain `mfa`
+grant control.
 
 The second failure mode is the opposite: such a policy exists, but overshoots.
 
@@ -876,17 +923,21 @@ problem, and no campaign setting solves it, because the campaign was never in th
 situations look identical on a coverage chart and call for opposite responses, which is exactly why
 it's worth spending ten minutes separating them before concluding that users are ignoring you.
 
-Working out who lands in each group is therefore mostly derivable from data you already have:
-registration state per user, the campaign's target method and scope, which users still have a
-phone-based method registered, who is SSPR-enabled but not SSPR-registered, and who shows up in the
-interactive sign-in log. Two further limits are worth carrying into that exercise, because they
-push in opposite directions. The passkey nudge is
-evaluated per device-and-browser rather than per account, so "this user has a passkey" does not
-mean "this user won't be prompted." And several suppressors (terms-of-use screens, Conditional
-Access custom controls, an existing SSO session, Linux clients) are invisible from the outside.
-Any list you build is therefore an estimate. Build it as an over-estimate and communicate to the
-wider group: telling fifty people about a prompt that forty of them see is a much cheaper error
-than the reverse.
+Working out who lands in each group is mostly derivable from data you already have: registration
+state per user, the campaign's target method and scope, which users still have a phone-based method
+registered, who is SSPR-enabled but not SSPR-registered, and who shows up in the interactive
+sign-in log.
+
+Two limits are worth carrying into that exercise, and they push in opposite directions:
+
+- **The passkey nudge is evaluated per device-and-browser, not per account.** So "this user has a
+  passkey" does *not* mean "this user won't be prompted." This pushes your estimate *up*.
+- **Several suppressors are invisible from outside** — terms-of-use screens, Conditional Access
+  custom controls, an existing SSO session, Linux clients. This pushes your estimate *down*.
+
+Any list you build is therefore an estimate, not a roster. **Build it as an over-estimate and
+communicate to the wider group.** Telling fifty people about a prompt that forty of them see is a
+much cheaper error than the reverse.
 
 ### Tracing it end to end
 
