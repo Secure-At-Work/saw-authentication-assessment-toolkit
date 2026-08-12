@@ -117,7 +117,7 @@ Describe 'ConvertTo-SAWRegistrationFlowScenarios' {
         $adminStep.Detail | Should -Match 'SSPR002'
     }
 
-    It 'marks the reconfirmation step applicable only when reconfirmationInDays is set' {
+    It 'marks the reconfirmation step confidently applicable when reconfirmationInDays is set, and hedged (unknown) rather than false when it is not - see the dedicated Context below for why' {
         $authPolicyNoReconfirm = New-SAWTestAuthMethodsPolicy -ReconfirmationInDays $null
         $authPolicyWithReconfirm = New-SAWTestAuthMethodsPolicy -ReconfirmationInDays 180
         $authzPolicy = @{ allowedToUseSSPR = $true }
@@ -129,7 +129,7 @@ Describe 'ConvertTo-SAWRegistrationFlowScenarios' {
         $reregNo = $resultNoReconfirm | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
         $reregYes = $resultWithReconfirm | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
 
-        ($reregNo.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }).Applies | Should -Be $false
+        ($reregNo.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }).Applies | Should -Be 'unknown'
         ($reregYes.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }).Applies | Should -Be $true
     }
 
@@ -163,7 +163,7 @@ Describe 'ConvertTo-SAWRegistrationFlowScenarios' {
             $step.Applies | Should -Be 'unknown'
         }
 
-        It 'asserts confidently (Applies is false, no hedge) when reconfirmationInDays is unset and policyMigrationState is migrationComplete' {
+        It 'still hedges (does NOT assert false) when reconfirmationInDays is unset even though policyMigrationState is migrationComplete - a live tenant showed the legacy blade can still be configured in this state, so migration status is not a safe basis for a confident negative' {
             $authPolicy = New-SAWTestAuthMethodsPolicy -ReconfirmationInDays $null -PolicyMigrationState 'migrationComplete'
             $authzPolicy = @{ allowedToUseSSPR = $true }
             $registration = @{ value = @() }
@@ -172,9 +172,9 @@ Describe 'ConvertTo-SAWRegistrationFlowScenarios' {
 
             $rereg = $result | Where-Object { $_.FlowID -eq 'REREGISTRATION' }
             $step = $rereg.Steps | Where-Object { $_.Step -like 'If reconfirmation*' }
-            $step.Applies | Should -Be $false
-            $step.Detail | Should -Not -Match 'Password reset > Registration'
-            $rereg.ISTSummary | Should -Not -Match 'Password reset > Registration'
+            $step.Applies | Should -Be 'unknown'
+            $step.Detail | Should -Match 'Password reset > Registration'
+            $rereg.ISTSummary | Should -Match 'Password reset > Registration'
         }
 
         It 'reports the configured cadence directly when reconfirmationInDays IS set, regardless of migration state' {

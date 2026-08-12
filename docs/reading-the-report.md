@@ -273,16 +273,17 @@ The four flows:
   step: at *ordinary* sign-in (not registration), System-Preferred Authentication may already be
   presenting this user's strongest registered method first - not necessarily the one they're
   used to - which is worth knowing before assuming a "why did my sign-in screen change" question
-  is a problem rather than this setting working as configured. **The reconfirmation step can show
-  "Unknown - verify directly" instead of a yes/no answer** when this tenant hasn't finished
-  migrating off the legacy MFA/SSPR policies (`policyMigrationState` isn't `migrationComplete`)
-  and the modern policy has no reconfirmation interval set. That's not indecision - it means the
-  classic **Password reset > Registration** admin blade has its own separate "Number of days
-  before users are asked to reconfirm their authentication information" setting, which this
-  toolkit has no way to read from Graph, and Microsoft documents legacy policy settings as still
-  actively respected until migration completes. Check that blade directly rather than assuming
+  is a problem rather than this setting working as configured. **The reconfirmation step shows
+  "Unknown - verify directly" instead of a yes/no answer whenever the modern policy has no
+  reconfirmation interval set** - regardless of this tenant's migration status. That's not
+  indecision - it means the classic **Password reset > Registration** admin blade has its own
+  separate "Number of days before users are asked to reconfirm their authentication information"
+  setting, which this toolkit has no way to read from Graph. An earlier version of this trace only
+  hedged when migration wasn't yet complete, on the assumption that setting stops mattering once it
+  is - a live tenant disproved that: **Migration status: Complete**, with the legacy field still
+  configured to 180 days. So this always hedges now. Check that blade directly rather than assuming
   reconfirmation is off - a tenant can have this configured (180 days is Microsoft's own tutorial
-  example) while the modern policy shows nothing.
+  example) while the modern policy shows nothing, in any migration state.
 - **CA-Gated Registration** - how an enabled Conditional Access policy scoped to "Register
   security information" reshapes every flow above: registration-campaign nudges are suppressed
   entirely (not just delayed) for a blocked user, and a Temporary Access Pass-only user can be

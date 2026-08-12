@@ -120,12 +120,20 @@ function ConvertTo-SAWRegistrationFlowScenarios {
     # setting as the legacy SSPR "Password reset > Registration" blade's own "Number of days
     # before users are asked to reconfirm their authentication information" field, which this
     # toolkit does not collect at all (it has no Microsoft Graph v1.0/beta equivalent found so
-    # far). Per policyMigrationState's own documented values, legacy MFA/SSPR policy settings are
-    # "respected" for anything short of migrationComplete - so a tenant that has that legacy field
-    # configured (Microsoft's own SSPR tutorial uses 180 as its example value) can still be
-    # periodically reconfirming users even while reconfirmationInDays reads empty here.
+    # far).
+    #
+    # An earlier version of this code assumed the legacy field stops mattering once
+    # policyMigrationState reaches migrationComplete, inferring that from the property's
+    # documented "legacy policies are ignored" wording. A live tenant disproved that: migration
+    # status showed Complete in the admin center while the legacy blade still had a real,
+    # non-default reconfirmation value (180 days) configured. Microsoft's own migration guidance
+    # names exactly two legacy elements that are confirmed to survive migrationComplete - "Number
+    # of methods required to reset" and the SSPR administrator policy - and this field was never
+    # one of them, which is silence, not a documented "ignored" for THIS specific setting. So
+    # there is no migration-state threshold this toolkit can safely use to switch from "unknown"
+    # to a confident "no reconfirmation" - it hedges unconditionally instead, and the migration
+    # state is surfaced as context, not as the basis for a claim.
     $migrationState = [string]$AuthenticationMethodsPolicyRaw.policyMigrationState
-    $legacyReconfirmationMayApply = ($migrationState -ne 'migrationComplete')
 
     $sysPrefState = [string]$AuthenticationMethodsPolicyRaw.systemCredentialPreferences.state
     if ([string]::IsNullOrEmpty($sysPrefState)) { $sysPrefState = 'default' }
@@ -191,7 +199,7 @@ function ConvertTo-SAWRegistrationFlowScenarios {
         Category   = 'Existing User Re-Registration'
         Title      = 'Existing user manages or refreshes their security info'
         Applicable = $true
-        ISTSummary = if ($reconfirmationDays) { "Users are periodically interrupted to confirm/update security info every $reconfirmationDays day(s)." } elseif ($legacyReconfirmationMayApply) { "The modern Authentication Methods policy has no reconfirmation interval configured (policyMigrationState: '$migrationState') - but this toolkit cannot see the legacy SSPR `"Password reset > Registration`" blade's own separate reconfirmation setting, and Microsoft documents legacy policy settings as still respected until migration is complete. Check that blade directly before concluding users are never reconfirmed." } else { 'No periodic reconfirmation interval is configured in the Authentication Methods policy - users only revisit their security info voluntarily (manage mode) or when a registration campaign nudge fires.' }
+        ISTSummary = if ($reconfirmationDays) { "Users are periodically interrupted to confirm/update security info every $reconfirmationDays day(s)." } else { "The modern Authentication Methods policy has no reconfirmation interval configured (policyMigrationState: '$migrationState') - but this toolkit cannot see the legacy SSPR `"Password reset > Registration`" blade's own separate reconfirmation setting, and a live tenant has shown that setting can still be configured even when migration status reads Complete. Check that blade directly before concluding users are never reconfirmed." }
         SOLLSummary = 'A registration campaign actively targeting the strongest available method (passkey), plus periodic reconfirmation so stale registrations surface on their own rather than only being caught by an assessment like this one.'
         SourceUrl  = 'https://learn.microsoft.com/entra/identity/authentication/concept-registration-mfa-sspr-combined'
         Steps      = @(
@@ -200,7 +208,7 @@ function ConvertTo-SAWRegistrationFlowScenarios {
             @{ Step = 'Adding or modifying a passkey (FIDO2) requires the user to have completed MFA within the last 5 minutes'; Applies = $null; Detail = 'Fixed Microsoft Entra session-freshness requirement, not a tenant-configurable setting - included here since it is a common source of "why am I asked to sign in again" support tickets.' }
             @{ Step = "A registration campaign nudge for $campaignTargetLabel appears on the user's next MFA attempt if the targeted method is not present for their current device/browser"; Applies = $campaignActive; Detail = if ($campaignActive) { if ($enforceAfterSnoozes -eq $true) { 'Limited snoozes: after 3 skips, registration becomes required.' } elseif ($enforceAfterSnoozes -eq $false) { 'Unlimited snoozes: users may indefinitely postpone and never actually register.' } else { 'Snooze-limit behavior not explicitly set; Microsoft managed defaults apply.' } } else { 'Registration campaign is disabled - no proactive nudge occurs; re-registration only happens if the user initiates it themselves.' } }
             @{ Step = 'User deletes an existing (e.g. stale or policy-disabled) method from Security Info'; Applies = $true; Detail = 'Always available in manage mode - no tenant setting gates deletion.' }
-            @{ Step = 'If reconfirmation is configured, the user is periodically interrupted at sign-in to confirm or update their registered info'; Applies = if ($reconfirmationDays) { $true } elseif ($legacyReconfirmationMayApply) { 'unknown' } else { $false }; Detail = if ($reconfirmationDays) { "reconfirmationInDays is set to $reconfirmationDays." } elseif ($legacyReconfirmationMayApply) { "reconfirmationInDays (modern policy) is not set, but policyMigrationState is '$migrationState' - the legacy SSPR `"Password reset > Registration`" blade's own reconfirmation setting is a separate field this toolkit does not read, and Microsoft documents it as still respected pre-migrationComplete. Verify directly in the admin center rather than assuming reconfirmation is off." } else { 'reconfirmationInDays is not set, and policyMigrationState is migrationComplete - stale-but-still-valid registrations are not proactively surfaced to the user.' } }
+            @{ Step = 'If reconfirmation is configured, the user is periodically interrupted at sign-in to confirm or update their registered info'; Applies = if ($reconfirmationDays) { $true } else { 'unknown' }; Detail = if ($reconfirmationDays) { "reconfirmationInDays is set to $reconfirmationDays." } else { "reconfirmationInDays (modern policy) is not set (policyMigrationState: '$migrationState') - the legacy SSPR `"Password reset > Registration`" blade's own reconfirmation setting is a separate field this toolkit does not read, and a live tenant has shown it can still be configured regardless of migration status. Verify directly in the admin center rather than assuming reconfirmation is off." } }
         )
     }
 

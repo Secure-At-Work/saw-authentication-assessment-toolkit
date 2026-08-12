@@ -856,19 +856,26 @@ Source: [tutorial-enable-sspr](https://learn.microsoft.com/entra/identity/authen
 
 That page places this setting under the exact same "legacy MFA and SSPR policy" deprecation framing
 already established for AUTH007 - the tutorial's own callout, verbatim: "Beginning September 30,
-2025, authentication methods can't be managed in these legacy MFA and SSPR policies." Combined with
-`policyMigrationState`'s documented values (`premigration`/`migrationInProgress` - "legacy policies
-are respected"; `migrationComplete` - "legacy policies are ignored"), a tenant not yet at
-`migrationComplete` can have this legacy reconfirmation cadence actively running while the modern
-`reconfirmationInDays` reads empty - exactly the false negative a live tenant just produced. No
-Graph v1.0 or beta property for this specific legacy setting has been found; `passwordresetpolicy`
-is not a real resource type (confirmed 404 on the Graph reference).
+2025, authentication methods can't be managed in these legacy MFA and SSPR policies." No Graph
+v1.0 or beta property for this specific legacy setting has been found; `passwordresetpolicy` is not
+a real resource type (confirmed 404 on the Graph reference).
 
-Fixed by having the scenario trace check `policyMigrationState` alongside `reconfirmationInDays`:
-when unset and migration isn't complete, the step now reports a genuinely distinct third state -
-**unknown, not false** - directing the reader to check the legacy blade directly rather than
-asserting reconfirmation is off. See `docs/reading-the-report.md` for how this renders. Worth
-revisiting if a Graph-readable property for the legacy setting is ever found.
+**First fix was itself wrong, corrected same day.** The initial fix hedged only when
+`policyMigrationState` wasn't `migrationComplete`, reasoning from that property's documented values
+(`premigration`/`migrationInProgress` - "legacy policies are respected"; `migrationComplete` -
+"legacy policies are ignored") that the legacy field must stop mattering once migration finishes.
+That inference doesn't hold: this document's own AUTH007 section already establishes that
+Microsoft names exactly two legacy elements as confirmed survivors of `migrationComplete` - "Number
+of methods required to reset" and the SSPR administrator policy - and this reconfirmation field was
+never one of them. That's silence, not a documented "ignored" for this specific setting. The same
+live tenant that surfaced the original bug had **Migration status: Complete** in the admin center
+while the legacy reconfirmation field still read 180 - direct evidence the migration-state gate was
+unsafe. Fixed by hedging **unconditionally** whenever `reconfirmationInDays` is unset, regardless of
+`policyMigrationState` - the scenario trace has no migration-state threshold it can safely use to
+switch from "unknown" to a confident "no reconfirmation." `policyMigrationState` is still surfaced
+in the step detail as context, just no longer as the basis for a claim. See
+`docs/reading-the-report.md` for how this renders. Worth revisiting if a Graph-readable property for
+the legacy setting, or explicit Microsoft guidance on its post-migration fate, is ever found.
 
 ---
 
