@@ -1127,9 +1127,11 @@ from that matrix are easy to miss and expensive to discover late:
   of OS version.
 
 Inventorying which of these combinations are actually in use, and deciding whether syncable
-passkeys are acceptable specifically because they reach further back (Google Password Manager
-supports Android versions well below Authenticator's floor), belongs in Phase 1 alongside
-everything else in "Foundation & Visibility," not discovered after enforcement is already live.
+passkeys are acceptable specifically because they reach further back — Google's own support
+documentation puts the [floor for passkeys in Google Password Manager at Android
+9](https://support.google.com/accounts/answer/13548313), well below Authenticator's Android
+14 requirement — belongs in Phase 1 alongside everything else in "Foundation & Visibility," not
+discovered after enforcement is already live.
 
 ## Part 4: The path from IST to SOLL: five phases, and why the order matters
 
@@ -1331,6 +1333,10 @@ Check your own tenant's Message Center before treating any of them as final.
   [Yubico](https://support.yubico.com/hc/en-us/articles/360016648959-YubiKey-hardware-FIDO2-AAGUIDs),
   [Feitian](https://fido.ftsafe.com/products/) and
   [SoloKeys](https://docs.solokeys.dev/metadata-statements/).
+- Google's own [passkey device requirements](https://support.google.com/accounts/answer/13548313)
+  for Google Password Manager's Android 9 floor, cited where it's compared against Microsoft
+  Authenticator's newer Android 14 requirement - a claim Microsoft's own compatibility matrix has
+  no way to confirm, since it only documents its own products.
 
 One habit worth borrowing regardless of any of the above: check the `ms.date` on a Microsoft Learn
 article before relying on a date it states. Two SSPR dates referenced in an earlier version of this

@@ -26,6 +26,18 @@ caught (see "Known corrections" at the bottom).
 - Where a rule's claim rests on a *specific sentence*, that sentence is quoted, because paraphrase
   is where accuracy usually goes missing.
 
+**2026-08-12 full audit.** Every URL in this document - all 28 rule and quoted-claim citations,
+plus the blog post's external sources (a CVE record, the SpecterOps PDF, Dirk-jan Mollema's blog,
+a Medium article, two Message Center posts, and the platform compatibility matrix) - was re-fetched
+and every quoted sentence re-checked verbatim. Findings: one citation's quoted sentence had been
+rewritten by Microsoft since its last check (Staged Rollout, corrected below), two pages had been
+edited since their last verification but their quoted content held up unchanged (SMS/voice
+retirement; `how-to-register-passkey-authenticator`'s metadata), and one open mystery (the
+`Policy.Read.HybridAuthentication` AADSTS70011 conflict) had one hypothesis ruled out. No wrong
+claims, no fabricated citations, and no CVE/CVSS misquotes were found anywhere, including in the
+blog post, which had not been through this level of check before. See the dated entries throughout
+this document and the "Known corrections" section for specifics.
+
 ---
 
 ## Rule-by-rule sources
@@ -106,7 +118,10 @@ date:
 > still receive prompts to register passkeys on eligible devices."
 
 Source: [concept-sms-voice-retirement](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement)
-(ms.date 2026-07-29, updated 2026-08-03). Verified 2026-08-07.
+(ms.date 2026-08-10, updated 2026-08-10). Verified 2026-08-12 - page was edited after the prior
+2026-08-07 check, re-confirmed word for word including the `passkeyDynamicMigration = true` opt-out
+direction ("your tenant is **excluded** from the automatic passkey enablement and Registration
+Campaign rollout during the opt-out period").
 
 ### The opt-out is a single Graph property (backs AUTH006)
 
@@ -322,7 +337,13 @@ first factor only conditionally.
 And a staging constraint: "You can only include one group for system-preferred authentication."
 
 Source: [concept-system-preferred-authentication](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication)
-(ms.date 2026-04-15, updated 2026-07-17). Verified 2026-08-09.
+(ms.date 2026-04-15, updated 2026-07-17). Verified 2026-08-09, re-confirmed verbatim 2026-08-12.
+
+**Re-check soon.** The "gradually deployed to tenants through August 2026" rollout window quoted
+above closes within days of this file's most recent check (today is 2026-08-12) - the next
+verification pass should confirm whether Microsoft has updated this page once that window lapses,
+since a tenant reading "Microsoft managed" could mean something different once the rollout is
+declared complete.
 
 ### Passkey registration is not supported for guest users (backs the Guest triage bucket)
 
@@ -351,7 +372,7 @@ Source for both: [howto-authentication-temporary-access-pass](https://learn.micr
 > administrator."
 
 Source: [how-to-register-passkey-authenticator](https://learn.microsoft.com/entra/identity/authentication/how-to-register-passkey-authenticator)
-(updated 2026-07-06). Verified 2026-08-07.
+(ms.date 2026-07-05, updated 2026-07-06). Verified 2026-08-07, re-confirmed verbatim 2026-08-12.
 
 ### Microsoft Authenticator's own AAGUIDs
 
@@ -531,6 +552,14 @@ produces a plausible-looking wrong answer if missed:
   see the `.PARAMETER Scopes` docstring there. If you can independently confirm this scope working
   cleanly on a different tenant or a different first-party client ID, that would narrow down which
   half of the contradiction is the real cause - worth updating this entry with whatever's found.
+
+  **One hypothesis ruled out, 2026-08-12.** Independently re-fetched both Graph reference pages
+  again as part of a full documentation audit: the permissions table on
+  [List featureRolloutPolicies](https://learn.microsoft.com/graph/api/featurerolloutpolicies-list)
+  still reads exactly `Policy.Read.HybridAuthentication` - identical spelling, casing, and
+  punctuation to what this toolkit requests. So "Microsoft quietly corrected a typo in the docs"
+  is not the explanation; whatever is causing the live AADSTS70011 rejection, it isn't documentation
+  drift. The mystery stands as a live-tenant/consent-flow question, not a stale-citation one.
 - `feature` is an **evolvable enum**. Without a `Prefer: include-unknown-enum-members` request
   header, the two newest members (`certificateBasedAuthentication` and
   `multiFactorAuthentication`) return as `unknownFutureValue` rather than by name. Those two are
@@ -543,11 +572,16 @@ and [List featureRolloutPolicies](https://learn.microsoft.com/graph/api/featurer
 (ms.date 2024-03-06). `appliesTo` is a relationship rather than a property, so the targeted groups
 are absent unless the request adds `$expand=appliesTo`.
 
-The transition is not instant in either direction:
+The transition is not instant in either direction. Microsoft rewrote this section between the
+2026-08-09 and 2026-08-12 checks (new heading "Scenarios that require an additional federated or
+managed sign-in"); the meaning is unchanged but the sentence below replaces the one previously
+quoted here, which no longer exists verbatim:
 
-> "When a user is added to a Staged Rollout (SR) group ... their authentication method will
-> transition from federated to managed. This change takes effect after the user completes one more
-> interactive sign-in using their existing federated login."
+> "User added to Staged Rollout. When a user is added to a Staged Rollout group, or when a group
+> they belong to is enabled for Staged Rollout, the authentication experience doesn't switch from
+> federated to managed immediately. The user must complete one additional interactive sign-in using
+> their existing federated authentication method. After this sign-in, Microsoft Entra updates the
+> user's state and applies managed authentication for subsequent sign-ins."
 
 The TAP interaction is stated as a recommended workaround, and the ordering is the whole point:
 
@@ -571,9 +605,9 @@ And Microsoft's framing of the feature itself, which is newer than most practiti
 
 Group mechanics, for anyone sizing a pilot: max 10 groups per feature, no nested groups, no dynamic
 groups, 200 users when a group is first added, and up to 24 hours for membership edits to take
-effect. Source:
+effect - all unchanged by the rewrite. Source:
 [how-to-connect-staged-rollout](https://learn.microsoft.com/entra/identity/hybrid/connect/how-to-connect-staged-rollout),
-ms.date 2026-07-22. Verified 2026-08-09.
+ms.date 2026-08-11, updated 2026-08-12. Verified 2026-08-12.
 
 ### Attack research behind the "why now" framing (backs the two-tier target state)
 
@@ -794,6 +828,17 @@ states "Linux users aren't nudged. FIDO2 passkeys aren't available on Linux." Th
 scopes (sign-in vs campaign nudge eligibility) but the wording conflicts. Treat Linux as
 "supported for sign-in, not covered by the campaign" and verify against both pages if it matters
 for a specific customer.
+
+**CA005's claim has no direct quote to point to (found in the 2026-08-12 full audit).** CA005 rests
+on "resource targeting and user-action targeting are mutually exclusive per Conditional Access
+policy." Re-checking `concept-conditional-access-cloud-apps` found nothing wrong with the claim -
+the admin center's "Select what this policy applies to" control is genuinely single-select between
+Cloud apps / User actions / Authentication context / Global Secure Access, and a screenshot on the
+page is literally named `conditional-access-cloud-apps-or-actions.png` - but there is no sentence on
+the page that states the exclusivity in prose the way this document's other rows quote one. This
+document's own rule is "if the answer is a paraphrase, the citation is decoration" - by that
+standard this citation is support-by-structure, not a quotable sentence, and is worth knowing before
+using it as a direct rebuttal to a customer who asks for the exact words.
 
 ---
 
