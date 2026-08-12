@@ -479,6 +479,23 @@ produces a plausible-looking wrong answer if missed:
   `Policy.Read.All` does *not* cover it; the only alternatives Microsoft lists are
   `Directory.ReadWrite.All` and `Policy.ReadWrite.HybridAuthentication`, both write scopes this
   toolkit will never request.
+
+  **Documentation versus live behavior conflict, found 2026-08-12, unresolved.** Requesting this
+  exact scope from a real tenant produced an outright rejection at the token endpoint:
+  `AADSTS70011: The provided value for the input parameter 'scope' is not valid. The scope '...'
+  does not exist.` The scope name was re-checked against
+  [List featureRolloutPolicies](https://learn.microsoft.com/graph/api/featurerolloutpolicies-list)
+  twice after the failure and matches Microsoft's documented permissions table character for
+  character - both times the same "Policy.Read.HybridAuthentication" string. So either this specific
+  permission isn't consentable through the default Microsoft Graph PowerShell client for this
+  tenant/app combination, or something about live availability lags the documentation - not
+  determined, and not something re-reading the same page a third time will resolve. AADSTS70011
+  fails the *entire* Connect-MgGraph call atomically (every scope requested alongside it, not just
+  this one), so `Connect-SAWGraph.ps1` now catches this specific error and retries once without
+  this one scope rather than letting one optional inventory row take the whole assessment down -
+  see the `.PARAMETER Scopes` docstring there. If you can independently confirm this scope working
+  cleanly on a different tenant or a different first-party client ID, that would narrow down which
+  half of the contradiction is the real cause - worth updating this entry with whatever's found.
 - `feature` is an **evolvable enum**. Without a `Prefer: include-unknown-enum-members` request
   header, the two newest members (`certificateBasedAuthentication` and
   `multiFactorAuthentication`) return as `unknownFutureValue` rather than by name. Those two are

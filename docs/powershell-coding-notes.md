@@ -94,7 +94,11 @@ things are both true and worth separating:
    that; it lives in the SDK.
 2. **Expected one-time re-consent** whenever `Connect-SAWGraph.ps1`'s scope list changes (as it
    did when `Policy.Read.HybridAuthentication` was added for Staged Rollout) - a fresh Entra
-   consent screen on top of the normal WAM sign-in, the first time only, then cached.
+   consent screen on top of the normal WAM sign-in, the first time only, then cached. (That same
+   scope turned out to have its own, separate problem on a real tenant - Entra rejects it outright
+   with `AADSTS70011`, despite matching Microsoft's documentation exactly. See the
+   `.PARAMETER Scopes` docstring in `Connect-SAWGraph.ps1` for the self-healing retry this led to,
+   and `docs/references.md`'s Staged Rollout section for the full, unresolved contradiction.)
 
 The instinctive fix - disable WAM and fall back to plain browser sign-in - **does not work for
 this toolkit**, confirmed via

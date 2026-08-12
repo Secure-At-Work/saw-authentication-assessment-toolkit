@@ -147,11 +147,23 @@ function Connect-SAWGraph {
             # it's the one scope here that isn't implied by the others: Policy.Read.All does NOT
             # cover /policies/featureRolloutPolicies - Microsoft's own permissions table for that
             # endpoint names Policy.Read.HybridAuthentication as the least-privileged option, and
-            # otherwise only write scopes this read-only toolkit will never request. Adding it
-            # means one more admin consent on first run after upgrading. If that consent isn't
-            # available in a given tenant, pass a -Scopes list without it: everything else still
-            # runs, and Get-SAWStagedRollout degrades to reporting "not read" rather than failing
-            # the assessment.
+            # otherwise only write scopes this read-only toolkit will never request.
+            #
+            # CONFIRMED AGAINST A REAL TENANT (2026-08-12): Entra can reject this exact scope
+            # outright at connect time with AADSTS70011 ("the scope ... does not exist"), despite
+            # it matching Microsoft's own documented permission name character for character
+            # (re-checked twice against learn.microsoft.com/graph/api/featurerolloutpolicies-list
+            # after the failure - the string is right; something about live availability for this
+            # tenant/app combination is not). That contradiction between documentation and the
+            # live token endpoint is unresolved and not something this toolkit can fix. What it
+            # CAN fix is the blast radius: AADSTS70011 fails the entire Connect-MgGraph call
+            # atomically, for every scope requested alongside it, not just this one - so a single
+            # rejected scope for one optional inventory row was taking down the whole 30-rule
+            # assessment. See the retry-without-this-scope handling below, the same
+            # try-the-richer-request-then-fall-back shape already used in Get-SAWPasskeys.ps1 for
+            # $expand=passkeyProfiles. Get-SAWStagedRollout already degrades to reporting
+            # "not read" rather than failing when this scope is absent from the connection - that
+            # existing behavior is exactly what makes the fallback safe.
             'Policy.Read.HybridAuthentication'
         ),
 
@@ -193,6 +205,35 @@ function Connect-SAWGraph {
         throw "Microsoft.Graph.Authentication did not load correctly - missing command(s): $($missingCommands -join ', ')."
     }
 
+    # Wraps every Connect-MgGraph attempt in this function (there are three call sites below, one
+    # per branch) so the AADSTS70011 self-heal lives in one place instead of three. See the
+    # 2026-08-12 note on the -Scopes default above for why this exists: Entra can reject
+    # 'Policy.Read.HybridAuthentication' outright, and because a single invalid scope fails the
+    # WHOLE token request, that one optional scope was able to block every other check in the
+    # assessment. Only that specific scope is ever dropped automatically - anything else Entra
+    # rejects still fails loudly, because there's no known-safe fallback for it the way
+    # Get-SAWStagedRollout already provides for this one.
+    function Connect-SAWMgGraphAttempt {
+        param([hashtable]$ConnectArgs)
+
+        try {
+            Connect-MgGraph @ConnectArgs | Out-Host
+        }
+        catch {
+            $message = $_.Exception.Message
+            if ($message -match 'AADSTS70011' -and $ConnectArgs.Scopes -contains 'Policy.Read.HybridAuthentication') {
+                Write-Warning "Connect-SAWGraph: Entra rejected the requested scopes (AADSTS70011) with 'Policy.Read.HybridAuthentication' among them - retrying once without it. Staged Rollout inventory will report as not read; every other check is unaffected. Original error: $($message.Split([char]10)[0])"
+                $retryArgs = @{}
+                foreach ($key in $ConnectArgs.Keys) { $retryArgs[$key] = $ConnectArgs[$key] }
+                $retryArgs['Scopes'] = @($ConnectArgs.Scopes | Where-Object { $_ -ne 'Policy.Read.HybridAuthentication' })
+                Connect-MgGraph @retryArgs | Out-Host
+            }
+            else {
+                throw
+            }
+        }
+    }
+
     $context = Get-MgContext
 
     $connectArgs = @{ Scopes = $Scopes; NoWelcome = $true; ErrorAction = 'Stop' }
@@ -208,20 +249,20 @@ function Connect-SAWGraph {
 
     if (-not $context) {
         Write-Verbose "Connect-SAWGraph: no active connection, connecting with scopes: $($Scopes -join ', ')"
-        Connect-MgGraph @connectArgs | Out-Host
+        Connect-SAWMgGraphAttempt -ConnectArgs $connectArgs
         $context = Get-MgContext
     }
     elseif ($TenantId -and $context.TenantId -ne $TenantId) {
         Write-Warning "Connect-SAWGraph: an active connection exists for tenant '$($context.TenantId)' (account $($context.Account)), but -TenantId '$TenantId' was requested - disconnecting and reconnecting to the requested tenant instead of silently reusing the wrong one."
         Disconnect-MgGraph -ErrorAction SilentlyContinue | Out-Null
-        Connect-MgGraph @connectArgs | Out-Host
+        Connect-SAWMgGraphAttempt -ConnectArgs $connectArgs
         $context = Get-MgContext
     }
     else {
         $missingScopes = $Scopes | Where-Object { $_ -notin $context.Scopes }
         if ($missingScopes) {
             Write-Verbose "Connect-SAWGraph: active connection is missing scope(s) ($($missingScopes -join ', ')), reconnecting"
-            Connect-MgGraph @connectArgs | Out-Host
+            Connect-SAWMgGraphAttempt -ConnectArgs $connectArgs
             $context = Get-MgContext
         }
         else {

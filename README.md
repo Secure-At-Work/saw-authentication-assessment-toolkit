@@ -734,6 +734,14 @@ rule-by-rule diff between two specific runs.
   the Staged Rollout inventory, and `Policy.Read.All` does **not** imply it. Microsoft's
   permissions table for `/policies/featureRolloutPolicies` lists it as the least-privileged
   option, with the only alternatives being write scopes this toolkit will never ask for. Adding
-  it means one more admin consent the first time you run after upgrading. If that consent isn't
-  available in a given tenant, pass a `-Scopes` list without it: the rest of the assessment is
-  unaffected and the Staged Rollout section reports "not read" rather than failing the run.
+  it means one more admin consent the first time you run after upgrading.
+
+  **Confirmed against a real tenant (2026-08-12): Entra can reject this exact scope outright**,
+  failing the whole `Connect-MgGraph` call with `AADSTS70011: ... does not exist` — despite the
+  scope name matching Microsoft's own documentation character for character (checked twice). That
+  contradiction between documentation and the live token endpoint is unresolved. What
+  `Connect-SAWGraph.ps1` does about it: catches that specific error and automatically retries once
+  without this one scope, so a single tenant/app combination where it's rejected can no longer take
+  the entire 30-rule assessment down over one optional inventory row. You'll see a warning when
+  this happens; the Staged Rollout section then reports "not read" and everything else runs
+  normally. You can also pass a `-Scopes` list without it yourself to skip the retry round-trip.
