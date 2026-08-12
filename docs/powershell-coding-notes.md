@@ -125,6 +125,35 @@ in any browser, no broker involved at all. If sign-in prompts twice on every sin
 than only after a scope change, that's symptom (1) above and `-UseDeviceCode` sidesteps it too,
 since device code flow never touches WAM in the first place.
 
+**Correction (2026-08-12): that recommendation is currently unsafe to give without a caveat.**
+Live run against a real tenant, same day: `-UseDeviceCode` completed sign-in cleanly (device-code
+prompt shown, code entered, `Connect-SAWGraph` printed "connected as ...") and then the very
+first actual Graph call of the run failed:
+
+```
+Invoke-MgGraphRequest: DeviceCodeCredential authentication failed: Object reference not set to
+an instance of an object.
+```
+
+Matches a confirmed, still-open upstream bug:
+[microsoftgraph/msgraph-sdk-powershell#3495](https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3495)
+("Connect-MgGraph auth token unusable when -UseDeviceCode"), reported against SDK 2.34 on
+PowerShell 7 - the installed version here was 2.37.0, also PowerShell 7. Stack trace bottoms out
+in `Azure.Identity.DeviceCodeCredential.<GetTokenImplAsync>`; root cause not identified; status
+"Needs Investigation"; no fix version. Not necessarily the same bug as #3319 above - that one is
+intermittent re-prompting, this one is a hard failure on first token use after a clean connect -
+but the practical effect is the same: nothing this toolkit's code can do about it, it lives in
+the SDK.
+
+**Revised guidance:** `-UseDeviceCode` is still the only way to avoid WAM outright, but "avoids
+WAM" and "the run actually completes" are not the same claim on every SDK version. Check
+`(Get-Module Microsoft.Graph.Authentication -ListAvailable | Sort-Object Version -Descending |
+Select-Object -First 1).Version` before reaching for it, and treat a clean "connected as ..."
+message as necessary, not sufficient - confirm the *next* line of output is real collector data,
+not a crash. If it does crash, the fallback that has been confirmed to complete actual Graph
+calls on the same SDK version is the plain WAM path (no `-UseDeviceCode`): accept the double
+sign-in prompt, since every documented report of this specific crash is device-code-flow-only.
+
 Lesson for any *new* Graph collector added later: if the endpoint is a log/report/audit
 resource rather than a small, mostly-static policy object, assume it's unbounded and filter
 it from the start - don't wait to find out against a real tenant.

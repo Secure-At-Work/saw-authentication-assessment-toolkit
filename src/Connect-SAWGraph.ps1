@@ -76,6 +76,33 @@ function Connect-SAWGraph {
         through WAM at all, which is consistent with Graph Explorer working throughout while
         every WAM-based Connect-MgGraph attempt kept failing.
 
+        WARNING, confirmed against a real tenant (2026-08-12), and this now conflicts with the
+        recommendation above: on the SDK version installed at the time (Microsoft.Graph.
+        Authentication 2.37.0), -UseDeviceCode completed the sign-in cleanly (the device-code
+        prompt showed, the code was entered, Connect-SAWGraph reported "connected as ...") but
+        the very next Graph call - the first real request of the run - failed outright:
+
+            Invoke-MgGraphRequest: DeviceCodeCredential authentication failed: Object reference
+            not set to an instance of an object.
+
+        This matches a confirmed, unresolved upstream bug, not anything in this toolkit's code:
+        https://github.com/microsoftgraph/msgraph-sdk-powershell/issues/3495 ("Connect-MgGraph
+        auth token unusable when -UseDeviceCode"), reported against SDK 2.34 on PowerShell 7,
+        stack trace bottoming out in Azure.Identity.DeviceCodeCredential.<GetTokenImplAsync>,
+        root cause not identified, status "Needs Investigation" as of this writing, no fix
+        version. The 2026-08-04 case above and this one are not necessarily the same bug - one
+        is a role/claims-freshness problem, this one is a null reference on the very first
+        token use after a successful device-code connect - but on whatever SDK version is
+        actually installed, -UseDeviceCode cannot currently be assumed to work end to end.
+        Check the installed version before reaching for this switch:
+
+            (Get-Module Microsoft.Graph.Authentication -ListAvailable | Sort-Object Version -Descending | Select-Object -First 1).Version
+
+        and if a live run has to proceed today, the working fallback is the plain WAM path
+        (no -UseDeviceCode) - the double sign-in prompt is real but every documented report of
+        this specific crash is device-code-flow-only; WAM-based connects complete their actual
+        Graph calls fine on the same SDK version.
+
         Every internal Connect-MgGraph call is piped through Out-Host rather than left bare, for
         exactly this switch: PowerShell only streams a command's output live to the console when
         nothing downstream claims it. This function's own caller (Invoke-SAWAssessment.ps1) pipes
@@ -99,9 +126,12 @@ function Connect-SAWGraph {
         connects with the default Microsoft Graph PowerShell app (no -ClientId anywhere in
         $connectArgs below) precisely so nobody has to register an app in the customer's tenant
         just to run a read-only assessment - so -DisableLoginByWAM is a dead end here by design,
-        not an oversight. -UseDeviceCode is the only supported way to avoid WAM with this toolkit.
-        (Capability landed in SDK 2.35.0 for custom apps, 2.35.1 for the browser fallback to
-        actually take effect - both irrelevant to us for the reason above.)
+        not an oversight. -UseDeviceCode remains the only supported way to sign in without
+        going through WAM at all - but per the 2026-08-12 warning above, "avoids WAM" and
+        "works end to end" are not currently the same claim on every SDK version, so verify a
+        real Graph call succeeds after connecting, don't just trust a clean sign-in message.
+        (Custom-app WAM-disable capability landed in SDK 2.35.0, 2.35.1 for the browser
+        fallback to actually take effect - both irrelevant to us for the reason above.)
     .OUTPUTS
         The Microsoft.Graph.Authentication context object (Get-MgContext).
     #>

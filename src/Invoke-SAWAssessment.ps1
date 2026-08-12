@@ -12,8 +12,10 @@
     Run against the bundled sample data instead of a live tenant. Requires no Graph connection
     and skips Connect-SAWGraph entirely.
 .PARAMETER Scopes
-    Graph delegated scopes to request when connecting to a live tenant. Defaults to the
-    read-only scopes every collector needs. Ignored when -UseSampleData is set.
+    Graph delegated scopes to request when connecting to a live tenant. Defaults to
+    Connect-SAWGraph.ps1's own default (every read-only scope the collectors need) when not
+    passed - deliberately not duplicated here, see the param block below for why. Ignored when
+    -UseSampleData is set.
 .PARAMETER TenantId
     Optional. The tenant (GUID or verified domain name) you intend to assess. Ignored when
     -UseSampleData is set. If a Microsoft Graph connection already exists from earlier in this
@@ -102,13 +104,13 @@
 param(
     [switch]$UseSampleData,
 
-    [string[]]$Scopes = @(
-        'Policy.Read.All',
-        'UserAuthenticationMethod.Read.All',
-        'Reports.Read.All',
-        'AuditLog.Read.All',
-        'Directory.Read.All'
-    ),
+    # No default here on purpose - see the conditional splat around Connect-SAWGraph below.
+    # A duplicated literal list previously lived in both this file and Connect-SAWGraph.ps1;
+    # when Policy.Read.HybridAuthentication was added there for Staged Rollout, this copy was
+    # missed, so every live run through THIS entry point silently connected without it and
+    # Staged Rollout inventory came back "Unavailable" with no obvious cause. One canonical
+    # default now lives in Connect-SAWGraph.ps1 only.
+    [string[]]$Scopes,
 
     [string]$TenantId,
 
@@ -215,7 +217,22 @@ $ErrorActionPreference = 'Stop'
 
 if (-not $UseSampleData) {
     Write-Verbose 'Invoke-SAWAssessment: establishing Microsoft Graph connection'
-    Connect-SAWGraph -Scopes $Scopes -TenantId $TenantId -InstallMissingModules:$InstallMissingModules -ForceReauth:$ForceReauth -UseDeviceCode:$UseDeviceCode -Verbose:$VerbosePreference | Out-Null
+    # Conditional splat rather than always naming -Scopes: an explicitly bound parameter
+    # (even one holding an empty/default array) wins over Connect-SAWGraph's own default
+    # expression, so unconditionally passing $Scopes here would silently reintroduce a second
+    # copy of that default the moment anyone touches this line again. [bool]$Scopes rather
+    # than $PSBoundParameters.ContainsKey('Scopes') - ContainsKey is a method call on a generic
+    # dictionary, blocked under this machine's ConstrainedLanguage mode (see
+    # docs/powershell-coding-notes.md), same idiom already used for $baselineWasExplicit.
+    $connectSawGraphArgs = @{
+        TenantId              = $TenantId
+        InstallMissingModules = $InstallMissingModules
+        ForceReauth           = $ForceReauth
+        UseDeviceCode         = $UseDeviceCode
+        Verbose               = $VerbosePreference
+    }
+    if ($Scopes) { $connectSawGraphArgs['Scopes'] = $Scopes }
+    Connect-SAWGraph @connectSawGraphArgs | Out-Null
 }
 
 Write-Verbose 'Invoke-SAWAssessment: collecting tenant profile (hybrid vs. cloud-native detection)'
