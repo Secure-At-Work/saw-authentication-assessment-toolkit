@@ -52,6 +52,7 @@ Contents:
 9. [Part 5: SMS/Voice retirement worked through](#part-5-the-smsvoice-retirement-worked-through-the-whole-framework)
 10. [The practical workflow](#the-practical-workflow-in-short) and [sources](#sources-and-further-reading)
 
+<a id="the-short-version"></a>
 ## The short version
 
 If you read nothing else:
@@ -74,6 +75,7 @@ If you read nothing else:
   clearest configuration recommendation to come out of the 2026 attack research, and it is two
   toggles in the same blade.
 
+<a id="first-what-a-passkey-actually-is"></a>
 ## First, what a passkey actually is
 
 Everything below depends on this, and it takes two minutes. If the mechanism is already familiar,
@@ -125,6 +127,7 @@ Two more terms you'll meet in your own tenant settings:
 
 With that in place, the rest of this post is about what to do with it.
 
+<a id="why-now-the-attackers-side-of-this"></a>
 ## Why now: the attacker's side of this
 
 The uncomfortable framing is that this is a cat-and-mouse game, and announcing a migration to
@@ -236,6 +239,7 @@ targeted, local one. That is what winning a round looks like in this game. It is
 the game ending, which is why the target state below distinguishes between what is good enough for
 the workforce and what is good enough for a Global Administrator.
 
+<a id="why-this-is-harder-than-it-looks"></a>
 ## Why this is harder than it looks
 
 Microsoft Entra ID's authentication behavior is the sum of at least eight separately configured
@@ -259,6 +263,7 @@ registration is switched off. An admin SSPR policy that's deliberately disabled 
 strand admins with a broken registration prompt if nobody remembered to exclude them from the
 general user policy. Understanding the tenant means reading all eight surfaces together.
 
+<a id="part-1-inventorying-ist-what-to-collect-and-why-each-piece-matters"></a>
 ## Part 1: Inventorying IST: what to collect, and why each piece matters
 
 "IST" (German/Dutch for "as-is") is simply the tenant's actual current configuration, collected
@@ -459,6 +464,7 @@ That single fact changes what "good" means for the whole rest of the inventory. 
 legitimately still need passwords and SSPR long after a cloud-native, passwordless-first one has
 moved past both. Judge the findings against the right target, not a universal one.
 
+<a id="part-2-how-it-all-actually-works-together"></a>
 ## Part 2: How it all actually works together
 
 Individual settings are necessary but not sufficient. The interesting failures happen at the
@@ -965,6 +971,7 @@ Each step is either happening today, given your tenant's real settings, or it is
 a generic description of how Entra works in the abstract, it's a trace specific to your
 configuration.
 
+<a id="part-3-soll-what-good-looks-like-and-why-it-isnt-one-size-fits-all"></a>
 ## Part 3: SOLL: what "good" looks like, and why it isn't one-size-fits-all
 
 SOLL ("should be") is the target state, but there is deliberately no single hard-coded "correct"
@@ -1133,6 +1140,7 @@ documentation puts the [floor for passkeys in Google Password Manager at Android
 14 requirement — belongs in Phase 1 alongside everything else in "Foundation & Visibility," not
 discovered after enforcement is already live.
 
+<a id="part-4-the-path-from-ist-to-soll-five-phases-and-why-the-order-matters"></a>
 ## Part 4: The path from IST to SOLL: five phases, and why the order matters
 
 A list of findings tells you *what's* wrong. It doesn't tell you *what order* to fix things in,
@@ -1155,6 +1163,7 @@ Track which phase each open item belongs to and work through them in order; don'
 easy-to-fix Phase 4 item jump ahead of an unresolved Phase 2 dependency just because it looks
 simpler.
 
+<a id="part-5-the-smsvoice-retirement-worked-through-the-whole-framework"></a>
 ## Part 5: The SMS/Voice retirement, worked through the whole framework
 
 This is where the calendar deadline that usually starts the conversation fits into everything
@@ -1230,6 +1239,7 @@ left over from before CA adoption is mostly a cleanup item. But for a tenant wit
 Access at all (Entra ID Free, no P1/P2), per-user MFA is the *only* enforcement mechanism that
 exists, and it's worth checking explicitly rather than assuming it's covered by everything above.
 
+<a id="the-practical-workflow-in-short"></a>
 ## The practical workflow, in short
 
 1. Inventory IST first, in full, before deciding anything. Know your baseline (hybrid vs.
@@ -1252,6 +1262,7 @@ exists, and it's worth checking explicitly rather than assuming it's covered by 
    plan of exactly what's still open and in what order, a per-user triage list, and a trend view
    across repeat runs, so the sequencing above doesn't have to be re-derived by hand every time.)
 
+<a id="sources-and-further-reading"></a>
 ## Sources and further reading
 
 Everything above is grounded in published documentation rather than assertion, and some of it came
