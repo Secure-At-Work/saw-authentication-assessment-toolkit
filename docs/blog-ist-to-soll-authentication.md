@@ -511,8 +511,9 @@ shown, check that tenant directly.
 There's one more way a campaign can quietly do nothing, and it's the one most likely to catch out
 someone who has otherwise done everything right.
 
-Microsoft documents that users are **not nudged at all** if their passkey profile carries any of
-these: synced-only, device-bound-only, attestation enforced, or AAGUID key restrictions.
+Microsoft [documents](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+that users are **not nudged at all** if their passkey profile carries any of these: synced-only,
+device-bound-only, attestation enforced, or AAGUID key restrictions.
 
 Read that list again with a hardening mindset. Two of those are things a security-conscious admin
 actively wants.
