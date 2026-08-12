@@ -171,6 +171,15 @@ several documented suppressors are invisible to this toolkit (terms-of-use scree
 Access custom controls, existing SSO sessions, Linux clients). The forecast deliberately
 over-estimates, since over-communicating is the cheaper mistake.
 
+**If the passkey or Authenticator campaign card says "Scope uncertain" and shows "up to N users,"**
+that means your registration campaign targets specific group(s) rather than everyone, and this
+toolkit doesn't resolve group membership from Graph (it would need an extra call per group). The N
+is every user tenant-wide who lacks the target method - not filtered down to who's actually in
+your campaign's group(s) - so it's a ceiling, and the real number nudged is very likely smaller.
+Check **Authentication methods > Registration campaign** in the admin center to see which group(s)
+the campaign actually targets, and cross-reference against that group's real membership for an
+accurate count.
+
 **"Eligible, but a campaign cannot reach them"** is the card to act on differently from the rest.
 These users are forecast to be nudged but did no *interactive* sign-in during the collected window,
 so a campaign has no opportunity to prompt them at all. This is the population most often misread

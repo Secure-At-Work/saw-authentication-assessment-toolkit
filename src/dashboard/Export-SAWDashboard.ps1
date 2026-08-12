@@ -829,9 +829,11 @@ $($fido2KeyRowsHtml -join "`n")
             @{ Key = 'NudgeAutoPasskeySept2026'; Title = 'Automatic passkey enablement (2026-09-01)'; Count = $ns.AutoPasskeySept2026Count
                Note = 'Microsoft-driven, arrives whether or not this tenant configures its own campaign. Users enabled for SMS/Voice are auto-enabled for passkeys and nudged on their next MFA sign-in, with unlimited snoozes by default. Highest communication priority, because the date is not in your control.' }
             @{ Key = 'NudgePasskeyCampaign'; Title = 'Registration campaign - passkey'; Count = $ns.PasskeyCampaignCount
-               Note = 'Nudged after completing MFA, if in campaign scope and without a passkey on that device/browser.' }
+               Note = 'Nudged after completing MFA, if in campaign scope and without a passkey on that device/browser.'
+               ScopeSensitive = $true }
             @{ Key = 'NudgeAuthenticatorCampaign'; Title = 'Registration campaign - Microsoft Authenticator'; Count = $ns.AuthenticatorCampaignCount
-               Note = 'Nudged after completing MFA, if in campaign scope and Authenticator push is not set up.' }
+               Note = 'Nudged after completing MFA, if in campaign scope and Authenticator push is not set up.'
+               ScopeSensitive = $true }
             @{ Key = 'NudgeSsprRegistration'; Title = 'SSPR registration interrupt'; Count = $ns.SsprRegistrationCount
                Note = 'SSPR-enabled but not registered. Skippable indefinitely unless MFA registration is also enforced, so this is a recurring nag rather than a one-off.' }
             @{ Key = 'NudgeSsprBrokenForAdmin'; Title = 'Broken: admin prompted but cannot register'; Count = $ns.SsprBrokenForAdminCount
@@ -843,6 +845,33 @@ $($fido2KeyRowsHtml -join "`n")
             $affected = @($NudgeForecast.Users | Where-Object { $_[$g.Key] })
             $isBroken = $g.Key -eq 'NudgeSsprBrokenForAdmin'
             $badgeClass = if ($isBroken) { 'bg-danger' } else { 'bg-warning text-dark' }
+
+            # A campaign-driven count (passkey/Authenticator) is computed WITHOUT resolving group
+            # membership - this toolkit avoids the extra per-group Graph call, so when the campaign
+            # targets specific groups rather than "All users" there is no way to tell which of the
+            # users below are actually in scope. Without this, the card silently implies "these N
+            # people will be nudged" when the honest claim is "up to N people, tenant-wide, meet
+            # the method/policy conditions" - the gap between those two readings is exactly what
+            # made a 33,546-user count on a group-scoped campaign look like a bug report rather than
+            # an upper bound. $ns.CampaignScopeUncertain already carries this fact (computed in
+            # ConvertTo-SAWNudgeForecast.ps1); it previously only reached a generic footer caveat at
+            # the bottom of the whole section, disconnected from the specific number it qualifies.
+            $scopeUncertainForThisCard = [bool]$g.ScopeSensitive -and $ns.CampaignScopeUncertain
+            $countLabel = if ($scopeUncertainForThisCard) { "up to $($g.Count)" } else { "$($g.Count)" }
+            $scopeWarningHtml = ''
+            if ($scopeUncertainForThisCard) {
+                $scopeWarningHtml = @"
+      <div class="alert alert-warning small mb-3" role="alert">
+        <strong>Scope uncertain.</strong> This campaign targets specific group(s) rather than
+        "All users," and group membership isn't resolved from Graph (it would need an extra call
+        per group). The count and list below include <strong>every user tenant-wide</strong> who
+        meets the method/policy conditions, not only those actually in the target group(s) - so
+        this is an upper bound, and the true number nudged is very likely smaller. Check the
+        campaign's target group(s) under Authentication methods &gt; Registration campaign in the
+        admin center to narrow this down.
+      </div>
+"@
+            }
 
             $userRowsHtml = foreach ($u in $affected) {
                 $adminBadge = if ($u.IsAdmin) { ' <span class="badge bg-dark">Admin</span>' } else { '' }
@@ -859,10 +888,11 @@ $($fido2KeyRowsHtml -join "`n")
   <div class="card mb-3">
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
       <strong>$(ConvertTo-SAWHtmlEncoded $g.Title)</strong>
-      <span class="badge $badgeClass">$($g.Count) user$(if ($g.Count -ne 1) { 's' })</span>
+      <span class="badge $badgeClass">$countLabel user$(if ($g.Count -ne 1) { 's' })</span>
     </div>
     <div class="card-body">
       <p class="text-body-secondary small mb-3">$(ConvertTo-SAWHtmlEncoded $g.Note)</p>
+$scopeWarningHtml
       <details>
         <summary class="small">Show the $($g.Count) affected user$(if ($g.Count -ne 1) { 's' })</summary>
         <div class="table-responsive mt-2">
