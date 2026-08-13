@@ -18,7 +18,9 @@ function Export-SAWDashboard {
         Bootstrap and Chart.js are vendored locally under src/dashboard/vendor/ (no CDN
         reference) per spec section 5 ("Everything runs locally"). This function copies that
         vendor/ folder next to the generated index.html so the whole output directory is
-        self-contained and portable - it can be zipped up and opened offline.
+        self-contained and portable - it can be zipped up and opened offline. The Secure At Work
+        logo under src/dashboard/branding/ is copied the same way, alongside vendor/ rather than
+        inside it since it isn't a third-party library.
 
         Sections not yet backed by a dedicated collector (Guests, a standalone Break Glass
         view, OATH, Certificate Authentication as their own tabs) are intentionally omitted
@@ -134,8 +136,8 @@ function Export-SAWDashboard {
         renders whatever HTML it's given, same as every other optional section here receives
         already-derived data rather than a file path.
     .PARAMETER OutputPath
-        File path to write index.html to (e.g. reports/dashboard/index.html). A vendor/
-        subfolder is created alongside it. Parent directory is created if missing.
+        File path to write index.html to (e.g. reports/dashboard/index.html). vendor/ and
+        branding/ subfolders are created alongside it. Parent directory is created if missing.
     .OUTPUTS
         System.IO.FileInfo
     #>
@@ -1521,10 +1523,17 @@ $readingGuidePaneHtml
   }
   .saw-hero a { color: #fff; }
   .saw-hero-brand {
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
-    font-size: 0.78rem; opacity: 0.92; margin-bottom: 0.65rem;
+    /* White backing plate: the logo's own navy-blue ink is close enough in hue/lightness to the
+       hero's blue gradient (in both light and dark mode - the hero never goes light) that placing
+       the transparent PNG directly on it would be nearly illegible. A small opaque card keeps the
+       actual brand colours intact rather than fighting the hero background for contrast. */
+    display: inline-flex; align-items: center;
+    background: #fff; border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   }
+  .saw-hero-logo { display: block; height: 22px; width: auto; }
   .saw-hero-title { font-weight: 700; font-size: clamp(1.35rem, 2.4vw, 1.9rem); margin: 0; color: #fff; }
   .saw-hero-sub { opacity: 0.85; font-size: 0.875rem; margin: 0.35rem 0 0; }
   .saw-hero-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
@@ -1536,7 +1545,6 @@ $readingGuidePaneHtml
     font-size: 0.78rem; white-space: nowrap;
   }
   .saw-chip strong { font-weight: 600; }
-  .navbar-mark { flex: none; }
 
   /* --- Cards ------------------------------------------------------------------ */
   .card {
@@ -1671,12 +1679,7 @@ $readingGuidePaneHtml
 <header class="saw-hero">
   <div class="container-fluid">
     <div class="saw-hero-brand">
-      <svg class="navbar-mark" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path d="M12 2L4 5.5V11C4 16.2 7.4 20.9 12 22C16.6 20.9 20 16.2 20 11V5.5L12 2Z" fill="white" fill-opacity="0.18"/>
-        <path d="M12 2L4 5.5V11C4 16.2 7.4 20.9 12 22C16.6 20.9 20 16.2 20 11V5.5L12 2Z" stroke="white" stroke-width="1.4" stroke-linejoin="round"/>
-        <path d="M8.5 12.2L10.8 14.5L15.5 9.5" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      Secure At Work
+      <img class="saw-hero-logo" src="branding/secure-at-work-logo.png" alt="Secure At Work" width="2869" height="918">
     </div>
     <h1 class="saw-hero-title">$heroTitle</h1>
     <p class="saw-hero-sub">Entra ID Authentication Assessment &middot; IST versus SOLL</p>
@@ -1771,7 +1774,14 @@ $trendScriptHtml
     $vendorDestination = Join-Path $outputDirectory 'vendor'
     Copy-Item -Path $vendorSource -Destination $vendorDestination -Recurse -Force
 
+    # Secure At Work's own logo, not a third-party library, so it lives next to vendor/ rather
+    # than inside it - same "copy alongside the generated index.html" pattern either way, so the
+    # report stays a self-contained directory with no absolute-path or CDN dependency.
+    $brandingSource = Join-Path $PSScriptRoot 'branding'
+    $brandingDestination = Join-Path $outputDirectory 'branding'
+    Copy-Item -Path $brandingSource -Destination $brandingDestination -Recurse -Force
+
     $html | Out-File -FilePath $OutputPath -Encoding utf8
-    Write-Verbose "Export-SAWDashboard: wrote dashboard to $OutputPath (vendor assets copied to $vendorDestination)"
+    Write-Verbose "Export-SAWDashboard: wrote dashboard to $OutputPath (vendor assets copied to $vendorDestination, branding assets copied to $brandingDestination)"
     Get-Item -Path $OutputPath
 }
