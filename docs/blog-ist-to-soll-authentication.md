@@ -1063,6 +1063,18 @@ Requiring a specific authentication **strength** closes that fallback, because t
 which methods count. Rolling that out tenant-wide only makes sense once phishing-resistant methods
 are broadly registered (Phase 3). Until then, plain MFA is a legitimate interim state, not a failure.
 
+**A different gap neither policy can see, because Conditional Access is never evaluated there at
+all.** VPN, WiFi, Remote Desktop Gateway, and VDI workloads authenticated through the NPS extension
+for Microsoft Entra multifactor authentication don't go through a Conditional Access evaluation in
+the first place. Microsoft's own architecture guidance recommends migrating those workloads to SAML
+federation specifically to bring them into "the full breadth of Microsoft Entra ID Protection,
+**including Conditional Access**" — stated that way because the RADIUS path doesn't have it. Until
+that migration happens, "MFA required for all users" and "phishing-resistant required for all
+users" can both be fully enforced and true, and a RADIUS-authenticated VPN can still be sitting
+there accepting whatever weaker method the NPS extension supports, completely invisible to any
+Conditional-Access-based finding — an assessment like this one included, since it reads Conditional
+Access policies, not what bypasses them.
+
 **Synced passkeys: decide, don't drift.** For the general workforce this is a genuine either-way
 call. For high-value accounts it isn't especially balanced any more — the 2026 research recommends
 device-bound plus attestation for those users specifically.
@@ -1113,6 +1125,15 @@ an attacker will pay that cost. Concretely:
   so pair it with a compliant-device requirement, Privileged Identity Management so the role isn't
   standing, and privileged access workstations where the risk justifies it. Defence in depth here
   is not a platitude; it is the specific researcher recommendation.
+- **If you pair that with a compliant-device or App Protection Policy requirement, check what it
+  does to passkey registration itself first.** Practitioners report — Microsoft doesn't document
+  this anywhere as of this writing — that a Conditional Access policy requiring device compliance
+  or an App Protection Policy can silently block a user from ever completing passkey registration
+  in the Authenticator app, unless three Microsoft first-party service principals are explicitly
+  excluded from it: **Azure Credential Configuration Endpoint Service**, **Microsoft App Access
+  Panel**, and **AAD Reporting**. The diagnostic is the same one the practitioners who found this
+  used: sign-in logs showing failed registration attempts citing compliance or App Protection
+  Policy requirements — read that as a policy gap, not a stalled admin rollout.
 - **Monitor registration events, not just registration counts.** A shadow passkey planted on an
   admin account raises your phishing-resistant coverage percentage. Coverage metrics cannot
   distinguish it from good news. The audit log can.
@@ -1406,6 +1427,17 @@ Check your own tenant's Message Center before treating any of them as final.
   for Google Password Manager's Android 9 floor, cited where it's compared against Microsoft
   Authenticator's newer Android 14 requirement - a claim Microsoft's own compatibility matrix has
   no way to confirm, since it only documents its own products.
+- [mobile-jon.com](https://mobile-jon.com/2026/08/11/farewell-sms-passkeys-are-the-new-standard-getting-ready-to-ditch-legacy-authentication-methods/),
+  whose mention of a passkey-registration-blocking Conditional Access exclusion sent this post
+  looking for better sourcing, landing on the next two.
+- [Nathan McNulty](https://nathanmcnulty.com/blog/2025/09/improving-passkey-registration-experiences/),
+  for the diagnostic detail (sign-in logs showing failed registration attempts citing compliance or
+  App Protection Policy requirements) behind the undocumented Azure Credential Configuration
+  Endpoint Service exclusion.
+- [Nate Hutchinson](https://www.natehutchinson.co.uk/post/phishing-resistant-mfa-planning-your-passkey-rollout-in-microsoft-365),
+  who names the other two service principals needing exclusion (Microsoft App Access Panel, AAD
+  Reporting) and whose mention of RADIUS/NPS workloads sitting outside Conditional Access led to
+  confirming that directly against Microsoft's own architecture guidance.
 
 One habit worth borrowing regardless of any of the above: check the `ms.date` on a Microsoft Learn
 article before relying on a date it states. Two SSPR dates referenced in an earlier version of this

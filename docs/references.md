@@ -664,6 +664,73 @@ WHfB"), certificate trust as the legacy path needing an Intune Certificate Conne
 certificate-trust point corroborates, from a different direction, the Staged Rollout limitation
 recorded above.
 
+### App Protection Policy / device compliance can silently block passkey registration (backs CA003's caveat)
+
+Found via a secondary blog ([mobile-jon.com, 11 Aug 2026](https://mobile-jon.com/2026/08/11/farewell-sms-passkeys-are-the-new-standard-getting-ready-to-ditch-legacy-authentication-methods/)),
+traced to two more authoritative practitioner sources for verification, since the original article
+named only one of the three service principals and gave no diagnostic detail. No official Microsoft
+documentation found for any of this - checked directly, nothing on learn.microsoft.com names these
+service principals or this failure mode.
+
+**Nathan McNulty** (Entra MVP), *Improving passkey registration experiences*, read 2026-08-13:
+
+> "Many companies that are serious about rolling out phishing resistant authentication are also
+> serious about requiring device compliance and/or app protection policies, and they have run into
+> issues where these policies prevent users from creating passkeys."
+
+Diagnosed via sign-in logs showing "failed attempts to register with Compliance or APP
+requirements." McNulty names the app: "this service principal is responsible for the registration
+of security information gathered by apps such as Microsoft Authenticator and the My Signins
+portal against a user" - and is explicit that it's undocumented: "no public documentation, and thus
+no definitive answer."
+
+**Nate Hutchinson**, *Phishing-resistant MFA: planning your passkey rollout in Microsoft 365*, read
+2026-08-13, independently names all three service principals needing exclusion from any App
+Protection Policy Conditional Access policy:
+
+> "certain CA configurations requiring App Protection Policies can inadvertently block passkey
+> registration in the Authenticator app. Specifically, you need to ensure that Microsoft App Access
+> Panel, AAD Reporting, and Azure Credential Configuration Endpoint are excluded from any App
+> Protection Policy CA policy."
+
+The Azure Credential Configuration Endpoint Service app ID
+(`ea890292-c8c8-4433-b5ea-b09d0668e1a6`) was independently confirmed via
+[a third-party Graph permissions reference](https://permissions.cengizyilmaz.net/apps/azure-credential-configuration-endpoint-service-ea890292-c8c8-4433-b5ea-b09d0668e1a6.html)
+listing it as a real first-party Microsoft enterprise application. Three independent sources naming
+the same failure mode, two of them naming the same app by ID, is enough corroboration to act on
+despite the lack of official documentation - but re-check learn.microsoft.com periodically in case
+Microsoft documents this later, since an undocumented exclusion list is exactly the kind of thing
+that changes without notice.
+
+### RADIUS/NPS-authenticated workloads never reach Conditional Access at all (backs CA002/CA006's caveat)
+
+Same secondary article surfaced this; unlike the App Protection Policy trap above, this one has
+direct, authoritative Microsoft sourcing - found and confirmed 2026-08-13:
+
+> "Rather than relying on RADIUS and the Microsoft Entra multifactor authentication NPS extension
+> to apply Microsoft Entra multifactor authentication to VPN workloads, we recommend that you
+> upgrade your VPN's to Security Assertion Markup Language (SAML) and directly federate your VPN
+> with Microsoft Entra ID. **This gives your VPN the full breadth of Microsoft Entra ID Protection,
+> including Conditional Access, multifactor authentication, device compliance, and Microsoft Entra
+> ID Protection.**"
+
+Read by contrast: the RADIUS/NPS path does NOT give a VPN that same breadth of coverage - Microsoft
+is recommending SAML federation specifically *to gain* Conditional Access, meaning the RADIUS path
+lacks it. Applies to VPN, WiFi, Remote Desktop Gateway, and VDI - anything authenticating through
+the NPS extension for Microsoft Entra multifactor authentication rather than a native Entra sign-in.
+Source: [RADIUS authentication with Microsoft Entra
+ID](https://learn.microsoft.com/entra/architecture/auth-radius) (ms.date 2023-01-10, updated
+2026-02-26).
+
+A related, smaller fact found while re-checking System-Preferred Authentication's own rollout status
+(still "gradually deployed to tenants through August 2026" as of this check - unchanged, and the
+secondary article's claim that this rollout "completed" in August 2026 is not corroborated by
+Microsoft's own current page, so not adopted here): the same page's FAQ states plainly, "System-
+preferred authentication doesn't affect users who sign in by using the Network Policy Server (NPS)
+extension. Those users don't see any change to their sign-in experience." Source:
+[concept-system-preferred-authentication](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication)
+(ms.date 2026-04-15, updated 2026-07-17 - unchanged since the last check, re-verified 2026-08-13).
+
 ## Platform compatibility claims
 
 Every platform/browser/app support claim in
