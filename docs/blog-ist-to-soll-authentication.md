@@ -24,9 +24,11 @@ So this post is about three questions, in order:
 3. **What "good" looks like for your tenant specifically** (**SOLL**), the five phases to get
    there, and why the order is not negotiable.
 
-We use the Secure At Work Authentication Assessment Toolkit to run this kind of assessment
-against real tenants. It's mentioned where relevant, but everything below applies whether or not
-you use it.
+We use the [Secure At Work Authentication Assessment
+Toolkit](https://github.com/Secure-At-Work/saw-authentication-assessment-toolkit) to run this kind
+of assessment against real tenants. It's mentioned where relevant, but everything below applies
+whether or not you use it - it's open source (MIT licensed) if you want to see exactly how any of
+this is actually checked, or run it yourself.
 
 ## How to read this
 
