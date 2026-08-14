@@ -48,8 +48,9 @@ together since they're always used together):
 - **`-UseSampleData` path** — returns the bundled fixture under `sampledata/raw/`, throws on a
   missing file.
 - **Live Graph path** — `Get-MgContext` and `Invoke-MgGraphRequest` are mocked (no real
-  Microsoft.Graph module needed in CI): asserts the exact endpoint URI called, that pagination
-  via `@odata.nextLink` is followed for list endpoints, and that it throws when not connected.
+  Microsoft.Graph module needed to run the tests): asserts the exact endpoint URI called, that
+  pagination via `@odata.nextLink` is followed for list endpoints, and that it throws when not
+  connected.
 - **Normalizer logic** — the actual derivation/threshold logic, using small hand-built inputs
   rather than the full sample fixture, including edge cases (report-only Conditional Access
   policies don't count, Passkeys checks go Grey when FIDO2 is disabled tenant-wide, Registration
@@ -63,9 +64,8 @@ This workstation enforces PowerShell **ConstrainedLanguage mode** (see
 This isn't a test-authoring issue we can code around; Pester simply cannot execute here,
 confirmed by running a trivial smoke test (`Should operator 'Be' is not registered`).
 
-Tests are therefore **verified via CI only** (`.github/workflows/tests.yml`, `windows-latest` -
-an unrestricted runner). If you need to run them locally, use a machine without this WDAC/CLM
-restriction:
+There's no CI running these - if your machine doesn't have this WDAC/CLM restriction, run them
+yourself:
 
 ```powershell
 Install-Module Pester -MinimumVersion 5.5.0 -Scope CurrentUser -Force

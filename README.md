@@ -33,8 +33,10 @@ sampledata/raw/     Committed synthetic Graph response fixtures, used by -UseSam
 schemas/            JSON schemas for normalized data and rules (not yet written)
 reports/            Generated report output, namespaced per tenant + run (gitignored)
 history/            Per-tenant, per-run JSON result snapshots for drift comparison (gitignored)
-.github/workflows/  CI: runs Pester + PSScriptAnalyzer on push/PR
 ```
+
+No CI - this is a toolkit you clone and run yourself. `PSScriptAnalyzerSettings.psd1` at the repo
+root documents the lint rules deliberately excluded (and why) if you run PSScriptAnalyzer locally.
 
 ## Status
 
