@@ -1,5 +1,6 @@
 # Docs
 
+- [design-notes.md](design-notes.md) — the detailed companion to the main README's feature summary: sourcing, edge cases, deprecation handling, and possible future work behind each check.
 - [references.md](references.md) — the source register: every rule and every substantive claim mapped to the Microsoft Learn (or vendor) article backing it, with the date each was last verified against the live page. Start here when a customer challenges a finding, or before quoting any date in a deliverable.
 - [reading-the-report.md](reading-the-report.md) — what the assessment is, how to read the report/dashboard, and how to work from IST to SOLL. Written to also be handed to a customer alongside a report.
 - [passkey-platform-compatibility.md](passkey-platform-compatibility.md) — which OS/browser/app combinations actually support passkeys, and which don't. Useful for rollout planning independent of any specific tenant.
