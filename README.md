@@ -745,3 +745,8 @@ rule-by-rule diff between two specific runs.
   the entire 30-rule assessment down over one optional inventory row. You'll see a warning when
   this happens; the Staged Rollout section then reports "not read" and everything else runs
   normally. You can also pass a `-Scopes` list without it yourself to skip the retry round-trip.
+
+## License
+
+MIT - see [LICENSE](LICENSE). Bootstrap and Chart.js, vendored locally under
+`src/dashboard/vendor/` (see [NOTICE.md](src/dashboard/vendor/NOTICE.md)), are also MIT licensed.
