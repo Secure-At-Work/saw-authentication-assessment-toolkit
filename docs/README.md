@@ -6,6 +6,6 @@
 - [passkey-platform-compatibility.md](passkey-platform-compatibility.md) — which OS/browser/app combinations actually support passkeys, and which don't. Useful for rollout planning independent of any specific tenant.
 - [ist-to-soll-summary.md](ist-to-soll-summary.md) — one-page IST-to-SOLL roadmap summary (the five phases + the workflow), condensed for standalone handoff to a customer without the rest of the report.
 - [powershell-coding-notes.md](powershell-coding-notes.md) — PowerShell/ConstrainedLanguage-mode gotchas specific to this codebase.
-- [blog-ist-to-soll-authentication.md](blog-ist-to-soll-authentication.md) — long-form public-facing post: how to inventory IST, how the pieces (registration campaign, TAP, CA, SSPR, admin two-gate) actually interact, the five-phase path to SOLL, and the SMS/Voice retirement worked through the whole framework as a concrete example.
+- [blog-ist-to-soll-authentication.md](blog-ist-to-soll-authentication.md) — long-form public-facing post: how to inventory IST, how the pieces (registration campaign, TAP, CA, SSPR, admin two-gate) actually interact, the five-phase path to SOLL, and the SMS/Voice retirement worked through the whole framework as a concrete example. Published at [vansurksum.com](https://www.vansurksum.com/2026/08/14/from-ist-to-soll-a-field-guide-to-modernizing-entra-id-authentication/).
 
 See [../specs/AI_Development_Specification_v1.0.md](../specs/AI_Development_Specification_v1.0.md) for the driving specification.
