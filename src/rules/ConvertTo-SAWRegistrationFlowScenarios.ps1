@@ -80,7 +80,7 @@ function ConvertTo-SAWRegistrationFlowScenarios {
 
     $tapEnabled = ($tapConfig -and $tapConfig.state -eq 'enabled')
     $fido2Enabled = ($fido2Config -and $fido2Config.state -eq 'enabled')
-    $fido2SelfService = ($fido2Config -and $fido2Config.isSelfServiceRegistrationAllowed -eq $true)
+    $fido2SelfService = ($fido2Enabled -and $fido2Config.isSelfServiceRegistrationAllowed -eq $true)
     $authenticatorEnabled = ($authenticatorConfig -and $authenticatorConfig.state -eq 'enabled')
 
     # Cross-device bootstrap friction for "Passkey in Microsoft Authenticator" specifically -

@@ -94,7 +94,9 @@ function Invoke-SAWGraphRequest {
                 if ($_.Exception.Response.Headers.TryGetValues('client-request-id', [ref]$values)) { $clientRequestId = @($values)[0] }
             }
         }
-        catch { }
+        catch {
+            Write-Debug "Could not read request-id/client-request-id headers off the failed response: $_"
+        }
 
         if ((-not $requestId) -and $_.ErrorDetails -and $_.ErrorDetails.Message) {
             try {
@@ -104,7 +106,9 @@ function Invoke-SAWGraphRequest {
                     if (-not $clientRequestId) { $clientRequestId = $body.error.innerError.'client-request-id' }
                 }
             }
-            catch { }
+            catch {
+                Write-Debug "Could not parse the error response body as JSON: $_"
+            }
         }
 
         $requestIdBlock = ''
