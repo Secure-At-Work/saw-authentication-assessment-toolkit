@@ -123,6 +123,33 @@ Source: [concept-sms-voice-retirement](https://learn.microsoft.com/entra/identit
 direction ("your tenant is **excluded** from the automatic passkey enablement and Registration
 Campaign rollout during the opt-out period").
 
+### The SSPR registration campaign nudge (2026-11-09) is conditional, not universal (backs the deadline card)
+
+Prompted by the user's own question: has this toolkit accounted for which of Microsoft's upcoming
+automatic actions can actually be turned off? Re-checked every dated milestone in
+`config/timeline-milestones.json` against its source page. Three (2027-02-01 SMS/Voice retirement,
+2026-11-30 WHfB/macOS Platform SSO becoming standalone MFA factors) confirmed no opt-out exists;
+2026-09-01 was already correctly documented as opt-out-able via AUTH006. The 2026-11-09 SSPR
+registration campaign nudge, however, was previously described in this file's own milestone data as
+"Informational - no admin action required to trigger it" - wrong. The source states it plainly as a
+condition:
+
+> "Starting Nov 9, 2026, **If your SSPR settings require users to register during sign-in**, and
+> enabled users do not have enough methods to complete SSPR, a registration campaign will prompt
+> affected users to register methods ahead of enforcement."
+
+Source: [howto-sspr-authenticationdata](https://learn.microsoft.com/entra/identity/authentication/howto-sspr-authenticationdata)
+(ms.date 2025-03-04, updated 2026-08-04). Verified 2026-08-14.
+
+That condition is the classic **Password Reset > Registration** admin blade's "require users to
+register when signing in" toggle - the same blade already established elsewhere in this document as
+having no readable Graph property (`passwordresetpolicy` is not a real Graph resource, confirmed 404;
+see "The Existing User Re-Registration trace read 'no reconfirmation' from the wrong policy" below,
+which hit the same blade's reconfirmation-interval setting). So a tenant that never enabled that
+toggle would see this nudge never fire at all, and this toolkit has no way to distinguish that tenant
+from one where the nudge is live - the milestone's impacted-user count is now documented as an upper
+bound assuming the toggle is on, not a confirmed prediction.
+
 ### The opt-out is a single Graph property (backs AUTH006)
 
 > "To opt out, update your authentication methods policy using Microsoft Graph and set the
