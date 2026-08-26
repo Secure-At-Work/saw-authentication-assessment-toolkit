@@ -35,6 +35,38 @@ each phase to completion before starting the next.
 5. **Re-run periodically.** A trend chart shows whether Green is actually increasing over time;
    comparing any two runs shows exactly what changed — useful for a project check-in.
 
+## Smooth Transition Playbook (including temporary exceptions)
+
+Use this when the customer wants passkey rollout to stay smooth for first-time registration,
+especially for scenarios where TAP is entered on one device and the passkey is saved on another.
+
+1. **Preferred path (no temporary security reduction):** keep PASS001 (attestation) enabled,
+   keep TAP001 one-time-use as the default, and steer first-time users to same-device onboarding
+   (Windows Hello for Business) or issue a short-lived, onboarding-only multi-use TAP for the
+   small group that truly needs cross-device bootstrap.
+2. **Temporary exception path (if needed):** permit a short, explicitly approved PASS001
+   exception (attestation disabled) only for onboarding, then revert to enforced attestation.
+
+Guardrails for the temporary exception path:
+
+1. **Time-box it** (for example, a defined cutover week) with a named owner and rollback date.
+2. **Scope it narrowly** to onboarding cohorts, not all users and not admin/high-value accounts.
+3. **Keep TAP constrained** (short lifetime, minimum scope, one-time everywhere except the
+   onboarding cohort that needs cross-device).
+4. **Keep PASS002 in place as guidance** during the exception window (AAGUID restrictions are not
+   a hard control without attestation, but still reduce accidental registrations).
+5. **Log and review registrations created during the exception window** and schedule cleanup for
+   any method that does not meet the customer's long-term key model.
+6. **Re-enable PASS001 on schedule** and communicate the date up front so help desk and users know
+   when cross-device bootstrap behavior changes back.
+
+Decision rule:
+
+1. If onboarding can be made smooth with same-device WHfB or onboarding-scoped multi-use TAP,
+   prefer that over disabling attestation.
+2. If temporary attestation disablement is required for business continuity, treat it as a
+   controlled exception with a fixed end date, explicit owner, and post-window review.
+
 ## Done, for now
 
 Every phase-5 item Green (or intentionally Grey) means this tenant matches its SOLL target

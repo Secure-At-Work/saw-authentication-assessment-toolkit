@@ -2,6 +2,8 @@
 
 Read-only assessment toolkit for Microsoft Entra ID authentication configuration. Inventories the current (IST) state of a tenant via Microsoft Graph, compares it against the Secure At Work recommended (SOLL) configuration, and produces gap analysis, risk scoring, and remediation guidance.
 
+For a user-facing summary of repository updates, see [CHANGELOG.md](CHANGELOG.md).
+
 See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification, or [docs/reading-the-report.md](docs/reading-the-report.md) for a plain-language walkthrough of what the assessment is and how to read its output (suitable to hand to a customer alongside a report). [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md) is a standalone reference on which OS/browser/app combinations actually support passkeys, useful when planning a rollout regardless of whether you're using this toolkit. [docs/references.md](docs/references.md) is the source register: every rule and every substantive claim mapped to the Microsoft (or vendor) documentation backing it, with last-verified dates - the thing to reach for when a customer asks "says who?" For the full narrative version of why this toolkit checks what it checks, see the published blog post: ["From IST to SOLL: A Field Guide to Modernizing Entra ID Authentication"](https://www.vansurksum.com/2026/08/14/from-ist-to-soll-a-field-guide-to-modernizing-entra-id-authentication/) (also in this repo as [docs/blog-ist-to-soll-authentication.md](docs/blog-ist-to-soll-authentication.md)).
 
 ## Hard constraint
@@ -12,6 +14,7 @@ This toolkit is **read-only**. It must never create, modify, enable/disable, or 
 
 ```
 run.cmd             Windows convenience wrapper - menu or direct argument passthrough (see Usage)
+CHANGELOG.md        User-facing change log (latest updates and release notes)
 docs/               Project documentation (see docs/powershell-coding-notes.md)
 specs/              Specifications driving development
 config/baselines/   Named customer SOLL baseline presets (see "Customer baselines" below)

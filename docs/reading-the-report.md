@@ -261,7 +261,11 @@ The four flows:
   case is unavailable whenever FIDO2 attestation is enforced (PASS001). With both settings at
   their recommended values at once, a brand-new user can be left with no way to complete this
   specific bootstrap path, Windows Hello for Business (same device, no handoff) or a short-lived
-  multi-use TAP for onboarding are the practical ways around it. Last step: once the user has
+  multi-use TAP for onboarding are the practical ways around it. If that still isn't enough for a
+  specific cutover, a temporary PASS001 exception (attestation disabled for a narrowly scoped,
+  time-boxed onboarding window) is an available transition option - provided the customer records
+  an explicit rollback date, excludes admin/high-value users, and reviews registrations created
+  during the exception window before returning to enforced attestation. Last step: once the user has
   more than one method registered, System-Preferred Authentication can start presenting the
   newest one first on a *later* sign-in.
 - **SSPR Eligibility & Two-Gate** - whether a standard user, and separately an administrator, can
