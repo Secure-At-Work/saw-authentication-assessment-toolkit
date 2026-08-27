@@ -53,6 +53,7 @@ Contents:
 8. [Part 4: The five phases, in order](#part-4-the-path-from-ist-to-soll-five-phases-and-why-the-order-matters)
 9. [Part 5: SMS/Voice retirement worked through](#part-5-the-smsvoice-retirement-worked-through-the-whole-framework)
 10. [The practical workflow](#the-practical-workflow-in-short) and [sources](#sources-and-further-reading)
+11. [Update (2026-08-26)](#update-2026-08-26-passkey-profiles-guest-users-and-a-second-way-to-control-september-1) — passkey profiles, guest users, and a second way to control September 1
 
 <a id="the-short-version"></a>
 ## The short version
@@ -364,7 +365,7 @@ every user it reports `isAdmin`, the SSPR pair `isSsprEnabled` / `isSsprRegister
 |---|---|
 | **No phishing-resistant method at all** | Needs active nudging toward one. |
 | **Phishing-resistant method *plus* a phone fallback** | A live downgrade-attack surface — an attacker can force the weaker method even though a stronger one exists. Remove the fallback once it's no longer needed. |
-| **Guest / external users** | Microsoft doesn't yet support passkey registration for guests, so nudging them toward one isn't actionable advice. Track separately. |
+| **Guest / external users** | ~~Microsoft doesn't yet support passkey registration for guests, so nudging them toward one isn't actionable advice.~~ **Correction (2026-08-26): this is changing** — see the [update at the end of this post](#update-2026-08-26-passkey-profiles-guest-users-and-a-second-way-to-control-september-1) for the rollout schedule. Track separately for now. |
 | **Windows Hello for Business as their *only* strong method** | WHfB is bound to one device. A real problem for admins who don't routinely sign in interactively from a managed machine. |
 | **Registered a method the tenant has since disabled** | Structurally unusable now — safe to clean up. Same list surfaces methods unused in a long time, a proxy for staleness. |
 | **SMS/Voice as their *only* method** | Exactly the population February 2027's blocking enforcement targets. Prioritise ahead of people who have SMS *alongside* something stronger. |
@@ -1456,6 +1457,57 @@ dynamic and updates as the security landscape changes," and duly moved certifica
 authentication from ninth place to third in March 2026. An earlier draft of this post described
 that order as fixed. It wasn't, and saying so confidently would have quietly misled anyone who
 took it at face value.
+
+<a id="update-2026-08-26-passkey-profiles-guest-users-and-a-second-way-to-control-september-1"></a>
+## Update (2026-08-26): passkey profiles, guest users, and a second way to control September 1
+
+Three things worth adding since this post first went up, found while re-verifying it against
+Microsoft's own pages rather than trusting an earlier read of them.
+
+**Guest and external users are getting passkey support.** The "Guest / external users" row in the
+triage table above is now out of date - struck through there, with the correction here. Microsoft
+has announced passkey registration for B2B guest users directly in the resource tenant (previously
+unsupported): internal guests are in scope first, early to late October 2026; external users
+follow on a schedule Microsoft hasn't announced yet, except passkeys in the Microsoft Authenticator
+app specifically, which have their own separate timing; overall completion is targeted for late
+February 2027. It activates automatically for any B2B user already in scope for your Passkey
+(FIDO2) Authentication Methods Policy - no separate guest-specific policy needed, though Microsoft
+recommends reviewing policy scope before it lands. Source: Message Center
+[MC1459133](https://mc.merill.net/message/MC1459133) (via mc.merill.net, since Message Center
+posts can't be linked publicly - see "Sources and further reading" above for why this mirror is
+used throughout). Until internal guests are actually in scope at your tenant, the "track
+separately" advice in the table above still holds - this is a schedule to plan around, not
+something to act on yet.
+
+**Passkey profiles have no priority order - and exclusion beats inclusion.** If a passkey profile
+is targeted at a group a user happens to belong to, alongside another profile from a different
+group they're also in, Microsoft's own docs are explicit: *"registration and authentication with a
+passkey are allowed if the passkey fully satisfies the requirements of at least one of the scoped
+passkey profiles. There's no particular order to the check."* This matters directly for the
+admin-isolation pattern this post recommends elsewhere - a strict, device-bound, attestation
+-enforced profile for admins, a looser one for everyone else: if an admin also happens to sit in a
+group targeted by the looser profile, the looser profile wins. "The admin profile is stricter, so
+it wins" is not how this works. The same page gives the actual fix: *"If a user is a member of an
+excluded group in the Passkeys (FIDO2) authentication method policy, they're blocked from FIDO2
+passkey registration or sign-in entirely, and this takes precedence over them being in any
+Included groups."* Exclude admins from the looser profile's target group explicitly, rather than
+relying on the groups never overlapping. Source:
+[Enable passkeys (FIDO2)](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2),
+"Apply a passkey profile to a targeted group."
+
+**A second way to control who gets swept into September 1.** This post already covers the
+tenant-wide `passkeyDynamicMigration` opt-out above. Microsoft's SMS/Voice retirement page has
+since been updated with a second, narrower option that doesn't require opting the whole tenant
+out: *"If you do not want this to occur, move users out of SMS or Voice in AMP before September
+1st."* This doesn't defer anything the way the opt-out does - it controls scope directly. Move a
+specific group out of SMS/Voice eligibility in the Authentication Methods Policy before the date,
+and that group is never counted as "enabled for SMS or Voice" when Microsoft's automatic sweep
+runs, opt-out or not. The same updated page now also explicitly recommends the exact move this
+post's practical workflow already suggested above - turning on a targeted registration campaign
+ahead of Microsoft's own automatic one - word for word: *"the most effective way to move users off
+SMS and Voice at scale without adding help-desk load."* Source:
+[Passkeys by default and retirement of SMS and voice](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement),
+updated 2026-08-10.
 
 ---
 *Secure At Work, Microsoft 365 &amp; Entra ID security assessments.*
