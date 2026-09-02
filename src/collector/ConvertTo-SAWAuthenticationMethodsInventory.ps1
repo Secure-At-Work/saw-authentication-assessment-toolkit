@@ -54,9 +54,11 @@ function ConvertTo-SAWAuthenticationMethodsInventory {
         resource reference page for each field literally states the default value is "disabled",
         while the newer how-to/concept article for each feature describes "Microsoft managed" as
         an actively-rolling-out set of new defaults, on Microsoft's own batch schedule, not the
-        tenant's. Microsoft communicating a start date for a "Microsoft managed" behavior change
-        (e.g. "gradually deployed... through August 2026") is not the same as every tenant
-        already having it: tenants are migrated in batches on a schedule this toolkit has no way
+        tenant's. Microsoft communicating a completion window for a "Microsoft managed" behavior
+        change (e.g. System-Preferred Authentication's, currently "late September 2026" per
+        Message Center MC1411574 - moved once already from an earlier estimate, and inconsistent
+        with the public docs page as of this writing) is not the same as every tenant already
+        having it: tenants are migrated in batches on a schedule this toolkit has no way
         to observe, so a tenant reading "Microsoft managed" today may be on the old behavior, the
         new behavior, or partway through the transition, regardless of what today's date is
         relative to Microsoft's announced start. Both rows surface the literal configured state
@@ -145,6 +147,32 @@ function ConvertTo-SAWAuthenticationMethodsInventory {
                     if ($numberMatching) { $parts += "Number matching: $(ConvertTo-SAWStateDisplayLabel $numberMatching)" }
                     $locationInfo = $Config.featureSettings.displayLocationInformationRequiredState.state
                     if ($locationInfo) { $parts += "Location display: $(ConvertTo-SAWStateDisplayLabel $locationInfo)" }
+
+                    # Per-target, not tenant-wide: each includeTargets entry carries its own
+                    # authenticationMode (Graph values any/push/deviceBasedPush, the last shown as
+                    # "Passwordless" in the admin center). A group locked to push can never use
+                    # Authenticator as a passwordless/first-factor credential, regardless of what
+                    # isPasswordlessCapable or System-Preferred Authentication assume elsewhere -
+                    # see REG003's caveat. Summarized rather than broken out per-target, since this
+                    # column already reports one line per method, not per target.
+                    $authModes = @(
+                        $Config.includeTargets |
+                        Where-Object { $_ -and $_.authenticationMode } |
+                        ForEach-Object { $_.authenticationMode } |
+                        Select-Object -Unique
+                    )
+                    if ($authModes.Count -eq 1) {
+                        $authModeLabel = switch ($authModes[0]) {
+                            'any' { 'Any (push or passwordless)' }
+                            'push' { 'Push only (not passwordless-capable)' }
+                            'deviceBasedPush' { 'Passwordless' }
+                            default { $authModes[0] }
+                        }
+                        $parts += "Authentication mode: $authModeLabel"
+                    }
+                    elseif ($authModes.Count -gt 1) {
+                        $parts += "Authentication mode: varies by target ($($authModes -join ', '))"
+                    }
                 }
                 'TemporaryAccessPass' {
                     if ($null -ne $Config.defaultLifetimeInMinutes) { $parts += "Default lifetime: $($Config.defaultLifetimeInMinutes) min" }
@@ -236,7 +264,7 @@ function ConvertTo-SAWAuthenticationMethodsInventory {
             default {
                 $sysPrefStateLabel = 'Microsoft managed'
                 $sysPrefSettings = "Microsoft's stated intent for this state: strongest registered method presented first for BOTH first and second factor - see the rollout-timing note"
-                $sysPrefRolloutNote = 'Microsoft-managed rollout: Microsoft''s own docs describe this being "gradually deployed to tenants through August 2026" - this tenant may not yet be experiencing it even if that date has passed. Re-check this row rather than assuming the description above already applies.'
+                $sysPrefRolloutNote = 'Microsoft-managed rollout: per Message Center MC1411574, expected to complete "late September 2026" (moved once already from an earlier estimate; the public docs page still reads "through August 2026" as of this writing) - this tenant may not yet be experiencing it even if that date has passed. Re-check this row rather than assuming the description above already applies.'
             }
         }
 

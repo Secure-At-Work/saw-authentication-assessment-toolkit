@@ -28,6 +28,17 @@ for a live engagement - Microsoft revises this matrix as browser and OS support 
 The one explicit "doesn't work at all" cell: **Firefox on Android does not support passkey
 sign-in.** Chrome and Edge on the same device do.
 
+**Chrome, Edge, Firefox, and Safari are the entire list - nothing else is covered, and that
+includes other Chromium-based browsers.** Opera, Brave, Vivaldi, and similar browsers built on the
+same Chromium engine as Chrome/Edge do not appear anywhere in Microsoft's matrix, on any platform.
+Confirmed against a real case: a user on Opera got a username prompt, then a **password** prompt
+instead of the expected passkey step, even with System-Preferred Authentication set to Microsoft
+managed. Sharing Chromium's rendering engine doesn't mean sharing Microsoft's testing or support -
+the practical read is that Entra's sign-in page does its own browser detection before deciding
+whether to attempt a passkey/WebAuthn challenge, and a browser it doesn't recognize as supported
+falls back to password rather than attempting a flow Microsoft hasn't validated. Don't assume an
+unlisted Chromium browser will "just work" because the engine matches one that's listed.
+
 ### Per-platform considerations
 
 **Windows**

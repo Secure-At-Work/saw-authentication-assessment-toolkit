@@ -102,6 +102,48 @@ Describe 'ConvertTo-SAWAuthenticationMethodsInventory' {
         $result[0].SettingsSummary | Should -Be 'Default lifetime: 30 min; One-time use: No (reusable)'
     }
 
+    It 'builds a plain-language settings summary for Microsoft Authenticator, including authentication mode' {
+        $policy = @{ authenticationMethodConfigurations = @(
+            (New-SAWTestMethodConfig -Id 'MicrosoftAuthenticator' -IncludeTargets @(
+                @{ id = 'all_users'; targetType = 'group'; authenticationMode = 'deviceBasedPush' }
+            ) -ExtraProperties @{
+                featureSettings = @{
+                    numberMatchingRequiredState = @{ state = 'enabled' }
+                    displayLocationInformationRequiredState = @{ state = 'enabled' }
+                }
+            })
+        ) }
+
+        $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+        $result[0].SettingsSummary | Should -Be 'Number matching: Enabled; Location display: Enabled; Authentication mode: Passwordless'
+    }
+
+    It 'flags "push only" authentication mode as not passwordless-capable' {
+        $policy = @{ authenticationMethodConfigurations = @(
+            (New-SAWTestMethodConfig -Id 'MicrosoftAuthenticator' -IncludeTargets @(
+                @{ id = 'all_users'; targetType = 'group'; authenticationMode = 'push' }
+            ))
+        ) }
+
+        $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+        $result[0].SettingsSummary | Should -Be 'Authentication mode: Push only (not passwordless-capable)'
+    }
+
+    It 'reports "varies by target" when include targets have different authentication modes' {
+        $policy = @{ authenticationMethodConfigurations = @(
+            (New-SAWTestMethodConfig -Id 'MicrosoftAuthenticator' -IncludeTargets @(
+                @{ id = 'g1'; targetType = 'group'; authenticationMode = 'push' },
+                @{ id = 'g2'; targetType = 'group'; authenticationMode = 'deviceBasedPush' }
+            ))
+        ) }
+
+        $result = @(ConvertTo-SAWAuthenticationMethodsInventory -RawPolicy $policy)
+
+        $result[0].SettingsSummary | Should -Be 'Authentication mode: varies by target (push, deviceBasedPush)'
+    }
+
     It 'shows "-" for a method type with no plain-language settings mapped' {
         $policy = @{ authenticationMethodConfigurations = @((New-SAWTestMethodConfig -Id 'Sms')) }
 

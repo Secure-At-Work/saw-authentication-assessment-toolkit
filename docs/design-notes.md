@@ -143,6 +143,18 @@ it in [references.md](references.md). Beyond the rules themselves, the dashboard
   typed `includeTargets`, and `all_users` is the well-known id for the built-in default target.
   No group/user display-name resolution is done (counts and the all_users/specific distinction
   only), to avoid an extra Graph call this toolkit doesn't otherwise need.
+  - **Microsoft Authenticator's Settings column also surfaces `authenticationMode`** - a real
+    setting the toolkit previously didn't read at all, prompted by a user's own admin-center
+    screenshot showing "Authentication mode: Passwordless" on the All Users target. It's per
+    `includeTargets` entry, not tenant-wide (Graph values `any`/`push`/`deviceBasedPush`, the last
+    shown as "Passwordless" in the admin center) - no new Graph call needed, since it's a standard
+    v1.0 property already present on the same `authenticationMethodConfigurations` object this
+    collector already fetches wholesale. `push`-only means that target's Authenticator
+    registrations can never satisfy `isPasswordlessCapable` or System-Preferred Authentication's
+    passwordless ranking category, regardless of registration counts - see REG003's caveat. Shown
+    as a single label when every include target agrees, or "varies by target (...)" when they
+    don't, matching the `MixedEnforcement` pattern already used for passkey profiles above rather
+    than inventing a new display convention.
   - The inventory also carries two rows beyond the 8 method types, each genuinely three-state
   (Disabled / Enabled / **Microsoft managed**), not on/off: **Registration Campaign**
   (`registrationEnforcement.authenticationMethodsRegistrationCampaign` - what gets *nudged for
@@ -156,9 +168,12 @@ it in [references.md](references.md). Beyond the rules themselves, the dashboard
   separate amber "Rollout timing not confirmed" badge** - the two are deliberately different
   colors/claims: the first says what's *configured*, the second flags that Microsoft's own docs
   describe "Microsoft managed" as an incrementally-rolled-out set of defaults on Microsoft's own
-  batch schedule, not the tenant's. Microsoft announcing a start date (e.g. "gradually deployed...
-  through August 2026") does not mean every tenant already has the new behavior by that date -
-  this toolkit has no way to observe which batch a given tenant is in, so the Settings column's
+  batch schedule, not the tenant's. Microsoft announcing a completion window (e.g. System-Preferred
+  Authentication's, currently "late September 2026" per Message Center MC1411574 - moved once
+  already from an original late-July estimate, and inconsistent with the public docs page as of
+  this writing, see `docs/references.md`) does not mean every tenant already has the new behavior
+  by that date - this toolkit has no way to observe which batch a given tenant is in, so the
+  Settings column's
   description for a Microsoft-managed row is labeled as Microsoft's stated *intent*, not a
   confirmed current fact, with the badge's tooltip spelling that out. Neither row is a rules-engine
   pass/fail finding, for the same reason. The per-user `systemPreferredAuthenticationMethod`
@@ -166,6 +181,13 @@ it in [references.md](references.md). Beyond the rules themselves, the dashboard
   as context, and the four **What Users Can Expect (IST vs. SOLL)** flows below fold
   System-Preferred Authentication's influence directly into the Bootstrap, Re-Registration, and
   CA-Gated scenarios - since it changes what a specific user actually sees, not just a setting.
+  Worth knowing when reading a client's own admin center alongside this toolkit's roster: the
+  classic per-user **"Default sign-in method (Preview)"** field on a user's Authentication methods
+  page is a *different*, legacy value from `SystemPreferredMethod` - once System-Preferred
+  Authentication applies to that user (Enabled or Microsoft managed), Microsoft's own docs state
+  the legacy default is inert ("users don't need to set any authentication method as their default
+  because the system always determines and presents the most secure method they registered"), so
+  `SystemPreferredMethod` is the field that reflects what actually happens, not the legacy one.
 - A per-user **Security Info Registration triage** (OK / Hunt / Remove, admins prioritized -
   who needs nudging toward a phishing-resistant method, and who has a phone-based fallback
   method that should be removed to close off a downgrade-attack path). Grouped into one
@@ -332,11 +354,26 @@ Two further judgment calls worth knowing:
 - PASS003 now reads `passkeyTypes` (`deviceBound`/`synced`) directly where profiles exist, which is
   an explicit tenant setting rather than the AAGUID inference the legacy path has to fall back on.
 
-**Not confirmed against a live migrated tenant.** The profiles branch is built from Microsoft's
-published v1.0 schema; no tenant in reach has migrated yet, so the fallback is the exercised path.
-Re-check before relying on the profile branch for a customer finding — particularly whether Graph
-returns `passkeyProfiles` without the explicit `$expand` the collector sends, and whether
-`attestationEnforcement` carries values beyond the three documented ones.
+**The "fallback is the exercised path" assumption is now stale — most tenants have likely
+auto-migrated.** Originally written when no tenant in reach had migrated yet. Per Message Center
+[MC1221452](https://mc.merill.net/message/MC1221452) (verified 2026-08-31), Microsoft
+auto-migrates any tenant with existing Passkey (FIDO2) settings into a **Default passkey profile**
+unless the admin opts in earlier with a custom configuration, on this schedule: Worldwide/GCC
+**May-June 2026** (already past as of this writing), GCC High/DoD **May 2026**, USNat/USSec
+**October 2026** (still upcoming). For the majority of tenants (Worldwide/GCC), the **profiles
+branch, not the fallback, is now the commonly-exercised path** - the reverse of the original
+assumption. The auto-migration mapping itself is exact and worth knowing when sanity-checking a
+result against a freshly-migrated tenant: *"If **enforce attestation** is **enabled**, then
+device-bound allowed. If **enforce attestation** is **disabled**, then device-bound and synced
+allowed"* - existing key restrictions and user targeting carry over unchanged into the new Default
+profile. This toolkit's own collector logic (profiles-first, deprecated-properties fallback,
+Unknown when neither) doesn't need to change either way - it was already written to handle both
+cases - but the *live-tenant testing* of the profiles branch specifically hasn't been redone since
+this finding, and should be, ideally against a tenant known to have gone through this auto-migration
+rather than one that opted in manually. Re-check before relying on the profile branch for a
+customer finding — particularly whether Graph returns `passkeyProfiles` without the explicit
+`$expand` the collector sends, and whether `attestationEnforcement` carries values beyond the
+three documented ones.
 
 **Possible future work:**
 - **Per-user legacy MFA state** (`perUserMfaState` - Disabled/Enabled/Enforced, via

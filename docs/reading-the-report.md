@@ -408,9 +408,10 @@ Both genuinely have three distinct behaviors, not a simple on/off:
 **When either row shows "Microsoft managed," it carries two badges, not one** - a blue state
 badge naming the setting, and a separate amber **"Rollout timing not confirmed"** badge next to
 it. They mean different things on purpose: the blue badge is what's *configured*; the amber one
-is a warning that Microsoft communicating a start date for a Microsoft-managed change (e.g.
-"gradually deployed... through August 2026") does **not** mean every tenant already has the new
-behavior by that date. Tenants are migrated in batches on a schedule this toolkit has no way to
+is a warning that Microsoft communicating a completion window for a Microsoft-managed change (e.g.
+System-Preferred Authentication's, currently "late September 2026" - moved once already from an
+earlier estimate) does **not** mean every tenant already has the new behavior by that date. Tenants
+are migrated in batches on a schedule this toolkit has no way to
 observe - a tenant could be on the old defaults, the new ones, or partway through the transition,
 regardless of what today's date is relative to Microsoft's announcement. The Settings column's
 description for a Microsoft-managed row is Microsoft's stated *intent*, not a confirmed fact for

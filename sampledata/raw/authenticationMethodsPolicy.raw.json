@@ -44,7 +44,7 @@
         "displayLocationInformationRequiredState": { "state": "enabled" }
       },
       "includeTargets": [
-        { "id": "all_users", "targetType": "group", "isRegistrationRequired": true }
+        { "id": "all_users", "targetType": "group", "isRegistrationRequired": true, "authenticationMode": "deviceBasedPush" }
       ],
       "excludeTargets": []
     },

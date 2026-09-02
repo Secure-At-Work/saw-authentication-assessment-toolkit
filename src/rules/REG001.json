@@ -7,5 +7,5 @@
     "Phase": 3,
     "PhaseName": "3. Drive Registration Coverage",
     "DependsOn": ["BOOT001"],
-    "Recommendation": "Every account with an administrative role must be MFA registered. Identify and remediate any admin account with no registered authentication method before it can be targeted for account takeover."
+    "Recommendation": "Every account with an administrative role must be MFA registered. Identify and remediate any admin account with no registered authentication method before it can be targeted for account takeover. If the tenant holds Entra ID P2 (or Entra Suite), Identity Protection's Multifactor authentication registration policy (Protect > Multifactor authentication registration policy) is a stronger lever than the registration campaign alone for closing this gap: once enabled, it gives an unregistered user 14 days to register before actually blocking sign-in, rather than an indefinitely snoozable nudge. This toolkit cannot see whether it's enabled - Graph exposes no property for this policy's configuration, only a sign-in-log attribute (requirementProvider = mfaRegistrationRequiredByIdentityProtectionPolicy) that shows its effect after the fact - so check its state directly in the admin center."
 }

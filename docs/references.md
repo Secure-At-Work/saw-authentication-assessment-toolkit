@@ -191,6 +191,66 @@ On the documented list of scenarios that interrupt a user:
 Source: [concept-registration-mfa-sspr-combined](https://learn.microsoft.com/entra/identity/authentication/concept-registration-mfa-sspr-combined)
 (ms.date 2025-03-04, updated 2026-05-01). Verified 2026-08-07.
 
+### The exact decision logic for how many methods a user must register (backs the SSPR two-gate discussion)
+
+Prompted by the user sharing the page's own flowchart image directly. The same page documents the
+flowchart's logic in prose, confirming it's current (not a stale/replaced diagram) and giving the
+worked example the diagram alone doesn't:
+
+> "When registration is enforced, users are shown the minimum number of methods needed to be
+> compliant with both multifactor authentication and SSPR policies, from most to least secure.
+> Users going through combined registration where both MFA and SSPR registration are enforced, and
+> the SSPR policy requires two methods, are first required to register an MFA method as the first
+> method and can select another MFA or SSPR specific method as the second registered method (such
+> as email, security questions, and so on)"
+
+> "A user is enabled for SSPR. The SSPR policy requires two methods to reset and is enabled
+> Microsoft Authenticator app, email, and phone. When the user chooses to register, two methods
+> are required: The user is shown Microsoft Authenticator app and phone by default. The user can
+> choose to register email instead of Authenticator app or phone."
+
+The flowchart's left branch ("MFA Registration Enforced") is triggered by any of three named
+scenarios: "multifactor authentication registration enforced through Microsoft Entra ID
+Protection" (the same Identity Protection MFA registration policy documented above), "through
+per-user multifactor authentication" (the legacy mechanism), or "through Conditional Access or
+other policies." All three converge on the same registration requirement once triggered - the
+diagram doesn't distinguish which one fired.
+
+One more caveat from the same page, unrelated to the flowchart but worth carrying alongside it:
+*"Customers attempting to register or manage security info through combined registration or the
+My Sign-ins page should use a modern browser such as Microsoft Edge. IE11 isn't officially
+supported."* Narrower than the Opera finding above (this is about the registration/manage
+experience specifically, not the sign-in challenge), but the same underlying pattern - Microsoft
+names specific supported browsers for a given flow rather than "any modern browser."
+
+Source: same page as above. Verified 2026-08-31.
+
+### Microsoft Authenticator's per-target authentication mode gates passwordless capability (backs REG003's caveat and the new inventory field)
+
+Prompted by the user's own admin-center screenshot of Microsoft Authenticator's target settings,
+showing "Authentication mode: Passwordless" for the All Users target - a setting this toolkit
+didn't read at all before this. Confirmed against the Graph resource type directly, since the
+admin center's label doesn't match the API's enum value:
+
+> "authenticationMode ... Determines which types of notifications can be used for sign-in. The
+> possible values are: `any`, `deviceBasedPush` (passwordless only), `push`."
+
+Source: [microsoftAuthenticatorAuthenticationMethodTarget](https://learn.microsoft.com/graph/api/resources/microsoftauthenticatorauthenticationmethodtarget)
+(ms.date 2024-07-22, updated 2025-12-03). Verified 2026-08-31. The admin center's "Passwordless"
+option is Graph's `deviceBasedPush`; "Push" in the UI is Graph's `push`; there's no UI label
+mismatch for `any`.
+
+**No new Graph call needed.** This property lives on each Microsoft Authenticator
+`includeTargets` entry, part of the same `authenticationMethodConfigurations` array
+`Get-SAWAuthenticationMethods.ps1` already fetches wholesale from `/policies/authenticationMethodsPolicy`
+- purely a converter-side gap (`ConvertTo-SAWAuthenticationMethodsInventory.ps1` wasn't reading a
+field it already had), not a collector one. Added to the Settings column, one label when every
+include target agrees, "varies by target" when they don't. Also added as a caveat on REG003
+(`isPasswordlessCapable`), since a group locked to `push` can have every user registered for
+Authenticator and still never count as passwordless-capable through it - Graph's own
+`isPasswordlessCapable` calculation should already account for this correctly, but the setting is
+now visible directly rather than only inferable from a coverage number that doesn't explain itself.
+
 On the passkey nudge being evaluated per device rather than per account, which is why the forecast
 reports eligibility rather than certainty:
 
@@ -366,11 +426,42 @@ And a staging constraint: "You can only include one group for system-preferred a
 Source: [concept-system-preferred-authentication](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication)
 (ms.date 2026-04-15, updated 2026-07-17). Verified 2026-08-09, re-confirmed verbatim 2026-08-12.
 
-**Re-check soon.** The "gradually deployed to tenants through August 2026" rollout window quoted
-above closes within days of this file's most recent check (today is 2026-08-12) - the next
-verification pass should confirm whether Microsoft has updated this page once that window lapses,
-since a tenant reading "Microsoft managed" could mean something different once the rollout is
-declared complete.
+**Follow-up, 2026-08-31: the date moved, and the public page hasn't caught up.** Message Center
+MC1411574 (last updated 2026-08-24) now states the Microsoft-managed first-factor rollout is
+"expected to complete by late September 2026 - updated from the original late July deadline." This
+public page, last edited 2026-07-17, still reads "through August 2026" - it predates the MC
+update and hasn't been revised to match. Treat the Message Center as the more current source for
+this specific date until the public page catches up, and re-check both before quoting either. See
+also the new dedicated entry below on this same discrepancy.
+
+### Passkey profiles already auto-migrated for most tenants (revises the "not confirmed against a live migrated tenant" caveat)
+
+Also found searching mc.merill.net for this topic. Message Center
+[MC1221452](https://mc.merill.net/message/MC1221452) ("General Availability of passkey profiles
+and migration for existing Passkeys (FIDO2) tenants") documents an **automatic** migration, not an
+opt-in-only one:
+
+> "If you don't opt in, Microsoft automatically migrates your tenant: Existing Passkey (FIDO2)
+> authentication method configurations will be moved into a Default passkey profile... If enforce
+> attestation is enabled, then device-bound allowed. If enforce attestation is disabled, then
+> device-bound and synced allowed." Existing key restrictions and user targeting carry over
+> unchanged.
+
+Rollout: passkey profiles GA - Worldwide/GCC March 2026, GCC High/DoD May 2026, USNat/USSec
+October 2026. Automatic migration for tenants with existing Passkey (FIDO2) settings - Worldwide/GCC
+**May-June 2026**, GCC High/DoD & USNat/USSec **October 2026**.
+
+Source: [MC1221452](https://mc.merill.net/message/MC1221452) (via mc.merill.net). Verified
+2026-08-31.
+
+**Directly revises a caveat in `docs/design-notes.md`** written when this toolkit's own passkey
+profile collector (`ConvertTo-SAWPasskeyPolicyEffective.ps1`) had "no tenant in reach" that had
+migrated, so the deprecated-properties fallback was assumed to be the commonly-exercised path in
+practice. For Worldwide/GCC tenants, the automatic migration window has already closed as of this
+writing - the profiles branch should now be the normal case for most tenants, not the fallback.
+The collector's own logic doesn't need to change (it already handles both branches), but its
+live-tenant testing predates this finding and hasn't been redone against a tenant confirmed to
+have gone through auto-migration specifically.
 
 ### Passkey registration is not supported for guest users (backs the Guest triage bucket)
 
@@ -546,6 +637,36 @@ users are excluded from the source report, roster totals are a count of *enabled
 which will not reconcile against a raw user count. Source:
 [howto-authentication-methods-activity](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity),
 ms.date 2025-10-22. Verified 2026-08-09.
+
+### Identity Protection's MFA registration policy is a blind spot for this toolkit (caveats REG001/REG002)
+
+Prompted by the user's own screenshot of **ID Protection > Multifactor authentication registration
+policy** and the question "did you take this into account?" - it wasn't, and it's a real, distinct
+enforcement mechanism from everything else this toolkit checks around registration:
+
+> "Microsoft Entra ID Protection prompts your users to register the next time they sign in
+> interactively, and they have 14 days to complete registration... at the end of the period, they
+> must register before they can complete the sign-in process."
+
+Source: [howto-identity-protection-configure-mfa-policy](https://learn.microsoft.com/entra/id-protection/howto-identity-protection-configure-mfa-policy),
+ms.date 2025-08-06, updated 2026-02-10. Verified 2026-08-26. Requires Entra ID P2 or Entra Suite - the
+same page names the [Security Administrator](https://learn.microsoft.com/entra/identity/role-based-access-control/permissions-reference#security-administrator)
+role as least-privileged to configure it.
+
+**Genuinely stronger than the registration campaign this toolkit already tracks (RCAMP001/RCAMP002)**:
+the campaign's snooze can be unlimited by default, so a user can defer indefinitely; this policy
+converts to a hard block after the 14-day window, no snooze escape.
+
+**Confirmed unreadable via Graph.** The only related object found, `authenticationRequirementPolicy`
+(beta, attached to `signIn` log entries, not a standalone policy resource), is diagnostic rather than
+configuration: it reports *why* a specific past sign-in required MFA, via a `requirementProvider` enum
+that includes `mfaRegistrationRequiredByIdentityProtectionPolicy` as one possible value among many
+(`v1ConditionalAccess`, `securityDefaults`, `riskBasedPolicy`, etc.) - useful for confirming after the
+fact that this policy fired on a specific sign-in, not for reading its current enabled/disabled state
+or target scope. Source: [authenticationRequirementPolicy](https://learn.microsoft.com/graph/api/resources/authenticationrequirementpolicy?view=graph-rest-beta),
+ms.date 2024-07-22, updated 2026-07-04. Verified 2026-08-26. Same shape of gap as the classic SSPR
+"Registration" blade's reconfirmation setting documented above - a real admin-center control with no
+clean Graph read, so REG001/REG002 can only recommend checking it directly rather than reading it.
 
 ### Staged Rollout, and why TAP matters to federated tenants (backs the Staged Rollout inventory)
 
@@ -757,6 +878,75 @@ preferred authentication doesn't affect users who sign in by using the Network P
 extension. Those users don't see any change to their sign-in experience." Source:
 [concept-system-preferred-authentication](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication)
 (ms.date 2026-04-15, updated 2026-07-17 - unchanged since the last check, re-verified 2026-08-13).
+Superseded on the specific "through August 2026" date by the Message Center finding below -
+this public page itself was still unchanged as of 2026-08-13, but MC1411574 (2026-08-24) gives a
+later, more current completion estimate.
+
+### The System-Preferred Authentication rollout date moved to late September 2026 (corrects `timeline-milestones.json`)
+
+Prompted by the user asking to search mc.merill.net for anything new on this topic. Message Center
+MC1411574 ("Microsoft Entra: System-preferred authentication now applies to first-factor
+authentication") gives a later completion estimate than every source already cited above:
+
+> Rollout "beginning late June 2026 and expected to complete by late September 2026" - "updated
+> from the original late July deadline."
+
+Source: [MC1411574](https://mc.merill.net/message/MC1411574) (via mc.merill.net - Message Center
+posts can't be linked publicly). Published 2026-07-01, last updated 2026-08-24. Verified 2026-08-31.
+
+**Two sources now disagree, and the disagreement is itself worth recording rather than picking a
+side silently.** The public `concept-system-preferred-authentication` page (last edited
+2026-07-17, cited throughout this document as "through August 2026") predates this Message Center
+update by five weeks. The Message Center is the tenant-admin-facing channel and the more likely
+one to be current, but neither has been cross-confirmed against the other since 2026-08-24 - the
+next verification pass should check whether the public page has been revised to match. Corrected
+in `config/timeline-milestones.json` (moved 2026-08-31 -> 2026-09-30), `docs/design-notes.md`,
+`docs/reading-the-report.md`, and the live dashboard note in
+`ConvertTo-SAWAuthenticationMethodsInventory.ps1` - the "through August 2026" phrasing was baked
+into product-facing UI text, not just documentation.
+
+### The per-user "Default sign-in method" is superseded once System-Preferred Authentication is on
+
+Prompted by a customer's own admin-center screenshot: a specific user's **Users > Authentication
+methods** page showed a per-user **"Default sign-in method (Preview)"** field set to Microsoft
+Authenticator notification, alongside a separate **System preferred multifactor authentication**
+panel reading Enabled / Fido2 for that same user - two different answers to "what does this user
+sign in with," on the same page. The per-user field is not what actually applies once
+system-preferred authentication is on for that user. Microsoft's own page states this directly:
+
+> "After system-preferred authentication is enabled, the authentication system does all the work.
+> Users don't need to set any authentication method as their default because the system always
+> determines and presents the most secure method they registered."
+
+Source: same page as above. Verified 2026-08-31. This resolves a real "which field is true"
+confusion the classic per-user Authentication methods report can create - the per-user default is
+a legacy value, effectively inert once system-preferred authentication (Enabled or Microsoft
+managed) applies to that user; the "System preferred multifactor authentication" panel on that
+same page is the one that reflects what will actually happen.
+
+### Opera isn't in Microsoft's own passkey browser matrix (explains the same customer's actual symptom)
+
+Follow-up on the case above: the affected user was on **Opera**, expected a passkey prompt after
+username entry (System-Preferred Authentication was confirmed Microsoft managed, ruling out the
+Enabled-vs-managed and rollout-timing explanations considered first), and got a **password**
+prompt instead. Checked against Microsoft's own passkey browser matrix, and Opera doesn't appear
+in it at all - the table lists exactly four browsers, on every platform:
+
+> "| OS | Chrome | Edge | Firefox | Safari |"
+
+Source: [Passkey (FIDO2) authentication matrix with Microsoft Entra ID](https://learn.microsoft.com/entra/identity/authentication/concept-fido2-compatibility),
+ms.date 2026-04-16, updated 2026-05-09. Verified 2026-08-31 - same version already cited in
+[passkey-platform-compatibility.md](passkey-platform-compatibility.md).
+
+Opera is Chromium-based, same rendering engine as Chrome and Edge, but sharing an engine isn't the
+same as being tested or supported - it's absent from the matrix on every OS row, not just missing
+a checkmark. The practical read, not confirmed by any Microsoft text found (no page documents the
+client-side decision logic itself): Entra's sign-in page most likely does its own browser
+detection before deciding whether to attempt a passkey/WebAuthn challenge at all, and a browser
+outside its supported list falls back to password rather than attempting an unvalidated flow -
+which matches the observed symptom exactly. Treat any other non-listed browser (Brave, Vivaldi,
+and similar Chromium-based browsers included) the same way: not a WebAuthn engine problem, a
+"Microsoft hasn't tested or listed this browser" problem.
 
 ## Platform compatibility claims
 

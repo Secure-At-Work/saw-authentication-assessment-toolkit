@@ -54,6 +54,7 @@ Contents:
 9. [Part 5: SMS/Voice retirement worked through](#part-5-the-smsvoice-retirement-worked-through-the-whole-framework)
 10. [The practical workflow](#the-practical-workflow-in-short) and [sources](#sources-and-further-reading)
 11. [Update (2026-08-26)](#update-2026-08-26-passkey-profiles-guest-users-and-a-second-way-to-control-september-1) — passkey profiles, guest users, and a second way to control September 1
+12. [Update (2026-09-02)](#update-2026-09-02-a-stronger-registration-lever-browser-support-and-two-corrected-dates) — a stronger registration lever, browser support, and two corrected dates
 
 <a id="the-short-version"></a>
 ## The short version
@@ -812,11 +813,13 @@ system-preferred applying only to their second factor.
 
 The user can always back out via "Sign in another way," but the *default* screen they see changes,
 which is exactly the kind of thing that generates a wave of "why does my sign-in look different"
-tickets if nobody was told to expect it. The Microsoft-managed behavior is being **gradually rolled
-out through August 2026**, so two tenants that have both left this setting untouched may currently
-be experiencing different things, purely based on where they are in that rollout. Microsoft is
-explicit about how to tell: if first-factor sign-in doesn't reflect the ranking while the state
-reads Microsoft managed, the rollout simply hasn't reached that tenant yet.
+tickets if nobody was told to expect it. The Microsoft-managed behavior is being ~~gradually rolled
+out through August 2026~~ **gradually rolled out, now expected to complete by late September 2026
+(corrected 2026-09-02 - see the update at the end of this post)**, so two tenants that have both
+left this setting untouched may currently be experiencing different things, purely based on where
+they are in that rollout. Microsoft is explicit about how to tell: if first-factor sign-in doesn't
+reflect the ranking while the state reads Microsoft managed, the rollout simply hasn't reached
+that tenant yet.
 
 One practical constraint that catches people staging this: you can include or exclude exactly
 **one group**, not several. Piloting to three departments means one group containing all three,
@@ -1508,6 +1511,107 @@ ahead of Microsoft's own automatic one - word for word: *"the most effective way
 SMS and Voice at scale without adding help-desk load."* Source:
 [Passkeys by default and retirement of SMS and voice](https://learn.microsoft.com/entra/identity/authentication/concept-sms-voice-retirement),
 updated 2026-08-10.
+
+<a id="update-2026-09-02-a-stronger-registration-lever-browser-support-and-two-corrected-dates"></a>
+## Update (2026-09-02): a stronger registration lever, browser support, and two corrected dates
+
+Six more things, found partly by re-checking Microsoft's own pages and partly by searching
+[mc.merill.net](https://mc.merill.net) - Merill Fernando's Message Center archive - for anything
+new on this whole topic.
+
+**A stronger lever than the registration campaign for closing MFA registration gaps, if the
+tenant holds Entra ID P2.** Everything above about driving registration coverage has assumed the
+registration campaign is the tool. It isn't the only one. Identity Protection's **Multifactor
+authentication registration policy** (*Protection > Identity Protection > Multifactor
+authentication registration policy*, not the same blade as the registration campaign) is a
+separate, older mechanism with real teeth: *"Microsoft Entra ID Protection prompts your users to
+register the next time they sign in interactively, and they have 14 days to complete
+registration... at the end of the period, they must register before they can complete the
+sign-in process."* The registration campaign's snooze can be unlimited by default; this policy
+converts to an actual block after 14 days, no snooze escape. Source:
+[Configure the MFA registration policy](https://learn.microsoft.com/entra/id-protection/howto-identity-protection-configure-mfa-policy),
+updated 2026-02-10. Requires Entra ID P2 or Entra Suite, and the
+[Security Administrator](https://learn.microsoft.com/entra/identity/role-based-access-control/permissions-reference#security-administrator)
+role to configure. **This toolkit can't see whether it's enabled** - the only related Graph
+object, `authenticationRequirementPolicy` (beta), is a diagnostic attribute on `signIn` log
+entries showing that it fired on a specific past sign-in, not a way to read its current
+configuration. Check it directly in the admin center; don't assume it's off just because a
+report doesn't flag it.
+
+**Whichever mechanism enforces registration, Microsoft's own flowchart decides exactly how many
+methods a user is shown - worth knowing before rolling any of them out.** The number isn't
+arbitrary: *"When registration is enforced, users are shown the minimum number of methods needed
+to be compliant with both multifactor authentication and SSPR policies... Users going through
+combined registration where both MFA and SSPR registration are enforced, and the SSPR policy
+requires two methods, are first required to register an MFA method as the first method and can
+select another MFA or SSPR specific method as the second registered method."* Worked example from
+the same page: a user enabled for SSPR with a 2-method SSPR policy covering Authenticator, email,
+and phone is shown Authenticator + phone by default, but can swap in email for the second slot.
+The flowchart's "MFA Registration Enforced" branch is triggered by any of three named mechanisms
+- the Identity Protection policy above, the legacy per-user MFA setting, or Conditional Access -
+and doesn't distinguish which one fired; the outcome is the same either way. Source:
+[Combined registration for SSPR and MFA](https://learn.microsoft.com/entra/identity/authentication/concept-registration-mfa-sspr-combined).
+Worth setting expectations on before enabling any of this: a user expecting to "just add a
+recovery email" gets walked into registering Authenticator or a passkey first if MFA is also
+enforced, not the method they expected.
+
+**A per-user field this post never mentioned can quietly explain "why does this user's default
+method look wrong."** The classic per-user **"Default sign-in method (Preview)"** field on a
+user's Authentication methods page is a different, legacy value from what System-Preferred
+Authentication actually presents. Once System-Preferred Authentication applies to a user
+(Enabled or Microsoft managed), Microsoft's own docs are explicit that the legacy field stops
+mattering: *"Users don't need to set any authentication method as their default because the
+system always determines and presents the most secure method they registered."* If that per-user
+field says one thing and the tenant has System-Preferred Authentication on, believe the ranking
+table above, not the field.
+
+**A real browser-support gap: Opera - and any other unlisted Chromium-based browser - isn't
+covered by Microsoft's passkey compatibility matrix at all.** Confirmed root cause of a real case:
+a user on Opera got a username prompt, then a **password** prompt instead of the expected passkey
+step, even with System-Preferred Authentication confirmed Microsoft managed. Checked against
+Microsoft's browser matrix directly - it lists exactly four browsers, on every OS: Chrome, Edge,
+Firefox, Safari. Opera doesn't appear anywhere in it, despite sharing Chrome and Edge's Chromium
+engine. Sharing an engine isn't the same as being tested or supported - the practical read (not
+itself documented by Microsoft, but consistent with the symptom) is that Entra's sign-in page does
+its own browser detection before attempting a passkey/WebAuthn challenge, and a browser outside
+its supported list falls back to password rather than attempting a flow Microsoft hasn't
+validated. The same almost certainly applies to Brave, Vivaldi, and other non-listed
+Chromium-based browsers. Source:
+[Passkey (FIDO2) authentication matrix](https://learn.microsoft.com/entra/identity/authentication/concept-fido2-compatibility).
+
+**Microsoft Authenticator has its own passwordless on/off switch, separate from everything else
+in this post.** Each group targeted by the Microsoft Authenticator method has its own
+**Authentication mode** setting - Graph values `any`, `push`, or `deviceBasedPush` (labeled
+"Passwordless" in the admin center). A group locked to `push` can have every user registered for
+Authenticator and it will never function as a passwordless or first-factor credential for them -
+not because of registration coverage, but because that specific mode is switched off for that
+group. Worth checking directly (Authentication methods > Microsoft Authenticator > Configure)
+before reading a low passwordless-coverage number as a registration problem. Source:
+[microsoftAuthenticatorAuthenticationMethodTarget](https://learn.microsoft.com/graph/api/resources/microsoftauthenticatorauthenticationmethodtarget).
+
+**Passkey profiles have likely already auto-migrated for most tenants - the "nobody's migrated
+yet" framing earlier in this post is now stale for Worldwide/GCC.** Message Center
+[MC1221452](https://mc.merill.net/message/MC1221452) documents an *automatic* migration, not an
+opt-in-only one: *"If you don't opt in, Microsoft automatically migrates your tenant: Existing
+Passkey (FIDO2) authentication method configurations will be moved into a Default passkey
+profile... If enforce attestation is enabled, then device-bound allowed. If enforce attestation is
+disabled, then device-bound and synced allowed."* Existing key restrictions and targeting carry
+over unchanged. Rollout: Worldwide/GCC automatic migration **May-June 2026** (already past as of
+this update), GCC High/DoD and USNat/USSec **October 2026** (still upcoming). If this post's
+tenant is Worldwide or GCC, it has very likely already gone through this - worth confirming
+directly rather than assuming the legacy `isAttestationEnforced`/`keyRestrictions` properties are
+still the live source of truth.
+
+**And the correction already struck through above**: System-Preferred Authentication's
+Microsoft-managed rollout, originally quoted as completing "through August 2026," is now stated as
+completing by **late September 2026** per Message Center
+[MC1411574](https://mc.merill.net/message/MC1411574) - *"beginning late June 2026 and expected to
+complete by late September 2026 - updated from the original late July deadline."* Worth knowing
+this has two sources currently disagreeing: the public
+[concept-system-preferred-authentication](https://learn.microsoft.com/entra/identity/authentication/concept-system-preferred-authentication)
+page was last edited 2026-07-17, five weeks before MC1411574's 2026-08-24 update - it may not have
+caught up yet. Treat the Message Center as the more current source for this specific date until
+the public page is revised to match.
 
 ---
 *Secure At Work, Microsoft 365 &amp; Entra ID security assessments.*
