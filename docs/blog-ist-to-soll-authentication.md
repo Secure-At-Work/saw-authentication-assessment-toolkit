@@ -55,6 +55,7 @@ Contents:
 10. [The practical workflow](#the-practical-workflow-in-short) and [sources](#sources-and-further-reading)
 11. [Update (2026-08-26)](#update-2026-08-26-passkey-profiles-guest-users-and-a-second-way-to-control-september-1) — passkey profiles, guest users, and a second way to control September 1
 12. [Update (2026-09-02)](#update-2026-09-02-a-stronger-registration-lever-browser-support-and-two-corrected-dates) — a stronger registration lever, browser support, and two corrected dates
+13. [Update (2026-09-07)](#update-2026-09-07-what-passkey-as-first-mfa-method-changes-about-registration-risk) — what passkey-as-first-MFA-method changes about registration risk
 
 <a id="the-short-version"></a>
 ## The short version
@@ -1612,6 +1613,44 @@ this has two sources currently disagreeing: the public
 page was last edited 2026-07-17, five weeks before MC1411574's 2026-08-24 update - it may not have
 caught up yet. Treat the Message Center as the more current source for this specific date until
 the public page is revised to match.
+
+<a id="update-2026-09-07-what-passkey-as-first-mfa-method-changes-about-registration-risk"></a>
+## Update (2026-09-07): what passkey-as-first-MFA-method changes about registration risk
+
+Checked mc.merill.net again for anything new on this topic since the last update: nothing beyond
+the two Message Center posts already cited above (MC1450133, MC1411574). This update instead
+responds to a third-party analysis - [Passkey as first MFA method: what could go
+wrong](https://agderinthe.cloud/2026/09/04/passkey-as-first-mfa-method-what-could-go-wrong/) - that
+walks through two consequences of MC1450133 worth adding here. One is fact-checkable against how
+Conditional Access actually works; the other, flagged clearly below, is not yet confirmed against
+Microsoft's own documentation.
+
+**A password alone can become enough to plant a durable, phishing-resistant credential on an
+account with no MFA at all.** This follows directly from how the "Register security information"
+user action already works, covered earlier in this post under Conditional Access targeting: it's a
+distinct target from "all resources," it has to be protected by its own policy, and that policy's
+authentication strength decides what's required to reach the registration page. Once passkeys can
+be registered as someone's *first* method (rather than only after another MFA method already
+exists), a policy whose strength is satisfied by plain `mfa` - which a password can satisfy for a
+user with nothing else registered yet - lets anyone who has only the account's password walk in
+and register a passkey. That passkey then behaves exactly like a legitimate one: phishing-resistant,
+durable, and indistinguishable from one the real user registered. The fix is the same policy this
+post already recommends, tightened one notch: scope the strength on the registration-page policy so
+it can't be satisfied by password alone (a Temporary Access Pass, or an existing MFA method,
+still can) - not a new control, just a reason to re-check an existing one before this ships.
+
+**Unverified - flagged explicitly, not presented as fact:** the same analysis claims that
+**"Require re-register multifactor authentication"**, the standard first step after a suspected
+account compromise, does **not** remove passkeys - only other methods (SMS, Authenticator, and so
+on) - meaning an attacker-registered passkey from the scenario above would silently survive what
+looks like a clean incident-response reset. This was checked directly against Microsoft's own
+[Manage authentication methods](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-methods-manage)
+page, which mentions this action only once, in passing, without stating which method types it
+clears. No primary Microsoft source confirming or denying this specific behavior was found. Until
+it's verified directly - for example by testing against a real tenant - treat it as an operational
+caution rather than a documented fact: follow any "require re-register MFA" action with a manual
+check of the user's authentication methods for passkeys that shouldn't be there, rather than
+trusting the action to have cleared everything.
 
 ---
 *Secure At Work, Microsoft 365 &amp; Entra ID security assessments.*
