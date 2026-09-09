@@ -53,8 +53,27 @@ function ConvertTo-SAWNudgeForecast {
         summary rather than per user, because they change the answer from "these people" to
         "nobody, and that's probably not what you intended".
 
-        Sources: how-to-mfa-registration-campaign, concept-registration-mfa-sspr-combined,
-        concept-sms-voice-retirement, concept-sspr-policy. See docs/references.md.
+        CORRECTED 2026-09-09. This function previously treated attestation enforcement, AAGUID key
+        restrictions, and a device-bound-only or synced-only default passkey profile as always
+        suppressing the passkey campaign nudge. Message Center MC1469555 and Microsoft's rewritten
+        how-to-mfa-registration-campaign page (ms.date 2026-09-02) document the opposite for the
+        Microsoft managed campaign state: a user needs only ONE eligible passkey profile out of
+        Unrestricted, Synced-only, Device-bound-only, AAGUID-restricted (allow-list contains at
+        least one AAGUID for iCloud Keychain, Google Password Manager, Microsoft Authenticator
+        passkey, or Microsoft Entra passkey on Windows), or Device-bound with attestation enforced
+        (key restrictions aren't evaluated for that last one). In practice this means only ONE
+        configuration can still suppress the nudge: an AAGUID allow-list restriction, without
+        attestation also enforced, whose list contains no AAGUID this toolkit recognizes as one of
+        those qualifying providers. This toolkit's AAGUID reference table (see
+        ConvertTo-SAWFido2KeyInventory) does not have a verified AAGUID for "Microsoft Entra
+        passkey on Windows" - the check below is therefore worded as "likely not eligible" rather
+        than a certainty, and flags that gap explicitly rather than silently treating an
+        unrecognized AAGUID as disqualifying. This is an active Microsoft rollout, expected
+        complete end of September 2026 - a tenant may still be on the old behavior.
+
+        Sources: how-to-mfa-registration-campaign (ms.date 2026-09-02, updated 2026-09-04),
+        MC1469555, concept-registration-mfa-sspr-combined, concept-sms-voice-retirement,
+        concept-sspr-policy. See docs/references.md.
     .PARAMETER Roster
         Output of ConvertTo-SAWUserRegistrationRoster (optionally already enriched by the other
         roster enrichers).
@@ -188,21 +207,44 @@ function ConvertTo-SAWNudgeForecast {
     # campaign looks correctly configured and still isn't landing.
     $fido2Effective = ConvertTo-SAWPasskeyPolicyEffective -RawConfig $fido2
 
+    # CORRECTED 2026-09-09 (MC1469555 / how-to-mfa-registration-campaign, ms.date 2026-09-02): under
+    # the Microsoft managed campaign state, attestation enforcement, AAGUID key restrictions, and a
+    # device-bound-only or synced-only default profile no longer suppress the nudge by themselves -
+    # each is now itself a named ELIGIBLE profile configuration. See the .DESCRIPTION correction
+    # note above. The only configuration Microsoft's own eligibility table still excludes is an
+    # AAGUID allow-list restriction, without attestation also enforced, whose list contains none of
+    # the specific providers Microsoft names as qualifying (iCloud Keychain, Google Password
+    # Manager, Microsoft Authenticator passkey, Microsoft Entra passkey on Windows).
+    #
+    # This toolkit's own AAGUID reference table (ConvertTo-SAWFido2KeyInventory) can only confirm
+    # three of those four providers - no verified AAGUID for "Microsoft Entra passkey on Windows"
+    # was found. An allow-list containing only that provider's (unrecognized) AAGUID would
+    # therefore be misreported as suppressed here. The suppressor text below says "likely" and
+    # names the gap explicitly rather than presenting this as certain either way.
+    $knownQualifyingPasskeyProviderAaguids = @(
+        'de1e552d-db1d-4423-a619-566b625cdc84'  # Microsoft Authenticator (Android)
+        '90a3ccdf-635c-4729-a248-9b709135078f'  # Microsoft Authenticator (iOS)
+        'ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4'  # Google Password Manager
+        'dd4ec289-e01d-41c9-bb89-70fa845d4bf2'  # iCloud Keychain (Managed)
+        'fbfc3007-154e-4ecc-8c0b-6e020557d7bd'  # Apple Passwords / iCloud Keychain
+    )
+
     $suppressors = @()
-    if ($fido2Effective.AttestationEnforced -eq $true) {
-        $suppressors += 'FIDO2 attestation is enforced (PASS001), which Microsoft documents as suppressing the passkey nudge for affected users'
-    }
-    if ($fido2Effective.KeyRestrictionsEnforced -eq $true) {
-        $suppressors += 'FIDO2 AAGUID key restrictions are enforced (PASS002), which Microsoft documents as suppressing the passkey nudge for affected users'
-    }
-    if ($fido2Effective.PasskeyTypeRestriction -eq 'deviceBound') {
-        $suppressors += "The default passkey profile restricts registration to device-bound passkeys only, which Microsoft documents as suppressing the passkey nudge for affected users (read from the default profile - see ConvertTo-SAWPasskeyPolicyEffective for why this isn't aggregated across all profiles the way attestation/key restrictions are)"
-    }
-    if ($fido2Effective.PasskeyTypeRestriction -eq 'synced') {
-        $suppressors += "The default passkey profile restricts registration to synced passkeys only, which Microsoft documents as suppressing the passkey nudge for affected users (read from the default profile - see ConvertTo-SAWPasskeyPolicyEffective for why this isn't aggregated across all profiles the way attestation/key restrictions are)"
+    if ($fido2Effective.IsKnown -and
+        $fido2Effective.KeyRestrictionsEnforced -eq $true -and
+        $fido2Effective.AttestationEnforced -ne $true) {
+
+        $configuredAaGuids = @($fido2Effective.KeyRestrictions.aaGuids) | Where-Object { $_ }
+        $hasQualifyingAaguid = @($configuredAaGuids | Where-Object {
+            $knownQualifyingPasskeyProviderAaguids -contains $_.ToString().ToLowerInvariant()
+        }).Count -gt 0
+
+        if (-not $hasQualifyingAaguid) {
+            $suppressors += "FIDO2 AAGUID key restrictions are enforced (PASS002) without attestation, and the configured allow-list doesn't contain an AAGUID this toolkit recognizes as one of Microsoft's qualifying passkey providers (iCloud Keychain, Google Password Manager, Microsoft Authenticator) - likely NOT eligible for the Microsoft managed campaign nudge per MC1469555. This toolkit has no verified AAGUID for 'Microsoft Entra passkey on Windows', Microsoft's fourth qualifying provider, so this could be a false suppression if that's what's actually configured - verify directly against the tenant."
+        }
     }
     if ($fido2 -and -not $fido2Effective.IsKnown) {
-        $suppressors += "FIDO2 attestation and key-restriction state couldn't be read, so any suppression from those two settings is unknown rather than ruled out"
+        $suppressors += "FIDO2 attestation and key-restriction state couldn't be read, so eligibility for the Microsoft managed campaign nudge is unknown rather than ruled out"
     }
     if ($fido2 -and $fido2.isSelfServiceRegistrationAllowed -eq $false) {
         $suppressors += 'FIDO2 self-service registration is off, which is a prerequisite for a passkey campaign'

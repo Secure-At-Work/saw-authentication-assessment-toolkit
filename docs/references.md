@@ -304,15 +304,21 @@ allow-list, not any AAGUID - a tenant restricted to, say, only Yubico AAGUIDs re
 under Microsoft managed, matching neither the old blanket-suppression claim nor a blanket
 inclusion.
 
-Practical effect on this toolkit: `ConvertTo-SAWNudgeForecast.ps1`'s suppressor logic
-(`src/collector/ConvertTo-SAWNudgeForecast.ps1`, the `$suppressors` block) still implements the
-now-superseded rule - it treats `PASS001`/`PASS002` enforcement and a device-bound/synced-only
-default passkey profile as unconditionally suppressing the passkey nudge. Under the corrected
-Microsoft managed eligibility table, attestation-enforced and AAGUID-restricted (with a qualifying
-provider) profiles should NOT be treated as suppressed. This is a functional prediction bug, not
-just a documentation gap - flagged for a code fix, not yet applied as of this note. RCAMP001,
-PASS001, and PASS002's `Recommendation` text has been corrected; the nudge-forecast collector
-logic has not.
+Practical effect on this toolkit, FIXED 2026-09-09: `ConvertTo-SAWNudgeForecast.ps1`'s suppressor
+logic (`src/collector/ConvertTo-SAWNudgeForecast.ps1`, the `$suppressors` block) previously
+implemented the now-superseded rule - it treated `PASS001`/`PASS002` enforcement and a
+device-bound/synced-only default passkey profile as unconditionally suppressing the passkey nudge.
+This was a functional prediction bug, not just a documentation gap. Corrected: attestation
+enforcement, AAGUID key restrictions with a recognized qualifying-provider AAGUID on the allow
+list, and a device-bound-only or synced-only default profile no longer suppress the nudge. The
+only remaining suppressor is an AAGUID allow-list restriction, without attestation also enforced,
+whose configured AAGUIDs don't match this toolkit's own AAGUID reference table (three of
+Microsoft's four qualifying providers are verified there - iCloud Keychain, Google Password
+Manager, Microsoft Authenticator; no verified AAGUID for "Microsoft Entra passkey on Windows" was
+found, so that specific suppressor is worded as "likely" rather than certain, and says so in the
+forecast output). RCAMP001, PASS001, PASS002's `Recommendation` text, and the nudge-forecast
+collector logic are now all consistent with the corrected Microsoft managed eligibility table.
+Tests updated in `tests/collector/ConvertTo-SAWNudgeForecast.Tests.ps1`.
 
 Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
 (ms.date 2026-09-02, updated 2026-09-04) + [MC1469555](https://mc.merill.net/message/MC1469555).

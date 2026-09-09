@@ -1,4 +1,5 @@
 BeforeAll {
+    . "$PSScriptRoot/../../src/collector/ConvertTo-SAWPasskeyPolicyEffective.ps1"
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNudgeForecast.ps1"
 
     $script:Roster = @(
@@ -21,6 +22,7 @@ BeforeAll {
             [string]$Target = 'fido2',
             [bool]$AttestationEnforced = $false,
             [bool]$KeyRestrictionsEnforced = $false,
+            [string[]]$KeyRestrictionAaGuids = @(),
             [bool]$SelfServiceAllowed = $true,
             [string]$IncludeId = 'all_users'
         )
@@ -36,7 +38,7 @@ BeforeAll {
                     id                               = 'Fido2'
                     isAttestationEnforced            = $AttestationEnforced
                     isSelfServiceRegistrationAllowed = $SelfServiceAllowed
-                    keyRestrictions                  = @{ isEnforced = $KeyRestrictionsEnforced }
+                    keyRestrictions                  = @{ isEnforced = $KeyRestrictionsEnforced; aaGuids = @($KeyRestrictionAaGuids) }
                 }
             )
         }
@@ -104,19 +106,36 @@ Describe 'ConvertTo-SAWNudgeForecast' {
     }
 
     Context 'documented tenant-wide nudge suppressors' {
-        It 'suppresses the passkey campaign entirely when attestation is enforced' {
+        # CORRECTED 2026-09-09 (MC1469555): attestation enforcement, AAGUID key restrictions (with
+        # a qualifying AAGUID), and a device-bound-only or synced-only default passkey profile are
+        # now each an ELIGIBLE Microsoft managed profile configuration, not a suppressor. Only an
+        # AAGUID allow-list with no qualifying provider AAGUID, and no attestation enforced
+        # alongside it, still suppresses. See ConvertTo-SAWNudgeForecast.ps1's corrected block.
+
+        It 'does NOT suppress the passkey campaign when attestation is enforced (now an eligible profile per MC1469555)' {
             $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -AttestationEnforced $true)
 
-            $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
-            $result.Summary.PasskeyCampaignCount | Should -Be 0
-            @($result.Summary.Suppressors | Where-Object { $_ -match 'attestation' }).Count | Should -BeGreaterThan 0
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
-        It 'suppresses the passkey campaign entirely when AAGUID key restrictions are enforced' {
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -KeyRestrictionsEnforced $true)
+        It 'does NOT suppress the passkey campaign when attestation is enforced together with AAGUID key restrictions (attestation bypasses the key-restriction check)' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -AttestationEnforced $true -KeyRestrictionsEnforced $true)
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+        }
+
+        It 'suppresses the passkey campaign when AAGUID key restrictions are enforced with no qualifying provider AAGUID on the allow-list' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('11111111-1111-1111-1111-111111111111'))
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
             $result.Summary.PasskeyCampaignCount | Should -Be 0
+            @($result.Summary.Suppressors | Where-Object { $_ -match 'qualifying passkey provider' }).Count | Should -BeGreaterThan 0
+        }
+
+        It 'does NOT suppress the passkey campaign when AAGUID key restrictions are enforced and the allow-list includes a qualifying provider AAGUID' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('de1e552d-db1d-4423-a619-566b625cdc84'))
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
         It 'suppresses the campaign when a Conditional Access policy blocks the registration page' {
@@ -127,13 +146,13 @@ Describe 'ConvertTo-SAWNudgeForecast' {
         }
 
         It 'does NOT let campaign suppressors mask the 2026-09-01 automatic enablement, which Microsoft drives independently' {
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -AttestationEnforced $true)
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy) -SecurityInfoRegistrationBlockedByCa $true
 
             $result.Summary.PasskeyCampaignCount | Should -Be 0
             $result.Summary.AutoPasskeySept2026Count | Should -Be 1
         }
 
-        It 'suppresses the passkey campaign when the default passkey profile restricts to device-bound only' {
+        It 'does NOT suppress the passkey campaign when the default passkey profile restricts to device-bound only (now an eligible profile per MC1469555)' {
             $policy = New-SAWTestNudgePolicy
             $policy.authenticationMethodConfigurations = @(
                 @{
@@ -148,12 +167,10 @@ Describe 'ConvertTo-SAWNudgeForecast' {
 
             $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
 
-            $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
-            $result.Summary.PasskeyCampaignCount | Should -Be 0
-            @($result.Summary.Suppressors | Where-Object { $_ -match 'device-bound passkeys only' }).Count | Should -BeGreaterThan 0
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
-        It 'suppresses the passkey campaign when the default passkey profile restricts to synced only' {
+        It 'does NOT suppress the passkey campaign when the default passkey profile restricts to synced only (now an eligible profile per MC1469555)' {
             $policy = New-SAWTestNudgePolicy
             $policy.authenticationMethodConfigurations = @(
                 @{
@@ -168,8 +185,25 @@ Describe 'ConvertTo-SAWNudgeForecast' {
 
             $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
 
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+        }
+
+        It 'suppresses the passkey campaign when a passkey profile enforces AAGUID key restrictions with no qualifying provider AAGUID and no attestation' {
+            $policy = New-SAWTestNudgePolicy
+            $policy.authenticationMethodConfigurations = @(
+                @{
+                    id             = 'Fido2'
+                    isSelfServiceRegistrationAllowed = $true
+                    defaultPasskeyProfile = 'profile-1'
+                    passkeyProfiles = @(
+                        @{ id = 'profile-1'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; aaGuids = @('11111111-1111-1111-1111-111111111111') } }
+                    )
+                }
+            )
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+
             $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
-            @($result.Summary.Suppressors | Where-Object { $_ -match 'synced passkeys only' }).Count | Should -BeGreaterThan 0
         }
 
         It 'does NOT suppress the passkey campaign when the default profile reports an unrecognized passkeyTypes value' {
