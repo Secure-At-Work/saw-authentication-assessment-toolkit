@@ -56,6 +56,7 @@ Contents:
 11. [Update (2026-08-26)](#update-2026-08-26-passkey-profiles-guest-users-and-a-second-way-to-control-september-1) — passkey profiles, guest users, and a second way to control September 1
 12. [Update (2026-09-02)](#update-2026-09-02-a-stronger-registration-lever-browser-support-and-two-corrected-dates) — a stronger registration lever, browser support, and two corrected dates
 13. [Update (2026-09-07)](#update-2026-09-07-what-passkey-as-first-mfa-method-changes-about-registration-risk) — what passkey-as-first-MFA-method changes about registration risk
+14. [Update (2026-09-09)](#update-2026-09-09-the-registration-campaigns-passkey-profile-rules-just-reversed) — the registration campaign's passkey-profile rules just reversed
 
 <a id="the-short-version"></a>
 ## The short version
@@ -542,7 +543,7 @@ other sends you nowhere, because there is no group to look up.
 There's one more way a campaign can quietly do nothing, and it's the one most likely to catch out
 someone who has otherwise done everything right.
 
-Microsoft [documents](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+~~Microsoft [documented](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
 that users are **not nudged at all** if their passkey profile carries any of these: synced-only,
 device-bound-only, attestation enforced, or AAGUID key restrictions.
 
@@ -556,7 +557,17 @@ reaches nobody.
 Nothing errors. The admin center shows the campaign configured and enabled. Registration coverage
 simply doesn't move — and the obvious conclusion, *users are ignoring the prompt*, is wrong. There
 was no prompt. The same restriction also blocks the automatic switch to passkey targeting under
-Microsoft-managed state.
+Microsoft-managed state.~~
+
+**Correction (2026-09-09): this reversed.** Microsoft has rewritten this page. Under the
+**Microsoft managed** campaign state, most of these same restricted profiles now *qualify* a user
+for the nudge instead of suppressing it — including attestation-enforced, provided Microsoft still
+evaluates the account as needing a nudge. See the [update at the end of this
+post](#update-2026-09-09-the-registration-campaigns-passkey-profile-rules-just-reversed) for the
+corrected eligibility table and what's still unaffected (the **Enabled** campaign state, and
+AAGUID allow-lists that don't include a supported provider). The sequencing advice below still
+holds regardless of which rule set is live — it just no longer rests on "the campaign reaches
+nobody" as the reason.
 
 **The fix is sequencing, not choosing.** Drive registration first, tighten afterwards.
 
@@ -1124,9 +1135,12 @@ an attacker will pay that cost. Concretely:
 
 - **Device-bound passkeys, not synced ones.** No copy of the private key in a cloud vault.
 - **Attestation enforced**, so only authenticator models you approve can be registered at all.
-  Note the interaction flagged elsewhere in this post: attestation and key restrictions suppress
-  the registration-campaign nudge and disable the Bluetooth-proximity cross-device bootstrap, so
-  scope this to the admin population rather than switching it on tenant-wide by reflex.
+  Note the interaction flagged elsewhere in this post: attestation and key restrictions ~~suppress
+  the registration-campaign nudge and~~ disable the Bluetooth-proximity cross-device bootstrap
+  (that part still holds — see the [2026-09-09
+  update](#update-2026-09-09-the-registration-campaigns-passkey-profile-rules-just-reversed) for
+  the corrected campaign-nudge behavior), so scope this to the admin population rather than
+  switching it on tenant-wide by reflex.
 - **Do not treat a phishing-resistant Conditional Access policy as the whole control.** It is
   necessary and you should have it. But the published exploit satisfied exactly that requirement,
   so pair it with a compliant-device requirement, Privileged Identity Management so the role isn't
@@ -1236,7 +1250,7 @@ not just theoretical risk:
 | Phase | Goal | Typical actions |
 |---|---|---|
 | **1. Foundation & Visibility** | Safe immediately, nothing depends on anything else | Block legacy authentication; enable Authenticator, FIDO2, and TAP; check platform/browser compatibility against Microsoft's own matrix; audit log and break-glass hygiene; TAP hardening (one-time-use, shorter lifetime) |
-| **2. Enable Phishing-Resistant Capability** | Give users something strong to actually register | Turn on FIDO2 self-service registration; decide the Windows Hello trust model (cloud Kerberos trust for most hybrid SMB tenants); scope attestation and key restrictions to high-value accounts rather than tenant-wide, since both suppress the Phase 3 nudge; define and be ready to enforce a phishing-resistant authentication strength |
+| **2. Enable Phishing-Resistant Capability** | Give users something strong to actually register | Turn on FIDO2 self-service registration; decide the Windows Hello trust model (cloud Kerberos trust for most hybrid SMB tenants); scope attestation and key restrictions to high-value accounts rather than tenant-wide ~~since both suppress the Phase 3 nudge~~ (see the [2026-09-09 update](#update-2026-09-09-the-registration-campaigns-passkey-profile-rules-just-reversed) — the nudge interaction is more nuanced now); define and be ready to enforce a phishing-resistant authentication strength |
 | **3. Drive Registration Coverage** | Get people actually registered, using the bootstrap from Phase 2 | Work out who will be interrupted and tell them *before* switching anything on; run the registration campaign; close admin and overall MFA registration gaps; raise SSPR registration coverage |
 | **4. Retire Weak Fallback Methods** | Remove the downgrade path, only once it's safe to | Turn off SMS/Voice, but only after Phase 3's coverage is genuinely high enough |
 | **5. Enforce via Conditional Access** | Make the target state mandatory, last | Require MFA for all users; require compliant device or phishing-resistant auth for admins; once adoption is broad enough, tighten the all-user policy from plain MFA to a phishing-resistant authentication strength to close the MFA downgrade path. For high-value accounts, layer rather than stop here: the published exploit satisfied a phishing-resistant requirement, so add compliant device, PIM, and registration-event monitoring on top |
@@ -1651,6 +1665,49 @@ it's verified directly - for example by testing against a real tenant - treat it
 caution rather than a documented fact: follow any "require re-register MFA" action with a manual
 check of the user's authentication methods for passkeys that shouldn't be there, rather than
 trusting the action to have cleared everything.
+
+<a id="update-2026-09-09-the-registration-campaigns-passkey-profile-rules-just-reversed"></a>
+## Update (2026-09-09): the registration campaign's passkey-profile rules just reversed
+
+This one corrects, not just adds. Two places earlier in this post state that a restricted passkey
+profile - synced-only, device-bound-only, attestation enforced, or AAGUID key restrictions -
+suppresses the registration campaign's nudge entirely. That was accurate when written and is now
+wrong for the **Microsoft managed** campaign state. Both passages are struck through above with a
+pointer to this chapter.
+
+**What changed, and the source.** Message Center
+[MC1469555](https://mc.merill.net/message/MC1469555) ("Microsoft Entra: Optimized Passkey
+Registration Campaign Experience", published 2026-09-09) announces expanded eligibility, and
+Microsoft's own [registration campaign
+page](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+has been rewritten to match (checked directly - ms.date now 2026-09-02, updated 2026-09-04). Under
+Microsoft managed state, a user needs only **one** eligible passkey profile out of: Unrestricted,
+Synced-only, Device-bound-only, AAGUID-restricted (allow-list contains at least one AAGUID for
+iCloud Keychain, Google Password Manager, Microsoft Authenticator passkey, or Microsoft Entra
+passkey on Windows), or Device-bound with attestation enforced - key restrictions aren't even
+evaluated for that last one. Exclude and Block lists are explicitly ignored for this eligibility
+check.
+
+**What's unaffected.** The **Enabled** campaign state (where the tenant configures targeting
+itself) never applied this profile check in the first place - any passkey profile already
+qualified there, so nothing changes for tenants running that state. An AAGUID allow-list
+restricted to a provider *not* in the qualifying list (say, only Yubico) still doesn't qualify
+under Microsoft managed - this is an expanded list, not a blanket "any restriction now qualifies."
+
+**Rollout status, not a settled fact.** Microsoft's own page carries a rollout notice: *"We're
+rolling out this version of the registration campaign. The rollout is expected to finish by the
+end of September 2026. Until then, the registration campaign experience in your tenant might
+differ from what's described in this article."* General availability per MC1469555:
+early-to-mid September 2026 for Worldwide/GCC. If a tenant's campaign still isn't reaching
+attestation-enforced or AAGUID-restricted users today, that may be this rollout still in progress
+rather than either the old or new rule holding.
+
+**Practical effect if you're mid-migration on this toolkit's Phase 2/3 sequencing advice above:**
+the reasoning to scope attestation and AAGUID restrictions to high-value accounts before switching
+on a campaign tenant-wide still holds - it's good hygiene regardless - but it's no longer required
+purely to avoid the campaign reaching nobody. Verify current behavior against the live tenant
+before either assuming a restricted profile is silently unreached, or assuming the new table has
+already taken effect.
 
 ---
 *Secure At Work, Microsoft 365 &amp; Entra ID security assessments.*

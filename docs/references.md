@@ -59,10 +59,10 @@ this document and the "Known corrections" section for specifics.
 | **CA004** | A phishing-resistant strength gating security-info registration locks out TAP-only users | [Authentication strengths overview](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-strengths) | **2026-08-07** |
 | **CA005** | Resource targeting and user-action targeting are mutually exclusive per policy | [Targeting resources in Conditional Access](https://learn.microsoft.com/entra/identity/conditional-access/concept-conditional-access-cloud-apps) | **2026-08-07** |
 | **CA006** | A plain `mfa` control accepts any registered method; a strength does not | [Authentication strengths overview](https://learn.microsoft.com/entra/identity/authentication/concept-authentication-strengths) | **2026-08-07** |
-| **PASS001** | Attestation verifies the authenticator's make/model at registration | [Passkey profiles, "Enforce attestation"](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
-| **PASS002** | Key restrictions allow/block specific models by AAGUID | [Passkey profiles, "Key Restriction Policy"](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
+| **PASS001** | Attestation verifies the authenticator's make/model at registration; registration-campaign nudge claim corrected 2026-09-09 | [Passkey profiles, "Enforce attestation"](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07**, corrected **2026-09-09** |
+| **PASS002** | Key restrictions allow/block specific models by AAGUID; registration-campaign nudge claim corrected 2026-09-09 | [Passkey profiles, "Key Restriction Policy"](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07**, corrected **2026-09-09** |
 | **PASS003** | Synced passkeys are phishing-resistant but have a different custody model | [Synced vs device-bound passkeys](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-passkeys-fido2) | **2026-08-07** |
-| **RCAMP001 / RCAMP002** | The campaign nudges registration and can target Authenticator or passkey | [Run a registration campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign) | **2026-08-07** |
+| **RCAMP001 / RCAMP002** | The campaign nudges registration and can target Authenticator or passkey - passkey-profile eligibility table corrected 2026-09-09 | [Run a registration campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign) | **2026-08-07**, corrected **2026-09-09** |
 | **REG001 / REG002** | MFA coverage must be measured with `isMfaCapable` (policy-aware), not `isMfaRegistered` | [userRegistrationDetails](https://learn.microsoft.com/graph/api/resources/userregistrationdetails) + [activity report](https://learn.microsoft.com/entra/identity/authentication/howto-authentication-methods-activity) | **2026-08-09** (field corrected) |
 | **REG003** | `isPasswordlessCapable` measures passwordless capability, which is **not** the same set as phishing-resistant | [userRegistrationDetails](https://learn.microsoft.com/graph/api/resources/userregistrationdetails) + [phishing-resistant methods](https://learn.microsoft.com/entra/identity/authentication/overview-authentication) | **2026-08-09** |
 | **SIGNIN001** | Successful legacy-auth sign-ins are visible in sign-in logs | [Block legacy auth, "Identify legacy authentication use"](https://learn.microsoft.com/entra/identity/conditional-access/policy-block-legacy-authentication) | **2026-08-07** |
@@ -264,6 +264,59 @@ On the tenant-wide suppressors:
 
 Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
 (ms.date 2026-05-20, updated 2026-07-23). Verified 2026-08-07.
+
+**CORRECTED 2026-09-09 - the quote directly above is now stale for the Microsoft managed
+campaign state.** Message Center [MC1469555](https://mc.merill.net/message/MC1469555)
+("Microsoft Entra: Optimized Passkey Registration Campaign Experience", published 2026-09-09)
+announces the opposite of what was quoted: most of those same restricted profiles now qualify a
+user for the nudge rather than suppressing it. Re-fetched the same Microsoft page directly to
+confirm - it has been rewritten (ms.date now 2026-09-02, updated 2026-09-04) and the "tenant-wide
+suppressors" framing above is gone, replaced with a full eligibility table:
+
+> "When your registration campaign is in the **Microsoft managed** state and targets passkeys,
+> each scoped user's passkey profile is checked when they sign in. A user is nudged if they're in
+> **at least one** passkey profile configuration that meets the following criteria... Unrestricted
+> ... Synced-only ... Device-bound-only ... AAGUID-restricted: The allow list contains at least one
+> AAGUID for the following providers: iCloud Keychain, Google Password Manager (GPM), Microsoft
+> Authenticator passkey, Microsoft Entra passkey on Windows ... Device-bound with attestation
+> enforced: Key restrictions aren't evaluated."
+
+And explicitly on Exclude/Block lists, which the old suppressor model didn't need to consider:
+
+> "**Exclude** and **Block** lists are ignored when campaign eligibility is determined. An admin
+> can have entries in **Exclude** or **Block**, but the targeting logic doesn't evaluate them for
+> eligibility."
+
+This is an active rollout, not a settled fact to encode as certain either way - the page itself
+carries a rollout notice:
+
+> "We're rolling out this version of the registration campaign. The rollout is expected to finish
+> by the end of September 2026. Until then, the registration campaign experience in your tenant
+> might differ from what's described in this article."
+
+General availability per MC1469555: early-to-mid September 2026 for Worldwide/GCC, full rollout
+expected complete by end of September 2026. **Scope of the correction**: this only applies to the
+**Microsoft managed** campaign state. The **Enabled** state (tenant configures targeting itself)
+never applied a passkey-profile eligibility check in the first place - "any passkey profile
+configuration" was already sufficient there - so nothing changes for tenants running Enabled
+state. Also unaffected: the AAGUID-restricted case still requires a *specific* provider on the
+allow-list, not any AAGUID - a tenant restricted to, say, only Yubico AAGUIDs remains ineligible
+under Microsoft managed, matching neither the old blanket-suppression claim nor a blanket
+inclusion.
+
+Practical effect on this toolkit: `ConvertTo-SAWNudgeForecast.ps1`'s suppressor logic
+(`src/collector/ConvertTo-SAWNudgeForecast.ps1`, the `$suppressors` block) still implements the
+now-superseded rule - it treats `PASS001`/`PASS002` enforcement and a device-bound/synced-only
+default passkey profile as unconditionally suppressing the passkey nudge. Under the corrected
+Microsoft managed eligibility table, attestation-enforced and AAGUID-restricted (with a qualifying
+provider) profiles should NOT be treated as suppressed. This is a functional prediction bug, not
+just a documentation gap - flagged for a code fix, not yet applied as of this note. RCAMP001,
+PASS001, and PASS002's `Recommendation` text has been corrected; the nudge-forecast collector
+logic has not.
+
+Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
+(ms.date 2026-09-02, updated 2026-09-04) + [MC1469555](https://mc.merill.net/message/MC1469555).
+Verified 2026-09-09.
 
 On the broken admin experience the forecast flags separately:
 
