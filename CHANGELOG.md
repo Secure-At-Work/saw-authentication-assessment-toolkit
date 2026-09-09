@@ -1,8 +1,15 @@
 # Changelog
 
-All notable changes to this repository are documented in this file.
+All notable changes to this repository are documented in this file. The format is based on
+[Keep a Changelog](https://keepachangelog.com/), and this project follows
+[Semantic Versioning](https://semver.org/) - see "Versioning" in [README.md](README.md).
 
 ## [Unreleased]
+
+## [1.0.0] - 2026-09-09
+
+First versioned checkpoint - all prior work up to this date, previously accumulated under
+`[Unreleased]`, is captured here retroactively.
 
 ### Added
 - Added a customer-facing transition runbook in [docs/ist-to-soll-summary.md](docs/ist-to-soll-summary.md) under "Smooth Transition Playbook (including temporary exceptions)".
@@ -25,3 +32,6 @@ All notable changes to this repository are documented in this file.
 ### Notes
 - A fresh sample dashboard was regenerated after these updates to verify the new guidance appears in rendered report output.
 - The public blog post ([docs/blog-ist-to-soll-authentication.md](docs/blog-ist-to-soll-authentication.md)) and the SAW Internal Runbook received dated "Update" sections and in-place strikethrough corrections matching the changes above, keeping already-published claims that remain accurate untouched.
+
+[Unreleased]: https://github.com/Secure-At-Work/saw-authentication-assessment-toolkit/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Secure-At-Work/saw-authentication-assessment-toolkit/releases/tag/v1.0.0

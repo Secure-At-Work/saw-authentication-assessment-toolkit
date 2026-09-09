@@ -42,6 +42,20 @@ history/            Per-tenant, per-run JSON result snapshots for drift comparis
 No CI - this is a toolkit you clone and run yourself. `PSScriptAnalyzerSettings.psd1` at the repo
 root documents the lint rules deliberately excluded (and why) if you run PSScriptAnalyzer locally.
 
+## Versioning
+
+This repository follows [Semantic Versioning](https://semver.org/) - the current version lives in
+[VERSION](VERSION) and every release is tagged in git (`v1.0.0`, etc.) and recorded in
+[CHANGELOG.md](CHANGELOG.md), which follows the [Keep a Changelog](https://keepachangelog.com/)
+format. Since this toolkit ships by cloning the repo rather than a package feed, "release" means:
+entries accumulate under `## [Unreleased]` in the changelog as changes land, and get moved into a
+new dated `## [x.y.z] - YYYY-MM-DD` section (with `VERSION` bumped and a matching tag pushed) at a
+deliberate checkpoint - not on every commit. Bump the **major** version for a change that alters
+existing rule behavior or report output in a way a past customer engagement would read
+differently (e.g. a rule's Red/Yellow/Green logic changes), **minor** for new rules, collectors, or
+dashboard features, and **patch** for corrections, documentation fixes, and caveat updates that
+don't change what a rule evaluates to.
+
 ## Status
 
 All 8 collectors from spec section 6 are implemented (Authentication Methods, Conditional
