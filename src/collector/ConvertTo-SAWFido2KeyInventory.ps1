@@ -25,6 +25,14 @@ function ConvertTo-SAWFido2KeyInventory {
           center UI offers "+ Add AAGUID > Microsoft Authenticator" as a one-click shortcut when
           building a key-restriction allow-list, so a tenant's configured AAGUIDs will commonly
           include these two even though Authenticator itself isn't a "key" in the hardware sense
+        - Microsoft's own documented AAGUIDs for Windows Hello as a passkey provider ("Microsoft
+          Entra passkey on Windows"), added 2026-09-11
+          (https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-entra-passkeys-on-windows#supported-windows-hello-passkey-aaguids)
+          - three variants (Hardware, VBS Hardware, Software), all device-bound. Distinct from
+          Windows Hello for Business, which registers a different, non-FIDO2 credential during
+          device registration and has no AAGUID here. This closed the one gap
+          ConvertTo-SAWNudgeForecast's qualifying-provider AAGUID list had previously flagged as
+          unverified.
         - SoloKeys' own published metadata statements
           (https://docs.solokeys.dev/metadata-statements/, cross-checked against the raw JSON
           files in the solokeys/solo1 GitHub repo) - covers the Solo1 hardware line (Solo,
@@ -53,8 +61,9 @@ function ConvertTo-SAWFido2KeyInventory {
         simply absent from the table for now - they'll surface as "Unrecognized" like any other
         gap, not silently misattributed to something else.
 
-        Yubico, Feitian, Microsoft Authenticator, and SoloKeys are covered with high confidence
-        (vendor-published sources); one Thales AAGUID is covered with lower confidence (a
+        Yubico, Feitian, Microsoft Authenticator, Windows Hello, and SoloKeys are covered with
+        high confidence (vendor-published sources); one Thales AAGUID is covered with lower
+        confidence (a
         community aggregator, not Thales' own page). Google Titan and other hardware vendors
         not listed above are not yet in the reference table. Same "strong signal, not exhaustive
         proof" caveat as the synced-passkey detection: an unrecognized AAGUID is reported as
@@ -173,6 +182,14 @@ function ConvertTo-SAWFido2KeyInventory {
             # from any synced-passkey provider.
             'de1e552d-db1d-4423-a619-566b625cdc84' = 'Microsoft Authenticator (Android)'
             '90a3ccdf-635c-4729-a248-9b709135078f' = 'Microsoft Authenticator (iOS)'
+
+            # Microsoft Entra passkey on Windows (Windows Hello as a FIDO2 passkey provider),
+            # added 2026-09-11 from Microsoft's own documented AAGUIDs (see .DESCRIPTION) - these
+            # are distinct from Windows Hello for Business, which isn't a passkey/FIDO2 credential
+            # and has no AAGUID of its own in this table.
+            '08987058-cadc-4b81-b6e1-30de50dcbe96' = 'Windows Hello Hardware Authenticator (Microsoft Entra passkey on Windows)'
+            '9ddd1817-af5a-4672-a2b9-3e3dd95000a9' = 'Windows Hello VBS Hardware Authenticator (Microsoft Entra passkey on Windows)'
+            '6028b017-b1d4-4c02-b4b3-afcdafc96bb2' = 'Windows Hello Software Authenticator (Microsoft Entra passkey on Windows)'
 
             # SoloKeys hardware FIDO2 keys (Solo1 line), from SoloKeys' own published metadata
             # statements (https://docs.solokeys.dev/metadata-statements/, cross-checked against

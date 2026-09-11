@@ -65,6 +65,21 @@ Describe 'ConvertTo-SAWFido2KeyInventory' {
         $result.AllowedKeys | ForEach-Object { $_.Recognized | Should -BeTrue }
     }
 
+    It 'resolves all three documented Microsoft Entra passkey on Windows (Windows Hello) AAGUIDs' {
+        $raw = @{
+            state           = 'enabled'
+            keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('08987058-cadc-4b81-b6e1-30de50dcbe96', '9ddd1817-af5a-4672-a2b9-3e3dd95000a9', '6028b017-b1d4-4c02-b4b3-afcdafc96bb2') }
+        }
+
+        $result = $raw | ConvertTo-SAWFido2KeyInventory
+
+        $result.AllowedKeys.Count | Should -Be 3
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq '08987058-cadc-4b81-b6e1-30de50dcbe96' }).KnownName | Should -Match 'Windows Hello Hardware Authenticator'
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq '9ddd1817-af5a-4672-a2b9-3e3dd95000a9' }).KnownName | Should -Match 'Windows Hello VBS Hardware Authenticator'
+        ($result.AllowedKeys | Where-Object { $_.Aaguid -eq '6028b017-b1d4-4c02-b4b3-afcdafc96bb2' }).KnownName | Should -Match 'Windows Hello Software Authenticator'
+        $result.AllowedKeys | ForEach-Object { $_.Recognized | Should -BeTrue }
+    }
+
     It 'resolves all three known SoloKeys Solo1-line AAGUIDs to their readable names' {
         $raw = @{
             state           = 'enabled'

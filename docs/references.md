@@ -304,25 +304,28 @@ allow-list, not any AAGUID - a tenant restricted to, say, only Yubico AAGUIDs re
 under Microsoft managed, matching neither the old blanket-suppression claim nor a blanket
 inclusion.
 
-Practical effect on this toolkit, FIXED 2026-09-09: `ConvertTo-SAWNudgeForecast.ps1`'s suppressor
-logic (`src/collector/ConvertTo-SAWNudgeForecast.ps1`, the `$suppressors` block) previously
-implemented the now-superseded rule - it treated `PASS001`/`PASS002` enforcement and a
-device-bound/synced-only default passkey profile as unconditionally suppressing the passkey nudge.
-This was a functional prediction bug, not just a documentation gap. Corrected: attestation
-enforcement, AAGUID key restrictions with a recognized qualifying-provider AAGUID on the allow
-list, and a device-bound-only or synced-only default profile no longer suppress the nudge. The
-only remaining suppressor is an AAGUID allow-list restriction, without attestation also enforced,
-whose configured AAGUIDs don't match this toolkit's own AAGUID reference table (three of
-Microsoft's four qualifying providers are verified there - iCloud Keychain, Google Password
-Manager, Microsoft Authenticator; no verified AAGUID for "Microsoft Entra passkey on Windows" was
-found, so that specific suppressor is worded as "likely" rather than certain, and says so in the
-forecast output). RCAMP001, PASS001, PASS002's `Recommendation` text, and the nudge-forecast
-collector logic are now all consistent with the corrected Microsoft managed eligibility table.
-Tests updated in `tests/collector/ConvertTo-SAWNudgeForecast.Tests.ps1`.
+Practical effect on this toolkit, FIXED 2026-09-09, AAGUID gap closed 2026-09-11:
+`ConvertTo-SAWNudgeForecast.ps1`'s suppressor logic (`src/collector/ConvertTo-SAWNudgeForecast.ps1`,
+the `$suppressors` block) previously implemented the now-superseded rule - it treated
+`PASS001`/`PASS002` enforcement and a device-bound/synced-only default passkey profile as
+unconditionally suppressing the passkey nudge. This was a functional prediction bug, not just a
+documentation gap. Corrected: attestation enforcement, AAGUID key restrictions with a recognized
+qualifying-provider AAGUID on the allow list, and a device-bound-only or synced-only default
+profile no longer suppress the nudge. The only remaining suppressor is an AAGUID allow-list
+restriction, without attestation also enforced, whose configured AAGUIDs match none of Microsoft's
+four qualifying providers - all four are now verified in this toolkit's own AAGUID reference table
+(iCloud Keychain, Google Password Manager, Microsoft Authenticator, and - closing the gap this note
+originally flagged - Microsoft Entra passkey on Windows, via the three Windows Hello passkey
+AAGUIDs Microsoft documents at
+[how-to-authentication-entra-passkeys-on-windows#supported-windows-hello-passkey-aaguids](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-entra-passkeys-on-windows#supported-windows-hello-passkey-aaguids)
+(ms.date 2026-07-05, updated 2026-09-03)). RCAMP001, PASS001, PASS002's `Recommendation` text, and
+the nudge-forecast collector logic are now all consistent with the corrected Microsoft managed
+eligibility table, with no remaining unverified provider. Tests updated in
+`tests/collector/ConvertTo-SAWNudgeForecast.Tests.ps1`.
 
 Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign)
 (ms.date 2026-09-02, updated 2026-09-04) + [MC1469555](https://mc.merill.net/message/MC1469555).
-Verified 2026-09-09.
+Verified 2026-09-09; AAGUID source verified 2026-09-11.
 
 On the broken admin experience the forecast flags separately:
 
@@ -1032,6 +1035,7 @@ itself, not just here.
 | Feitian (ePass, BioPass, MultiPass, AllinPass, iePass, cards) | [FEITIAN FIDO products](https://fido.ftsafe.com/products/) | Vendor-published | 2026-08-07 |
 | SoloKeys (Solo, Solo Tap, Somu) | [SoloKeys metadata statements](https://docs.solokeys.dev/metadata-statements/) + [solokeys/solo1 repo](https://github.com/solokeys/solo1/tree/master/metadata) | Vendor-published | 2026-08-07 |
 | Microsoft Authenticator (Android, iOS) | [Authenticator AAGUIDs](https://learn.microsoft.com/entra/identity/authentication/how-to-enable-authenticator-passkey#authenticator-aaguids) | Vendor-published | 2026-08-07 |
+| Microsoft Entra passkey on Windows / Windows Hello (Hardware, VBS Hardware, Software) | [Supported Windows Hello passkey AAGUIDs](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-entra-passkeys-on-windows#supported-windows-hello-passkey-aaguids) | Vendor-published | 2026-09-11 |
 | Synced passkey providers + browser credential stores | [passkeydeveloper/passkey-authenticator-aaguids](https://github.com/passkeydeveloper/passkey-authenticator-aaguids/blob/main/aaguid.json) | Community-maintained | 2026-08-07 |
 | Thales (IDPrime FIDO Bio) | Same community list as above | **Community only** - no Thales-published source found | 2026-08-07 |
 | Google Titan | **None found** | Not covered - see below | 2026-08-07 |

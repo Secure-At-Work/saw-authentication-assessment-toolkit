@@ -138,6 +138,12 @@ Describe 'ConvertTo-SAWNudgeForecast' {
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
+        It 'does NOT suppress the passkey campaign when the allow-list includes a Windows Hello passkey AAGUID (Microsoft Entra passkey on Windows, the fourth qualifying provider)' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('08987058-cadc-4b81-b6e1-30de50dcbe96'))
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+        }
+
         It 'suppresses the campaign when a Conditional Access policy blocks the registration page' {
             $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy) -SecurityInfoRegistrationBlockedByCa $true
 

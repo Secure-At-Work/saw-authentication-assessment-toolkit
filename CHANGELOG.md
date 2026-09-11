@@ -6,6 +6,11 @@ All notable changes to this repository are documented in this file. The format i
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-11
+
+### Fixed
+- Closed the last unverified-provider gap in the nudge-forecast/FIDO2 AAGUID reference tables: added the three documented "Microsoft Entra passkey on Windows" (Windows Hello) AAGUIDs - Hardware, VBS Hardware, and Software authenticators - to [ConvertTo-SAWFido2KeyInventory.ps1](src/collector/ConvertTo-SAWFido2KeyInventory.ps1) and [ConvertTo-SAWNudgeForecast.ps1](src/collector/ConvertTo-SAWNudgeForecast.ps1), per Microsoft's [how-to-authentication-entra-passkeys-on-windows](https://learn.microsoft.com/entra/identity/authentication/how-to-authentication-entra-passkeys-on-windows#supported-windows-hello-passkey-aaguids) page. All four of Microsoft's qualifying passkey providers for the Microsoft managed registration campaign nudge (MC1469555) are now verified, removing the "likely" hedge the 1.0.0 fix had to carry for this one provider. Added corresponding tests in [ConvertTo-SAWFido2KeyInventory.Tests.ps1](tests/collector/ConvertTo-SAWFido2KeyInventory.Tests.ps1) and [ConvertTo-SAWNudgeForecast.Tests.ps1](tests/collector/ConvertTo-SAWNudgeForecast.Tests.ps1).
+
 ## [1.0.0] - 2026-09-09
 
 First versioned checkpoint - all prior work up to this date, previously accumulated under
@@ -33,5 +38,6 @@ First versioned checkpoint - all prior work up to this date, previously accumula
 - A fresh sample dashboard was regenerated after these updates to verify the new guidance appears in rendered report output.
 - The public blog post ([docs/blog-ist-to-soll-authentication.md](docs/blog-ist-to-soll-authentication.md)) and the SAW Internal Runbook received dated "Update" sections and in-place strikethrough corrections matching the changes above, keeping already-published claims that remain accurate untouched.
 
-[Unreleased]: https://github.com/Secure-At-Work/saw-authentication-assessment-toolkit/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Secure-At-Work/saw-authentication-assessment-toolkit/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Secure-At-Work/saw-authentication-assessment-toolkit/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/Secure-At-Work/saw-authentication-assessment-toolkit/releases/tag/v1.0.0
