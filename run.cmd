@@ -29,7 +29,8 @@ echo   4. Run against a live tenant (install missing modules first)
 echo   5. Run against a live tenant (force fresh sign-in - just activated a PIM role)
 echo   6. Run against a live tenant (force fresh sign-in + device code)
 echo   7. Compare two previous runs for a tenant (drift report)
-echo   8. Custom - pass your own arguments straight through
+echo   8. Pilot: freeze SMS/voice MFA to current users only
+echo   9. Custom - pass your own arguments straight through
 echo   0. Exit
 echo.
 set "CHOICE="
@@ -42,7 +43,8 @@ if "%CHOICE%"=="4" goto :live_install
 if "%CHOICE%"=="5" goto :live_forcereauth
 if "%CHOICE%"=="6" goto :live_devicecode
 if "%CHOICE%"=="7" goto :drift
-if "%CHOICE%"=="8" goto :custom
+if "%CHOICE%"=="8" goto :sms_pilot
+if "%CHOICE%"=="9" goto :custom
 if "%CHOICE%"=="0" exit /b 0
 
 echo.
@@ -112,6 +114,15 @@ if "%SLUG%"=="" (
     goto :menu
 )
 pwsh -NoLogo -File "src\Invoke-SAWDriftReport.ps1" -TenantSlug "%SLUG%"
+goto :done
+
+:sms_pilot
+echo.
+echo Pilot-safe freeze: restrict SMS/voice auth to users who currently have it, using a
+
+echo dedicated security group and a dry-run first.
+echo.
+pwsh -NoLogo -File "src\Invoke-SAWSmsFreezePilot.ps1" -DryRun -Verbose
 goto :done
 
 :custom

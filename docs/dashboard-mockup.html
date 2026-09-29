@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Authentication Assessment | Contoso Ltd</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --canvas: #f2f5f7;
+      --surface: #ffffff;
+      --surface-quiet: #f7f9fa;
+      --ink: #18252f;
+      --muted: #5d6c77;
+      --faint: #73818a;
+      --line: #d9e0e4;
+      --line-strong: #bdc9d0;
+      --brand: #087e9a;
+      --brand-strong: #075a70;
+      --brand-wash: #e4f2f5;
+      --red: #a83235;
+      --red-wash: #f9e9e8;
+      --amber: #855600;
+      --amber-wash: #fff2d6;
+      --green: #176b4d;
+      --green-wash: #e4f3eb;
+      --gray: #59656d;
+      --gray-wash: #e9eef0;
+      --shadow: 0 1px 2px rgba(24, 37, 47, 0.05);
+      --radius: 5px;
+      --font: "Segoe UI Variable", "Segoe UI", Aptos, sans-serif;
+    }
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --canvas: #121a20;
+      --surface: #1b252d;
+      --surface-quiet: #202d36;
+      --ink: #e7edf0;
+      --muted: #b4c0c7;
+      --faint: #91a0a9;
+      --line: #35434c;
+      --line-strong: #51616b;
+      --brand: #65c3d6;
+      --brand-strong: #9bddea;
+      --brand-wash: #203943;
+      --red: #ffaaa4;
+      --red-wash: #482b2c;
+      --amber: #f3c46e;
+      --amber-wash: #44371f;
+      --green: #8ed2b1;
+      --green-wash: #203b31;
+      --gray: #c0c9ce;
+      --gray-wash: #303c44;
+      --shadow: none;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 14px/1.5 var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input, select { font: inherit; }
+    button { color: inherit; }
+    a { color: var(--brand-strong); text-underline-offset: 3px; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      min-height: 58px;
+      align-items: center;
+      gap: 26px;
+      padding: 0 28px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+    }
+    .brand-lockup { display: flex; align-items: center; gap: 12px; min-width: 230px; }
+    .brand-lockup img { display: block; width: 104px; height: auto; }
+    .brand-divider { height: 24px; border-left: 1px solid var(--line-strong); }
+    .product-name { color: var(--muted); font-size: 13px; font-weight: 600; }
+    .primary-nav { display: flex; align-self: stretch; align-items: stretch; gap: 3px; }
+    .nav-button {
+      position: relative;
+      border: 0;
+      border-radius: 0;
+      padding: 0 14px;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .nav-button:hover { color: var(--ink); background: var(--surface-quiet); }
+    .nav-button[aria-selected="true"] { color: var(--brand-strong); }
+    .nav-button[aria-selected="true"]::after {
+      position: absolute;
+      right: 12px;
+      bottom: -1px;
+      left: 12px;
+      height: 3px;
+      background: var(--brand);
+      content: "";
+    }
+    .topbar-spacer { flex: 1; }
+    .run-date { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .topbar-action {
+      min-height: 34px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      padding: 0 11px;
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .topbar-action:hover { background: var(--surface-quiet); }
+    .page { width: min(1360px, 100%); margin: 0 auto; padding: 28px 34px 64px; }
+    .concept-label {
+      margin: 0 0 8px;
+      color: var(--brand-strong);
+      font-size: 10px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }
+    .report-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 22px;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 5px; font-size: 30px; line-height: 1.15; font-weight: 680; }
+    .tenant-subline { margin: 0; color: var(--muted); font-size: 13px; }
+    .tenant-id { color: var(--faint); font-size: 12px; }
+    .report-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px 20px; color: var(--muted); font-size: 12px; }
+    .report-meta strong { color: var(--ink); font-weight: 650; }
+    .report-meta a { color: var(--brand-strong); }
+    .status-band {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      margin-bottom: 25px;
+      padding: 15px 0;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .metric { padding: 0 20px; border-right: 1px solid var(--line); }
+    .metric:last-child { border-right: 0; }
+    .metric-label { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; font-weight: 650; }
+    .metric-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gray); }
+    .metric.red .metric-dot { background: var(--red); }
+    .metric.amber .metric-dot { background: #b17b13; }
+    .metric.green .metric-dot { background: var(--green); }
+    .metric.gray .metric-dot { background: var(--gray); }
+    .metric-value { display: block; margin-top: 2px; font-size: 23px; line-height: 1.15; font-variant-numeric: tabular-nums; font-weight: 680; }
+    .metric.red .metric-value { color: var(--red); }
+    .metric.amber .metric-value { color: var(--amber); }
+    .metric.green .metric-value { color: var(--green); }
+    .metric.gray .metric-value { color: var(--gray); }
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    .section-heading h2 { margin: 0; font-size: 17px; font-weight: 680; }
+    .section-heading p { margin: 0; color: var(--muted); font-size: 12px; }
+    .overview-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.9fr); gap: 22px; }
+    .posture-panel, .priority-panel, .deadline-panel, .roadmap-panel, .table-panel, .journey-panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .posture-panel, .priority-panel { padding: 19px 20px; }
+    .posture-panel h2, .priority-panel h2 { margin: 0 0 3px; font-size: 16px; font-weight: 680; }
+    .panel-subtitle { margin: 0; color: var(--muted); font-size: 12px; }
+    .posture-bar { display: flex; width: 100%; height: 10px; overflow: hidden; margin: 23px 0 16px; border-radius: 2px; background: var(--gray-wash); }
+    .posture-bar span { display: block; height: 100%; }
+    .bar-red { width: 22.6%; background: #bd4b4b; }
+    .bar-amber { width: 32.3%; background: #d59a2d; }
+    .bar-green { width: 29%; background: #32936e; }
+    .bar-gray { width: 16.1%; background: #87939a; }
+    .posture-legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+    .legend-item { color: var(--muted); font-size: 11px; }
+    .legend-item strong { display: block; margin-top: 2px; color: var(--ink); font-size: 15px; font-weight: 650; }
+    .posture-note { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    .priority-panel { border-top: 3px solid var(--red); }
+    .priority-list { margin: 13px 0 0; padding: 0; list-style: none; }
+    .priority-list li { display: grid; grid-template-columns: 27px 1fr auto; align-items: start; gap: 9px; padding: 11px 0; border-top: 1px solid var(--line); }
+    .priority-num { color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .priority-title { display: block; color: var(--ink); font-size: 13px; font-weight: 650; }
+    .priority-detail { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .rule-link { color: var(--brand-strong); font-size: 11px; font-weight: 700; text-decoration: none; }
+    .priority-more { display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 650; }
+    .deadline-panel, .roadmap-panel, .table-panel { margin-top: 23px; padding: 18px 20px; }
+    .deadline-list { margin: 4px 0 0; padding: 0; list-style: none; }
+    .deadline-row {
+      display: grid;
+      grid-template-columns: 122px minmax(0, 1fr) minmax(160px, 0.55fr) 85px;
+      align-items: center;
+      gap: 15px;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+    .deadline-date { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 650; }
+    .deadline-date small { display: block; color: var(--faint); font-size: 10px; font-weight: 500; }
+    .deadline-title { font-size: 13px; font-weight: 620; }
+    .deadline-rules, .deadline-impact { color: var(--muted); font-size: 11px; }
+    .deadline-impact { text-align: right; font-variant-numeric: tabular-nums; }
+    .roadmap-track { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 16px; }
+    .phase { position: relative; padding: 0 12px 0 0; }
+    .phase::before { display: block; width: 9px; height: 9px; margin-bottom: 9px; border: 2px solid var(--line-strong); border-radius: 50%; background: var(--surface); content: ""; }
+    .phase:not(:last-child)::after { position: absolute; top: 3px; left: 9px; right: 10px; border-top: 1px solid var(--line-strong); content: ""; }
+    .phase.done::before { border-color: var(--green); background: var(--green); }
+    .phase.current::before { border-color: var(--brand); background: var(--surface); box-shadow: 0 0 0 3px var(--brand-wash); }
+    .phase-name { position: relative; z-index: 1; display: block; font-size: 11px; font-weight: 650; }
+    .phase-state { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .table-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 11px 0; }
+    .table-tools { display: flex; flex-wrap: wrap; gap: 8px; }
+    .field {
+      min-height: 35px;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      padding: 0 10px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 12px;
+    }
+    .field:focus { outline: 2px solid var(--brand); outline-offset: 1px; }
+    .findings-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .findings-table th { padding: 9px 10px; border-bottom: 1px solid var(--line-strong); color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .findings-table td { padding: 11px 10px; border-bottom: 1px solid var(--line); vertical-align: top; font-size: 12px; }
+    .findings-table tbody tr:hover { background: var(--surface-quiet); }
+    .rule-id { color: var(--brand-strong); font-size: 11px; font-weight: 750; white-space: nowrap; }
+    .finding-name { display: block; font-weight: 650; }
+    .finding-rec { display: block; margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .status-text { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 11px; font-weight: 650; }
+    .status-text::before { width: 7px; height: 7px; border-radius: 50%; background: currentColor; content: ""; }
+    .status-red { color: var(--red); }
+    .status-amber { color: var(--amber); }
+    .status-green { color: var(--green); }
+    .hidden-view[hidden] { display: none !important; }
+    .journey-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .journey-panel { padding: 18px; }
+    .journey-panel h2 { margin: 0 0 3px; font-size: 15px; }
+    .journey-panel > p { margin: 0; color: var(--muted); font-size: 12px; }
+    .journey-steps { display: flex; align-items: center; gap: 6px; margin: 20px 0 12px; }
+    .journey-step { flex: 1; min-width: 0; color: var(--muted); font-size: 10px; text-align: center; }
+    .journey-step b { display: block; width: 20px; height: 20px; margin: 0 auto 5px; border: 1px solid var(--line-strong); border-radius: 50%; background: var(--surface); line-height: 18px; font-size: 10px; }
+    .journey-step.complete b { border-color: var(--green); background: var(--green-wash); color: var(--green); }
+    .journey-step.risk b { border-color: var(--red); background: var(--red-wash); color: var(--red); }
+    .journey-arrow { color: var(--line-strong); font-size: 11px; }
+    .journey-note { margin: 0; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+    .inventory-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .inventory-table th, .inventory-table td { padding: 11px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .inventory-table th { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+    .tag { display: inline-block; border-radius: 3px; padding: 2px 7px; background: var(--brand-wash); color: var(--brand-strong); font-size: 10px; font-weight: 700; }
+    .page-foot { margin-top: 28px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--faint); font-size: 11px; }
+    @media (max-width: 900px) {
+      .topbar { gap: 14px; padding: 0 16px; }
+      .brand-lockup { min-width: auto; }
+      .product-name, .brand-divider { display: none; }
+      .page { padding: 23px 20px 48px; }
+      .overview-grid { grid-template-columns: 1fr; }
+      .deadline-row { grid-template-columns: 100px 1fr 120px; }
+      .deadline-rules { display: none; }
+    }
+    @media (max-width: 620px) {
+      .topbar { flex-wrap: wrap; gap: 0; padding: 0 12px; }
+      .brand-lockup { min-height: 48px; }
+      .brand-lockup img { width: 88px; }
+      .topbar-spacer { flex: 1; }
+      .run-date { display: none; }
+      .topbar-action { min-height: 32px; margin-left: 8px; }
+      .primary-nav { order: 3; width: 100%; height: 43px; overflow-x: auto; }
+      .nav-button { flex: 0 0 auto; padding: 0 11px; font-size: 12px; }
+      .page { padding: 20px 14px 38px; }
+      .report-head { display: block; }
+      h1 { font-size: 26px; }
+      .report-meta { justify-content: flex-start; margin-top: 12px; }
+      .status-band { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 5px 0; }
+      .metric { padding: 11px 14px; border-bottom: 1px solid var(--line); }
+      .metric:nth-child(2n) { border-right: 0; }
+      .metric:last-child { grid-column: 1 / -1; border-bottom: 0; }
+      .posture-legend { grid-template-columns: repeat(2, 1fr); }
+      .deadline-row { grid-template-columns: 84px minmax(0, 1fr) 74px; gap: 8px; }
+      .deadline-title { font-size: 12px; }
+      .deadline-impact { font-size: 10px; }
+      .roadmap-track { grid-template-columns: 1fr; gap: 12px; }
+      .phase { display: grid; grid-template-columns: 20px 1fr; column-gap: 9px; padding: 0; }
+      .phase::before { grid-row: span 2; margin: 2px 0 0; }
+      .phase:not(:last-child)::after { top: 10px; bottom: -13px; left: 4px; right: auto; border-top: 0; border-left: 1px solid var(--line-strong); }
+      .phase-name, .phase-state { grid-column: 2; }
+      .table-toolbar { align-items: stretch; }
+      .table-tools { width: 100%; }
+      .field { flex: 1; min-width: 0; }
+      .findings-table th:nth-child(2), .findings-table td:nth-child(2) { display: none; }
+      .findings-table th, .findings-table td { padding: 9px 6px; }
+      .journey-grid { grid-template-columns: 1fr; }
+      .inventory-table th:nth-child(2), .inventory-table td:nth-child(2) { display: none; }
+    }
+    @media print {
+      .topbar { position: static; }
+      .topbar-action, .primary-nav, .table-toolbar { display: none !important; }
+      body { background: #fff; color: #18252f; }
+      .page { width: 100%; padding: 10px; }
+      .hidden-view[hidden] { display: none !important; }
+      .posture-panel, .priority-panel, .deadline-panel, .roadmap-panel, .table-panel, .journey-panel { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-lockup">
+      <img src="../src/dashboard/branding/secure-at-work-logo.png" alt="Secure At Work">
+      <span class="brand-divider" aria-hidden="true"></span>
+      <span class="product-name">Authentication assessment</span>
+    </div>
+    <nav class="primary-nav" aria-label="Report sections">
+      <button class="nav-button" type="button" data-view="overview" aria-selected="true">Overview</button>
+      <button class="nav-button" type="button" data-view="findings" aria-selected="false">Plan &amp; findings</button>
+      <button class="nav-button" type="button" data-view="journeys" aria-selected="false">User journeys</button>
+      <button class="nav-button" type="button" data-view="inventory" aria-selected="false">Policy inventory</button>
+    </nav>
+    <span class="topbar-spacer"></span>
+    <span class="run-date">Sample run · 27 Sep 2026</span>
+    <button class="topbar-action" id="theme-toggle" type="button" aria-pressed="false">Dark mode</button>
+    <button class="topbar-action" id="print-report" type="button">Print</button>
+  </header>
+
+  <main class="page">
+    <div class="report-head">
+      <div>
+        <p class="concept-label">Design concept · illustrative sample data</p>
+        <h1>Contoso Ltd</h1>
+        <p class="tenant-subline">Microsoft Entra ID <span class="tenant-id">· aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee</span></p>
+      </div>
+      <div class="report-meta">
+        <span><strong>Assessed</strong> 27 Sep 2026, 12:31</span>
+        <span><strong>Baseline</strong> Hybrid AD, passwords required</span>
+        <a href="../CHANGELOG.md">Sources &amp; change notes</a>
+      </div>
+    </div>
+
+    <section class="status-band" aria-label="Assessment summary">
+      <div class="metric"><span class="metric-label">Checks</span><strong class="metric-value">31</strong></div>
+      <div class="metric red"><span class="metric-label"><span class="metric-dot"></span>Needs action</span><strong class="metric-value">7</strong></div>
+      <div class="metric amber"><span class="metric-label"><span class="metric-dot"></span>Review</span><strong class="metric-value">10</strong></div>
+      <div class="metric green"><span class="metric-label"><span class="metric-dot"></span>Meets target</span><strong class="metric-value">9</strong></div>
+      <div class="metric gray"><span class="metric-label"><span class="metric-dot"></span>Not applicable</span><strong class="metric-value">5</strong></div>
+    </section>
+
+    <section class="view" id="view-overview" aria-labelledby="overview-title">
+      <div class="overview-grid">
+        <section class="posture-panel">
+          <h2 id="overview-title">Assessment posture</h2>
+          <p class="panel-subtitle">31 checks across authentication, registration, and access policy</p>
+          <div class="posture-bar" role="img" aria-label="7 needs action, 10 review, 9 meet target, 5 not applicable">
+            <span class="bar-red"></span><span class="bar-amber"></span><span class="bar-green"></span><span class="bar-gray"></span>
+          </div>
+          <div class="posture-legend">
+            <div class="legend-item">Needs action<strong>7 checks</strong></div>
+            <div class="legend-item">Review<strong>10 checks</strong></div>
+            <div class="legend-item">Meets target<strong>9 checks</strong></div>
+            <div class="legend-item">Not applicable<strong>5 checks</strong></div>
+          </div>
+          <p class="posture-note">Highest priority: admin MFA coverage, legacy policy migration, and phishing-resistant sign-in.</p>
+        </section>
+
+        <section class="priority-panel" aria-labelledby="priority-title">
+          <h2 id="priority-title">Address first</h2>
+          <p class="panel-subtitle">Highest-impact open findings</p>
+          <ol class="priority-list">
+            <li><span class="priority-num">01</span><span><span class="priority-title">Privileged admins missing MFA capability</span><span class="priority-detail">Close coverage gaps before enforcing broader access controls.</span></span><a class="rule-link" href="#findings" data-open-view="findings">REG001</a></li>
+            <li><span class="priority-num">02</span><span><span class="priority-title">FIDO2 is not enabled</span><span class="priority-detail">Establish phishing-resistant sign-in and a safe registration path.</span></span><a class="rule-link" href="#findings" data-open-view="findings">AUTH004</a></li>
+            <li><span class="priority-num">03</span><span><span class="priority-title">Legacy MFA/SSPR policy migration incomplete</span><span class="priority-detail">Confirm the active policy source before retiring legacy settings.</span></span><a class="rule-link" href="#findings" data-open-view="findings">AUTH007</a></li>
+          </ol>
+          <a class="priority-more" href="#findings" data-open-view="findings">View findings and roadmap</a>
+        </section>
+      </div>
+
+      <section class="deadline-panel" aria-labelledby="deadline-title">
+        <div class="section-heading"><h2 id="deadline-title">Microsoft timeline</h2><p>Dates relevant to this tenant</p></div>
+        <ul class="deadline-list">
+          <li class="deadline-row"><span class="deadline-date">01 Sep 2026<small>Passed · 26 days ago</small></span><span class="deadline-title">Automatic passkey enablement for SMS/Voice users</span><span class="deadline-rules">AUTH006 · AUTH002 · AUTH003</span><span class="deadline-impact">2 users</span></li>
+          <li class="deadline-row"><span class="deadline-date">30 Sep 2026<small>Expected rollout completion</small></span><span class="deadline-title">Managed registration campaign eligibility changes</span><span class="deadline-rules">RCAMP001 · RCAMP002</span><span class="deadline-impact">Review</span></li>
+          <li class="deadline-row"><span class="deadline-date">01 Feb 2027<small>Upcoming · 127 days</small></span><span class="deadline-title">SMS/Voice-only users required to register a passkey</span><span class="deadline-rules">AUTH002 · AUTH003</span><span class="deadline-impact">1 user</span></li>
+        </ul>
+      </section>
+
+      <section class="roadmap-panel" aria-labelledby="roadmap-title">
+        <div class="section-heading"><h2 id="roadmap-title">Remediation roadmap</h2><a class="rule-link" href="#findings" data-open-view="findings">Open full plan</a></div>
+        <div class="roadmap-track" aria-label="Five remediation phases">
+          <div class="phase done"><span class="phase-name">Foundation</span><span class="phase-state">3 of 4 complete</span></div>
+          <div class="phase current"><span class="phase-name">Phishing-resistant capability</span><span class="phase-state">2 open</span></div>
+          <div class="phase"><span class="phase-name">Registration coverage</span><span class="phase-state">3 open</span></div>
+          <div class="phase"><span class="phase-name">Retire weak fallback</span><span class="phase-state">Blocked by coverage</span></div>
+          <div class="phase"><span class="phase-name">Enforce with access policy</span><span class="phase-state">Blocked by coverage</span></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" id="view-findings" aria-labelledby="findings-title" hidden>
+      <div class="section-heading"><div><h2 id="findings-title">Plan &amp; findings</h2><p>Ordered by severity and remediation phase</p></div><span class="tag">31 checks · 17 open</span></div>
+      <section class="roadmap-panel">
+        <div class="section-heading"><h2>Remediation phases</h2><p>Resolve earlier dependencies before later controls</p></div>
+        <div class="roadmap-track">
+          <div class="phase done"><span class="phase-name">Foundation</span><span class="phase-state">3 of 4 complete</span></div>
+          <div class="phase current"><span class="phase-name">Phishing-resistant capability</span><span class="phase-state">2 open</span></div>
+          <div class="phase"><span class="phase-name">Registration coverage</span><span class="phase-state">3 open</span></div>
+          <div class="phase"><span class="phase-name">Retire weak fallback</span><span class="phase-state">Blocked</span></div>
+          <div class="phase"><span class="phase-name">Enforce with access policy</span><span class="phase-state">Blocked</span></div>
+        </div>
+      </section>
+      <section class="table-panel">
+        <div class="table-toolbar">
+          <div class="section-heading"><div><h2>Open findings</h2><p>Filter by rule, category, or recommendation</p></div></div>
+          <div class="table-tools"><input class="field" id="finding-search" type="search" placeholder="Search findings" aria-label="Search findings"><select class="field" id="severity-filter" aria-label="Filter by severity"><option value="">All severities</option><option>High</option><option>Medium</option><option>Low</option></select></div>
+        </div>
+        <div class="table-scroll"><table class="findings-table"><thead><tr><th>Rule</th><th>Category</th><th>Finding and next step</th><th>Severity</th><th>Status</th></tr></thead>
+          <tbody id="finding-rows">
+            <tr data-severity="High"><td><span class="rule-id">REG001</span></td><td>Registration</td><td><span class="finding-name">Privileged admins missing MFA capability</span><span class="finding-rec">Prioritize admin enrollment and verify each registered method is allowed by policy.</span></td><td>High</td><td><span class="status-text status-red">Needs action</span></td></tr>
+            <tr data-severity="High"><td><span class="rule-id">AUTH004</span></td><td>Authentication</td><td><span class="finding-name">FIDO2 is not enabled</span><span class="finding-rec">Enable passkeys with an appropriate bootstrap and profile strategy.</span></td><td>High</td><td><span class="status-text status-red">Needs action</span></td></tr>
+            <tr data-severity="High"><td><span class="rule-id">AUTH007</span></td><td>Authentication</td><td><span class="finding-name">Legacy MFA/SSPR policy migration incomplete</span><span class="finding-rec">Inventory legacy settings before completing the migration.</span></td><td>High</td><td><span class="status-text status-red">Needs action</span></td></tr>
+            <tr data-severity="High"><td><span class="rule-id">CA002</span></td><td>Conditional Access</td><td><span class="finding-name">MFA is not required for all users</span><span class="finding-rec">Raise registration coverage before enforcement to reduce lockout risk.</span></td><td>High</td><td><span class="status-text status-red">Needs action</span></td></tr>
+            <tr data-severity="Medium"><td><span class="rule-id">REG002</span></td><td>Registration</td><td><span class="finding-name">MFA capability coverage below 90%</span><span class="finding-rec">Investigate users with registered methods that policy no longer permits.</span></td><td>Medium</td><td><span class="status-text status-amber">Review</span></td></tr>
+          </tbody>
+        </table></div>
+      </section>
+    </section>
+
+    <section class="view" id="view-journeys" aria-labelledby="journeys-title" hidden>
+      <div class="section-heading"><div><h2 id="journeys-title">User journeys</h2><p>What people encounter when they register or sign in</p></div></div>
+      <div class="journey-grid">
+        <article class="journey-panel"><h2>New user bootstrap</h2><p>Can a new user establish a phishing-resistant method without help desk intervention?</p><div class="journey-steps"><span class="journey-step complete"><b>1</b>Temporary method</span><span class="journey-arrow">›</span><span class="journey-step complete"><b>2</b>Security info</span><span class="journey-arrow">›</span><span class="journey-step risk"><b>3</b>Passkey</span></div><p class="journey-note">TAP is available; passkey self-service is not enabled.</p></article>
+        <article class="journey-panel"><h2>Existing user re-registration</h2><p>Can users replace a lost method without entering a registration loop?</p><div class="journey-steps"><span class="journey-step complete"><b>1</b>Sign in</span><span class="journey-arrow">›</span><span class="journey-step risk"><b>2</b>Verify</span><span class="journey-arrow">›</span><span class="journey-step"><b>3</b>Replace</span></div><p class="journey-note">Current MFA coverage gaps may leave some users without a strong recovery route.</p></article>
+        <article class="journey-panel"><h2>CA-gated registration</h2><p>Do Conditional Access controls leave an approved path to update security info?</p><div class="journey-steps"><span class="journey-step complete"><b>1</b>Policy scope</span><span class="journey-arrow">›</span><span class="journey-step complete"><b>2</b>TAP path</span><span class="journey-arrow">›</span><span class="journey-step complete"><b>3</b>Register</span></div><p class="journey-note">The observed policies leave a Temporary Access Pass route.</p></article>
+        <article class="journey-panel"><h2>Passkey campaign</h2><p>Will eligible users see a passkey prompt after completing MFA?</p><div class="journey-steps"><span class="journey-step complete"><b>1</b>Complete MFA</span><span class="journey-arrow">›</span><span class="journey-step risk"><b>2</b>Campaign</span><span class="journey-arrow">›</span><span class="journey-step"><b>3</b>Register</span></div><p class="journey-note">The registration campaign is not actively targeting passkeys.</p></article>
+      </div>
+    </section>
+
+    <section class="view" id="view-inventory" aria-labelledby="inventory-title" hidden>
+      <div class="section-heading"><div><h2 id="inventory-title">Policy inventory</h2><p>Observed configuration, separate from pass/fail conclusions</p></div></div>
+      <section class="table-panel">
+        <div class="section-heading"><h2>Authentication methods</h2><p>Tenant policy · read-only inventory</p></div>
+        <div class="table-scroll"><table class="inventory-table"><thead><tr><th>Method</th><th>State</th><th>Targets</th><th>Assessment note</th></tr></thead><tbody>
+          <tr><td>Microsoft Authenticator</td><td><span class="status-text status-green">Enabled</span></td><td>All users</td><td>Push and passwordless modes configured</td></tr>
+          <tr><td>SMS</td><td><span class="status-text status-amber">Enabled</span></td><td>Selected groups</td><td>Fallback method remains in use</td></tr>
+          <tr><td>FIDO2 / passkeys</td><td><span class="status-text status-red">Disabled</span></td><td>None</td><td>Passkey profiles are not currently usable</td></tr>
+          <tr><td>Temporary Access Pass</td><td><span class="status-text status-green">Enabled</span></td><td>All users</td><td>One-time use is not enforced</td></tr>
+        </tbody></table></div>
+      </section>
+      <section class="table-panel">
+        <div class="section-heading"><h2>Conditional Access</h2><p>Selected policy inventory</p></div>
+        <div class="table-scroll"><table class="inventory-table"><thead><tr><th>Policy</th><th>State</th><th>Users</th><th>Grant control</th></tr></thead><tbody>
+          <tr><td>SAW - Require MFA for All Users</td><td><span class="status-text status-amber">Report-only</span></td><td>All users</td><td>Multifactor authentication</td></tr>
+          <tr><td>SAW - Block Legacy Authentication</td><td><span class="status-text status-green">Enabled</span></td><td>All users</td><td>Block</td></tr>
+          <tr><td>SAW - Require Compliant Device for Admins</td><td><span class="status-text status-gray">Disabled</span></td><td>Directory role admins</td><td>Require compliant device</td></tr>
+        </tbody></table></div>
+      </section>
+    </section>
+
+    <footer class="page-foot">Concept mockup · illustrative data only · assessment remains read-only</footer>
+  </main>
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var themeButton = document.getElementById('theme-toggle');
+      var dark = false;
+      try {
+        var saved = localStorage.getItem('saw-mockup-theme');
+        dark = saved ? saved === 'dark' : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      } catch (e) { dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches); }
+      function applyTheme() {
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        themeButton.textContent = dark ? 'Normal mode' : 'Dark mode';
+        themeButton.setAttribute('aria-pressed', dark ? 'true' : 'false');
+      }
+      themeButton.addEventListener('click', function () {
+        dark = !dark;
+        try { localStorage.setItem('saw-mockup-theme', dark ? 'dark' : 'light'); } catch (e) { /* optional preference */ }
+        applyTheme();
+      });
+      applyTheme();
+
+      var viewButtons = Array.prototype.slice.call(document.querySelectorAll('[data-view]'));
+      var views = Array.prototype.slice.call(document.querySelectorAll('.view'));
+      function showView(id) {
+        views.forEach(function (view) { view.hidden = view.id !== 'view-' + id; });
+        viewButtons.forEach(function (button) { button.setAttribute('aria-selected', button.dataset.view === id ? 'true' : 'false'); });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      viewButtons.forEach(function (button) { button.addEventListener('click', function () { showView(button.dataset.view); }); });
+      document.querySelectorAll('[data-open-view]').forEach(function (link) {
+        link.addEventListener('click', function (event) { event.preventDefault(); showView(link.dataset.openView); });
+      });
+      document.getElementById('print-report').addEventListener('click', function () { window.print(); });
+
+      var search = document.getElementById('finding-search');
+      var severity = document.getElementById('severity-filter');
+      function filterFindings() {
+        var query = search.value.trim().toLowerCase();
+        var selectedSeverity = severity.value;
+        document.querySelectorAll('#finding-rows tr').forEach(function (row) {
+          var matchesText = row.textContent.toLowerCase().indexOf(query) !== -1;
+          var matchesSeverity = !selectedSeverity || row.dataset.severity === selectedSeverity;
+          row.hidden = !matchesText || !matchesSeverity;
+        });
+      }
+      search.addEventListener('input', filterFindings);
+      severity.addEventListener('change', filterFindings);
+    })();
+  </script>
+</body>
+</html>

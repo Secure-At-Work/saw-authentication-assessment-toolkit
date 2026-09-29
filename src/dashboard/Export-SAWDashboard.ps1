@@ -278,35 +278,27 @@ function Export-SAWDashboard {
             $trendRowsHtml = foreach ($t in $Trend) {
                 @"
       <tr>
-        <td>$(ConvertTo-SAWHtmlEncoded $t.RunTimestamp)</td>
-        <td>$(ConvertTo-SAWHtmlEncoded $t.BaselineName)</td>
-        <td><span class="badge bg-success">$($t.Counts.Green)</span> <span class="badge bg-warning text-dark">$($t.Counts.Yellow)</span> <span class="badge bg-danger">$($t.Counts.Red)</span> <span class="badge bg-secondary">$($t.Counts.Grey)</span></td>
+        <td><strong class="saw-trend-run">$(ConvertTo-SAWHtmlEncoded $t.RunTimestamp)</strong><small class="saw-trend-baseline">$(ConvertTo-SAWHtmlEncoded $t.BaselineName)</small></td>
+        <td><div class="saw-trend-counts"><span class="badge bg-success" title="Green">$($t.Counts.Green)</span><span class="badge bg-warning text-dark" title="Yellow">$($t.Counts.Yellow)</span><span class="badge bg-danger" title="Red">$($t.Counts.Red)</span><span class="badge bg-secondary" title="Grey">$($t.Counts.Grey)</span></div></td>
       </tr>
 "@
             }
 
             $trendSectionHtml = @"
-  <h2 class="h4 mb-3">Trend Over Time</h2>
-  <p class="text-body-secondary small">$(@($Trend).Count) runs for this tenant. The lighter, at-a-glance counterpart to the detailed two-run drift report (<code>Invoke-SAWDriftReport.ps1</code>).</p>
-  <div class="row mb-4 g-3">
-    <div class="col-lg-8">
-      <div class="card h-100"><div class="card-body">
-        <canvas id="trendChart" height="220"></canvas>
-      </div></div>
-    </div>
-    <div class="col-lg-4">
-      <div class="card h-100"><div class="card-body">
-        <div class="table-responsive" style="max-height: 300px;">
-          <table class="table table-sm table-striped align-middle mb-0">
-            <thead><tr><th>Run</th><th>Baseline</th><th>G/Y/R/Grey</th></tr></thead>
-            <tbody>
+  <section class="saw-section saw-trend-section">
+    <div class="saw-section-heading"><div><h2>Trend over time</h2><p>$(@($Trend).Count) runs · status counts by assessment date</p></div><a href="Invoke-SAWDriftReport.ps1" class="small">Compare two runs</a></div>
+    <div class="saw-trend-grid">
+      <div class="saw-trend-chart-panel"><canvas id="trendChart" height="300"></canvas></div>
+      <div class="saw-trend-history-panel">
+        <table class="table table-sm align-middle mb-0 saw-trend-table">
+          <thead><tr><th>Run and baseline</th><th>G / Y / R / Grey</th></tr></thead>
+          <tbody>
 $($trendRowsHtml -join "`n")
-            </tbody>
-          </table>
-        </div>
-      </div></div>
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
+  </section>
 "@
 
             $trendScriptHtml = @"
@@ -323,7 +315,11 @@ $($trendRowsHtml -join "`n")
     },
     options: {
       responsive: true,
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { autoSkip: true, maxTicksLimit: 8, minRotation: 0, maxRotation: 0 } },
+        y: { beginAtZero: true, ticks: { precision: 0 } }
+      },
       plugins: { legend: { position: 'bottom' } }
     }
   });
@@ -795,11 +791,19 @@ $stagedRolloutCaveatsHtml
         else {
             '<span class="badge bg-warning text-dark">Unrecognized</span>'
         }
+      $managedCampaignBadge = if ($k.IsManagedCampaignQualifyingProvider) {
+        '<span class="badge bg-success">Qualifying provider</span>'
+      }
+      else {
+        '<span class="badge bg-secondary">Other</span>'
+      }
         @"
       <tr>
+      <td>$(ConvertTo-SAWHtmlEncoded $k.ProfileName)</td>
         <td><code>$(ConvertTo-SAWHtmlEncoded $k.Aaguid)</code></td>
         <td>$(ConvertTo-SAWHtmlEncoded $k.KnownName)</td>
-        <td>$recognizedBadge</td>
+      <td>$(ConvertTo-SAWHtmlEncoded $k.PasskeyType)</td>
+      <td>$recognizedBadge $managedCampaignBadge</td>
       </tr>
 "@
     }
@@ -808,11 +812,11 @@ $stagedRolloutCaveatsHtml
     if ($Fido2KeyInventory -and $Fido2KeyInventory.IsEnforced) {
         $fido2KeyInventorySectionHtml = @"
   <h2 class="h4 mb-3">FIDO2 Key Restrictions</h2>
-  <p class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $Fido2KeyInventory.EnforcementSummary) AAGUIDs are resolved against a hand-maintained reference list (Yubico hardware keys, confirmed against Yubico's own published AAGUID table, plus common synced-passkey providers) - an unrecognized AAGUID is a real key/provider this toolkit's reference list doesn't yet cover, not necessarily a problem. Check the FIDO Alliance Metadata Service or the vendor directly for anything unrecognized.</p>
+  <p class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $Fido2KeyInventory.EnforcementSummary) $(ConvertTo-SAWHtmlEncoded $Fido2KeyInventory.ProfileTypeGuidance) AAGUIDs are resolved against a hand-maintained reference list; an unrecognized AAGUID is a real key/provider this toolkit's reference list doesn't yet cover, not necessarily a problem. Check the FIDO Alliance Metadata Service or the vendor directly for anything unrecognized. Microsoft-managed nudge eligibility applies only to allow-list restrictions; block-lists do not participate in that check.</p>
   <div class="table-responsive mb-4">
     <table class="table table-striped table-hover align-middle">
       <thead>
-        <tr><th>AAGUID</th><th>Key / Provider</th><th></th></tr>
+        <tr><th>Passkey profile</th><th>AAGUID</th><th>Key / Provider</th><th>Profile type</th><th>Reference</th></tr>
       </thead>
       <tbody>
 $($fido2KeyRowsHtml -join "`n")
@@ -830,7 +834,7 @@ $($fido2KeyRowsHtml -join "`n")
         $nudgeGroups = @(
             @{ Key = 'NudgeAutoPasskeySept2026'; Title = 'Automatic passkey enablement (2026-09-01)'; Count = $ns.AutoPasskeySept2026Count
                Note = 'Microsoft-driven, arrives whether or not this tenant configures its own campaign. Users enabled for SMS/Voice are auto-enabled for passkeys and nudged on their next MFA sign-in, with unlimited snoozes by default. Highest communication priority, because the date is not in your control.' }
-            @{ Key = 'NudgePasskeyCampaign'; Title = 'Registration campaign - passkey'; Count = $ns.PasskeyCampaignCount
+            @{ Key = 'NudgePasskeyCampaign'; Title = 'Registration campaign - passkey'; Count = $ns.PasskeyCampaignPotentialCount
                Note = 'Nudged after completing MFA, if in campaign scope and without a passkey on that device/browser.'
                ScopeSensitive = $true }
             @{ Key = 'NudgeAuthenticatorCampaign'; Title = 'Registration campaign - Microsoft Authenticator'; Count = $ns.AuthenticatorCampaignCount
@@ -844,7 +848,12 @@ $($fido2KeyRowsHtml -join "`n")
 
         $nudgeCardsHtml = foreach ($g in $nudgeGroups) {
             if ($g.Count -eq 0) { continue }
-            $affected = @($NudgeForecast.Users | Where-Object { $_[$g.Key] })
+            $affected = if ($g.Key -eq 'NudgePasskeyCampaign') {
+              @($NudgeForecast.Users | Where-Object { $_[$g.Key] -or $_.NudgePasskeyCampaignUncertain })
+            }
+            else {
+              @($NudgeForecast.Users | Where-Object { $_[$g.Key] })
+            }
             $isBroken = $g.Key -eq 'NudgeSsprBrokenForAdmin'
             $badgeClass = if ($isBroken) { 'bg-danger' } else { 'bg-warning text-dark' }
 
@@ -859,7 +868,9 @@ $($fido2KeyRowsHtml -join "`n")
             # ConvertTo-SAWNudgeForecast.ps1); it previously only reached a generic footer caveat at
             # the bottom of the whole section, disconnected from the specific number it qualifies.
             $scopeUncertainForThisCard = [bool]$g.ScopeSensitive -and $ns.CampaignScopeUncertain
-            $countLabel = if ($scopeUncertainForThisCard) { "up to $($g.Count)" } else { "$($g.Count)" }
+            $profileScopeUncertainForThisCard = $g.Key -eq 'NudgePasskeyCampaign' -and $ns.PasskeyProfileEligibilityUnknownCount -gt 0
+            $confirmedCount = if ($g.Key -eq 'NudgePasskeyCampaign') { $ns.PasskeyCampaignCount } else { $g.Count }
+            $countLabel = if ($scopeUncertainForThisCard) { "up to $($g.Count)" } elseif ($profileScopeUncertainForThisCard) { "$confirmedCount confirmed; up to $($g.Count)" } else { "$($g.Count)" }
             $scopeWarningHtml = ''
             if ($scopeUncertainForThisCard -and $ns.CampaignScopeUncertainReason -eq 'msft-managed-rollout') {
                 $scopeWarningHtml = @"
@@ -874,6 +885,18 @@ $($fido2KeyRowsHtml -join "`n")
         default, mid-transition, or already on the new one. The count and list below assume the
         broader population (all MFA-capable users) as the safer upper bound; the true number
         currently nudged may be smaller if this tenant hasn't reached that stage yet.
+      </div>
+"@
+            }
+
+            $profileScopeWarningHtml = ''
+            if ($profileScopeUncertainForThisCard) {
+                $profileScopeWarningHtml = @"
+      <div class="alert alert-warning small mb-3" role="alert">
+        <strong>Passkey profile eligibility partly unknown.</strong>
+        $($ns.PasskeyProfileEligibilityUnknownCount) user(s) have unresolved profile assignments.
+        The list below contains confirmed eligible users; the badge shows the potential upper bound.
+        Check the FIDO2 target groups if a group membership lookup was unavailable.
       </div>
 "@
             }
@@ -893,11 +916,13 @@ $($fido2KeyRowsHtml -join "`n")
 
             $userRowsHtml = foreach ($u in $affected) {
                 $adminBadge = if ($u.IsAdmin) { ' <span class="badge bg-dark">Admin</span>' } else { '' }
+                    $eligibilityCell = if ($u.NudgePasskeyCampaignUncertain) { '<span class="badge bg-warning text-dark">Profile assignment unknown</span>' } else { '<span class="badge bg-success">Eligible</span>' }
                 @"
         <tr>
           <td>$(ConvertTo-SAWHtmlEncoded $u.DisplayName)$adminBadge</td>
           <td class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $u.UserPrincipalName)</td>
           <td class="text-body-secondary small">$(ConvertTo-SAWHtmlEncoded $u.MethodsRegistered)</td>
+              $(if ($g.Key -eq 'NudgePasskeyCampaign') { "<td>$eligibilityCell</td>" })
         </tr>
 "@
             }
@@ -911,11 +936,12 @@ $($fido2KeyRowsHtml -join "`n")
     <div class="card-body">
       <p class="text-body-secondary small mb-3">$(ConvertTo-SAWHtmlEncoded $g.Note)</p>
 $scopeWarningHtml
+$profileScopeWarningHtml
       <details>
         <summary class="small">Show the $($g.Count) affected user$(if ($g.Count -ne 1) { 's' })</summary>
         <div class="table-responsive mt-2">
           <table class="table table-sm table-striped align-middle">
-            <thead><tr><th>User</th><th>UPN</th><th>Methods registered</th></tr></thead>
+            <thead><tr><th>User</th><th>UPN</th><th>Methods registered</th>$(if ($g.Key -eq 'NudgePasskeyCampaign') { '<th>Profile eligibility</th>' })</tr></thead>
             <tbody>
 $($userRowsHtml -join "`n")
             </tbody>
@@ -1017,6 +1043,42 @@ $caveatItems
     # --- Remediation Roadmap (IST -> SOLL phased work plan) ---
     $roadmapSectionHtml = ''
     if ($Roadmap.Count -gt 0) {
+      $firstIncompletePhase = $Roadmap | Where-Object { -not $_.IsComplete } | Select-Object -First 1
+      $metroStopsHtml = foreach ($phase in $Roadmap) {
+        if ($phase.IsComplete) {
+          $metroState = 'complete'
+          $metroLabel = 'Complete'
+          $metroIcon = '&#10003;'
+        }
+        elseif ($firstIncompletePhase -eq $phase) {
+          $metroState = 'current'
+          $metroLabel = 'In progress'
+          $metroIcon = '&bull;'
+        }
+        else {
+          $metroState = 'waiting'
+          $metroLabel = 'Waiting'
+          $metroIcon = '&rarr;'
+        }
+
+        $phaseNumber = if ($null -ne $phase.Phase) { $phase.Phase } else { '-' }
+        @"
+      <div class="saw-metro-stop $metroState">
+        <div class="saw-metro-marker" aria-hidden="true">$metroIcon</div>
+        <div class="saw-metro-label"><strong>$(ConvertTo-SAWHtmlEncoded $phase.PhaseName)</strong><span>$metroLabel &middot; $($phase.CompletedCount)/$($phase.TotalCount)</span></div>
+      </div>
+"@
+      }
+
+      $completedPhaseCount = @($Roadmap | Where-Object { $_.IsComplete }).Count
+      $currentPhaseName = if ($firstIncompletePhase) { $firstIncompletePhase.PhaseName } else { 'Target state reached' }
+      $metroSummary = if ($firstIncompletePhase) {
+        "$completedPhaseCount of $($Roadmap.Count) phases complete. Current focus: $(ConvertTo-SAWHtmlEncoded $currentPhaseName)."
+      }
+      else {
+        "All $($Roadmap.Count) phases are complete or not applicable. This tenant matches its measured SOLL."
+      }
+
         $phaseCardsHtml = foreach ($phase in $Roadmap) {
             $headerBadge = if ($phase.IsComplete) {
                 '<span class="badge bg-success">Complete</span>'
@@ -1067,6 +1129,17 @@ $($outstandingItemsHtml -join "`n")
         $roadmapSectionHtml = @"
   <h2 class="h4 mb-3">Remediation Roadmap</h2>
   <p class="text-body-secondary small">The IST -&gt; SOLL work plan, in order. Each phase should generally be worked before the next; a <span class="badge bg-dark">Blocked</span> item is waiting on a rule from an earlier phase and should not be tackled out of order, even where technically possible, since doing so can carry real rollout risk (e.g. account lockouts).</p>
+  <div class="card mb-4 saw-metro-card">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+        <div><h3 class="h5 mb-1">IST &rarr; SOLL journey</h3><p class="text-body-secondary small mb-0">$(ConvertTo-SAWHtmlEncoded $metroSummary)</p></div>
+        <span class="badge bg-light text-dark border">$completedPhaseCount/$($Roadmap.Count) stations complete</span>
+      </div>
+      <div class="saw-metro-line" role="list" aria-label="IST to SOLL phases">
+$($metroStopsHtml -join "`n")
+      </div>
+    </div>
+  </div>
 $($phaseCardsHtml -join "`n")
 "@
     }
@@ -1075,10 +1148,10 @@ $($phaseCardsHtml -join "`n")
     $timelineSectionHtml = ''
     if (@($TimelineMilestones).Count -gt 0) {
         $timelineCardsHtml = foreach ($m in $TimelineMilestones) {
-            $urgencyClass = 'border-info'
+            $urgencyClass = 'saw-deadline-future'
             $daysLabel = "$($m.DaysRemaining) day(s) left"
             if ($m.IsPast) {
-                $urgencyClass = 'border-secondary'
+                $urgencyClass = 'saw-deadline-past'
                 # -$m.DaysRemaining (unary minus), not [Math]::Abs - static calls on
                 # System.Math are blocked under this machine's ConstrainedLanguage mode.
                 # Safe here since IsPast guarantees DaysRemaining is negative.
@@ -1086,13 +1159,13 @@ $($phaseCardsHtml -join "`n")
             }
             elseif ($m.DaysRemaining -eq 0) {
                 $daysLabel = 'Today'
-                $urgencyClass = 'border-danger'
+                $urgencyClass = 'saw-deadline-now'
             }
             elseif ($m.DaysRemaining -le 14) {
-                $urgencyClass = 'border-danger'
+                $urgencyClass = 'saw-deadline-soon'
             }
             elseif ($m.DaysRemaining -le 45) {
-                $urgencyClass = 'border-warning'
+                $urgencyClass = 'saw-deadline-near'
             }
 
             $relatedBadgesHtml = ''
@@ -1123,27 +1196,21 @@ $($phaseCardsHtml -join "`n")
             }
 
             @"
-      <div class="col-md-6 col-lg-4">
-        <div class="card h-100 $urgencyClass" style="border-left-width: 4px;"><div class="card-body">
-          <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-            <strong>$(ConvertTo-SAWHtmlEncoded $m.Title)</strong>
-            <span class="badge bg-dark">$daysLabel</span>
-          </div>
-          <div class="text-body-secondary small mb-2">$(ConvertTo-SAWHtmlEncoded $m.Date) &middot; $relatedBadgesHtml</div>
-          $impactHtml
-          <p class="small mb-1">$(ConvertTo-SAWHtmlEncoded $m.Description)</p>
-          $sourceLinkHtml
-        </div></div>
-      </div>
+      <li class="saw-deadline-row $urgencyClass">
+        <time class="saw-deadline-date">$(ConvertTo-SAWHtmlEncoded $m.Date)<span>$daysLabel</span></time>
+        <div class="saw-deadline-main"><strong>$(ConvertTo-SAWHtmlEncoded $m.Title)</strong><p>$(ConvertTo-SAWHtmlEncoded $m.Description)</p><div class="saw-deadline-rules">$relatedBadgesHtml</div></div>
+        <div class="saw-deadline-impact">$impactHtml $sourceLinkHtml</div>
+      </li>
 "@
         }
 
         $timelineSectionHtml = @"
-  <h2 class="h4 mb-3">Upcoming Microsoft Deadlines</h2>
-  <p class="text-body-secondary small">Hand-maintained, sourced list of known Microsoft-driven Entra rollout dates relevant to the checks above - not tenant-specific findings. Verify against the linked source before treating a date as final.</p>
-  <div class="row g-3 mb-4">
+  <section class="saw-section saw-deadlines">
+    <div class="saw-section-heading"><div><h2>Microsoft timeline</h2><p>Published Entra milestones relevant to this tenant</p></div><span class="saw-section-note">Verify source dates before planning changes</span></div>
+    <ul class="saw-deadline-list">
 $($timelineCardsHtml -join "`n")
-  </div>
+    </ul>
+  </section>
 "@
     }
 
@@ -1225,10 +1292,7 @@ $($flowCardsHtml -join "`n")
     if ($TenantDisplayName) { $titleTenantSuffix += " - $(ConvertTo-SAWHtmlEncoded $TenantDisplayName)" }
     if ($RunTimestamp) { $titleTenantSuffix += " - $(ConvertTo-SAWHtmlEncoded $runTimestampDisplay)" }
 
-    # The tenant name is the headline in the hero, because a consultant with several of these
-    # open needs to tell them apart at a glance, and the product name is already in the brand
-    # line above it. Falls back to the product name when no tenant was resolved (sample data,
-    # or a profile call that came back empty).
+    # The tenant is the report headline, with the product identity retained in the compact masthead.
     $heroTitle = if ($TenantDisplayName) {
         ConvertTo-SAWHtmlEncoded $TenantDisplayName
     }
@@ -1249,19 +1313,27 @@ $($flowCardsHtml -join "`n")
         ''
     }
 
+    $priorityActionRows = foreach ($finding in @($findingsSorted | Select-Object -First 3)) {
+      $statusClass = if ($finding.Status -eq 'Red') { 'saw-status-red' } else { 'saw-status-amber' }
+      "<li class=""saw-priority-row""><span class=""$statusClass"">$(ConvertTo-SAWHtmlEncoded $finding.Status)</span><div><strong>$(ConvertTo-SAWHtmlEncoded $finding.Setting)</strong><p>$(ConvertTo-SAWHtmlEncoded $finding.Recommendation)</p></div><span class=""saw-rule-id"">$(ConvertTo-SAWHtmlEncoded $finding.RuleID)</span></li>"
+    }
+    if (@($priorityActionRows).Count -eq 0) {
+      $priorityActionRows = '<li class="saw-empty-state">No open findings. Every evaluated setting meets the selected baseline.</li>'
+    }
+
     $envBannerHtml = ''
     if ($TenantDisplayName -or $TenantId -or $RunTimestamp) {
         $tenantLineHtml = ''
         if ($TenantDisplayName -or $TenantId) {
-            $tenantIdHtml = if ($TenantId) { " <span class=""text-white-50"">($(ConvertTo-SAWHtmlEncoded $TenantId))</span>" } else { '' }
-            $tenantLineHtml = "<div><strong>Tenant:</strong> $(ConvertTo-SAWHtmlEncoded $TenantDisplayName)$tenantIdHtml</div>"
+            $tenantIdHtml = if ($TenantId) { " <small>$(ConvertTo-SAWHtmlEncoded $TenantId)</small>" } else { '' }
+            $tenantLineHtml = "<div class=""saw-context-item""><span>Tenant</span><strong>$(ConvertTo-SAWHtmlEncoded $TenantDisplayName)</strong>$tenantIdHtml</div>"
         }
         $runLineHtml = ''
         if ($RunTimestamp) {
-            $runLineHtml = "<div><strong>Assessed:</strong> $(ConvertTo-SAWHtmlEncoded $runTimestampDisplay)</div>"
+            $runLineHtml = "<div class=""saw-context-item""><span>Assessed</span><strong>$(ConvertTo-SAWHtmlEncoded $runTimestampDisplay)</strong></div>"
         }
         $envBannerHtml = @"
-  <div class="alert alert-dark d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3" role="alert">
+  <div class="saw-report-context">
     $tenantLineHtml
     $runLineHtml
   </div>
@@ -1269,78 +1341,59 @@ $($flowCardsHtml -join "`n")
     }
 
     # --- Top-level tabs ---
-    # Splits what used to be one long "Assessment" scroll into four purpose-grouped tabs, plus
-    # Reading This Report when a guide was supplied. Overview is deliberately the default-active
-    # tab: Chart.js renders a canvas at 0x0 if it's inside a Bootstrap tab-pane that isn't shown
-    # yet, so the two charts (and the trend chart) have to live on whichever pane loads active.
+      # Group the existing report fragments into four reader tasks. Overview remains active so the
+      # Chart.js canvases measure correctly at initial render; the implementation plan and findings
+      # share one section, rather than competing as separate destinations.
     $overviewPaneHtml = @"
-  <div class="alert alert-secondary d-flex flex-wrap gap-3 align-items-center mb-4" role="alert">
-    <div><strong>SOLL baseline:</strong> $(ConvertTo-SAWHtmlEncoded $BaselineName)</div>
-    <div class="text-body-secondary">SOLL = target state for this customer &middot; IST = what was actually observed in the tenant</div>
+  <div class="saw-baseline-strip">
+    <strong>SOLL baseline</strong><span>$(ConvertTo-SAWHtmlEncoded $BaselineName)</span>
+    <span class="saw-baseline-explainer">Target state for this customer · IST is the observed tenant configuration</span>
   </div>
 $(if ($DomainServicesDetected) {
 @"
-  <div class="alert alert-warning d-flex flex-wrap gap-3 align-items-center mb-4" role="alert">
-    <div><strong>Possible Microsoft Entra Domain Services usage detected</strong> (an "AAD DC Administrators" group was found in the directory) - a proxy signal, not authoritative. Domain Services itself is managed via Azure Resource Manager, outside this Graph-only toolkit's reach. Worth confirming with the customer.</div>
+  <div class="alert alert-warning d-flex flex-wrap gap-3 align-items-center mb-3" role="alert">
+    <div><strong>Possible Microsoft Entra Domain Services usage detected.</strong> An "AAD DC Administrators" group was found. This is a proxy signal, not an authoritative service check; confirm with the customer.</div>
   </div>
 "@
 })
+  <section class="saw-summary-band" aria-label="Assessment summary">
+    <div class="saw-open-count"><span>Open findings</span><strong>$openFindings</strong><small>Red and Yellow · Grey excluded</small></div>
+    <div class="saw-summary-metrics">
+      <div class="saw-summary-metric saw-summary-red"><span>Red</span><strong>$($counts.Red)</strong></div>
+      <div class="saw-summary-metric saw-summary-amber"><span>Yellow</span><strong>$($counts.Yellow)</strong></div>
+      <div class="saw-summary-metric saw-summary-green"><span>Green</span><strong>$($counts.Green)</strong></div>
+      <div class="saw-summary-metric saw-summary-gray"><span>Grey</span><strong>$($counts.Grey)</strong></div>
+    </div>
+    <div class="saw-status-distribution" role="img" aria-label="$($counts.Red) Red, $($counts.Yellow) Yellow, $($counts.Green) Green, $($counts.Grey) Grey">
+      <span class="saw-distribution-red" style="flex-grow: $($counts.Red)"></span><span class="saw-distribution-amber" style="flex-grow: $($counts.Yellow)"></span><span class="saw-distribution-green" style="flex-grow: $($counts.Green)"></span><span class="saw-distribution-gray" style="flex-grow: $($counts.Grey)"></span>
+    </div>
+  </section>
+
+  <div class="saw-overview-grid">
+    <section class="saw-overview-charts">
+      <div class="saw-section-heading"><div><h2>Assessment at a glance</h2><p>$totalRules checks across authentication, registration, and access policy</p></div></div>
+      <div class="saw-chart-grid">
+        <div class="saw-chart-panel"><h3>By status</h3><canvas id="statusChart" height="190"></canvas></div>
+        <div class="saw-chart-panel"><h3>By category</h3><canvas id="categoryChart" height="190"></canvas></div>
+      </div>
+    </section>
+    <section class="saw-priority-panel">
+      <div class="saw-section-heading"><div><h2>Address first</h2><p>Highest-severity open findings</p></div></div>
+      <ol class="saw-priority-list">
+$($priorityActionRows -join "`n")
+      </ol>
+      <a class="saw-inline-link" href="#pane-plan-findings" data-bs-toggle="tab" data-bs-target="#pane-plan-findings" role="tab">View plan and all findings</a>
+    </section>
+  </div>
 
 $timelineSectionHtml
-  <h2 class="h4 mb-3">Overview</h2>
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3">
-      <div class="card stat-card red h-100"><div class="card-body">
-        <div class="stat-label">Red</div>
-        <div class="stat-value">$($counts.Red)</div>
-        <div class="small text-body-secondary">Below target, act first</div>
-      </div></div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card stat-card yellow h-100"><div class="card-body">
-        <div class="stat-label">Yellow</div>
-        <div class="stat-value">$($counts.Yellow)</div>
-        <div class="small text-body-secondary">Below target, lower severity</div>
-      </div></div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card stat-card green h-100"><div class="card-body">
-        <div class="stat-label">Green</div>
-        <div class="stat-value">$($counts.Green)</div>
-        <div class="small text-body-secondary">At target state</div>
-      </div></div>
-    </div>
-    <div class="col-6 col-lg-3">
-      <div class="card stat-card grey h-100"><div class="card-body">
-        <div class="stat-label">Grey</div>
-        <div class="stat-value">$($counts.Grey)</div>
-        <div class="small text-body-secondary">Not applicable here</div>
-      </div></div>
-    </div>
-  </div>
-
-  <div class="row mb-4 g-3">
-    <div class="col-lg-5">
-      <div class="card h-100"><div class="card-body">
-        <h3 class="h6">Findings by Status</h3>
-        <canvas id="statusChart" height="220"></canvas>
-      </div></div>
-    </div>
-    <div class="col-lg-7">
-      <div class="card h-100"><div class="card-body">
-        <h3 class="h6">Findings by Category</h3>
-        <canvas id="categoryChart" height="220"></canvas>
-      </div></div>
-    </div>
-  </div>
-
 $trendSectionHtml
 "@
 
     $findingsRoadmapPaneHtml = @"
 $roadmapSectionHtml
   <h2 class="h4 mb-3">Risk Findings &amp; Recommendations</h2>
-  <div class="list-group mb-4">
+  <div class="saw-plan list-group mb-4">
 $($findingsHtml -join "`n")
   </div>
 "@
@@ -1349,6 +1402,49 @@ $($findingsHtml -join "`n")
 $nudgeSectionHtml
 $flowScenariosSectionHtml
 $rosterSectionHtml
+"@
+
+    $implementationPlanPaneHtml = @"
+  <div class="alert alert-primary d-flex flex-wrap gap-3 align-items-center mb-4" role="alert">
+    <div><strong>Purpose:</strong> move from this assessment to a controlled authentication improvement pilot.</div>
+    <div class="text-body-secondary">Complete each gate before moving to the next step. This plan does not apply tenant changes.</div>
+  </div>
+  <h2 class="h4 mb-3">Step-by-Step Implementation Plan</h2>
+  <div class="list-group mb-4">
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">1</span><div><h3 class="h6 mb-1">Confirm scope and ownership</h3><p class="mb-1">Confirm the tenant, change window, business owner, technical operator, service desk contact, pilot review date, and rollback deadline.</p><small class="text-body-secondary"><strong>Gate:</strong> owner, window, and rollback contact are recorded.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">2</span><div><h3 class="h6 mb-1">Resolve the target state</h3><p class="mb-1">Use the SOLL baseline and the findings below to decide which authentication methods, registration paths, and Conditional Access controls are safe to change first.</p><small class="text-body-secondary"><strong>Gate:</strong> no unresolved bootstrap or lockout risk blocks the proposed pilot.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">3</span><div><h3 class="h6 mb-1">Prepare groups and configuration</h3><p class="mb-1">Create or review the allowlist and exception group names in <code>config/config.json</code>. Keep break-glass accounts outside the pilot population.</p><small class="text-body-secondary"><strong>Evidence:</strong> approved group names, object IDs, membership owner, and exception criteria.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">4</span><div><h3 class="h6 mb-1">Capture the current state</h3><p class="mb-1">Run this assessment and record the dashboard, history snapshot, current authentication method policy, group membership, and affected-user counts.</p><small class="text-body-secondary"><strong>Gate:</strong> the baseline evidence is stored with the change record.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">5</span><div><h3 class="h6 mb-1">Generate and review the dry run</h3><p class="mb-1">Run <code>Invoke-SAWSmsFreezePilot.ps1 -ConfigPath ./config/config.json -DryRun -Verbose</code> when piloting SMS/Voice restriction. Check allowed, exception, and excluded users line by line.</p><small class="text-body-secondary"><strong>Gate:</strong> zero unexpected users, names, or policy targets; no live change has occurred.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">6</span><div><h3 class="h6 mb-1">Approve a small pilot wave</h3><p class="mb-1">Select a representative, supportable group. Exclude break-glass accounts and high-risk users unless their replacement method has been tested and explicitly approved.</p><small class="text-body-secondary"><strong>Evidence:</strong> approved pilot roster, exception list, and change approval.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">7</span><div><h3 class="h6 mb-1">Apply the controlled change</h3><p class="mb-1">Run the pilot command with <code>-Apply</code> only after approval. Record group IDs, policy response, request IDs, operator, and timestamp.</p><small class="text-body-secondary"><strong>Gate:</strong> the applied policy targets only the approved group and the exception path is understood.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">8</span><div><h3 class="h6 mb-1">Verify immediately</h3><p class="mb-1">Check the policy and group memberships in Graph and the Entra admin center. Test an approved user, a controlled negative case, and the recovery path.</p><small class="text-body-secondary"><strong>Gate:</strong> approved users can authenticate, blocked users cannot newly use the restricted method, and recovery access works.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">9</span><div><h3 class="h6 mb-1">Monitor the pilot</h3><p class="mb-1">During the agreed window, review sign-in and audit logs, registration changes, group drift, help-desk tickets, and unexpected authentication failures.</p><small class="text-body-secondary"><strong>Gate:</strong> no unresolved critical lockouts, unexplained failures, or membership drift.</small></div></div>
+    </div>
+    <div class="list-group-item">
+      <div class="d-flex gap-3"><span class="badge text-bg-primary rounded-pill align-self-start">10</span><div><h3 class="h6 mb-1">Close, roll back, or expand</h3><p class="mb-1">At the review date, either document success and repeat the sequence for the next wave, or restore the recorded pre-change policy and retest all recovery paths.</p><small class="text-body-secondary"><strong>Evidence:</strong> outcome, incidents, exceptions, rollback decision, next wave owner, and next review date.</small></div></div>
+    </div>
+  </div>
+  <div class="alert alert-warning mb-0" role="alert">
+    <strong>Change safety:</strong> this dashboard is evidence and guidance. The assessment flow is read-only. The SMS/Voice pilot script changes the tenant only when <code>-Apply</code> is explicitly supplied.
+  </div>
 "@
 
     $policyInventoryPaneHtml = @"
@@ -1391,12 +1487,12 @@ $ReadingGuideHtml
 
     $mainContentHtml = @"
   <div class="saw-tabs-sticky mb-4">
-  <ul class="nav nav-tabs" role="tablist">
+  <ul class="nav nav-tabs saw-main-tabs" role="tablist">
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="tab-overview" data-bs-toggle="tab" data-bs-target="#pane-overview" type="button" role="tab" aria-controls="pane-overview" aria-selected="true">Overview</button>
     </li>
     <li class="nav-item" role="presentation">
-      <button class="nav-link" id="tab-findings-roadmap" data-bs-toggle="tab" data-bs-target="#pane-findings-roadmap" type="button" role="tab" aria-controls="pane-findings-roadmap" aria-selected="false">Findings &amp; Roadmap</button>
+      <button class="nav-link" id="tab-plan-findings" data-bs-toggle="tab" data-bs-target="#pane-plan-findings" type="button" role="tab" aria-controls="pane-plan-findings" aria-selected="false">Plan &amp; Findings</button>
     </li>
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="tab-user-journeys" data-bs-toggle="tab" data-bs-target="#pane-user-journeys" type="button" role="tab" aria-controls="pane-user-journeys" aria-selected="false">User Journeys</button>
@@ -1411,8 +1507,13 @@ $readingGuideNavHtml
     <div class="tab-pane fade show active" id="pane-overview" role="tabpanel" aria-labelledby="tab-overview">
 $overviewPaneHtml
     </div>
-    <div class="tab-pane fade" id="pane-findings-roadmap" role="tabpanel" aria-labelledby="tab-findings-roadmap">
+    <div class="tab-pane fade" id="pane-plan-findings" role="tabpanel" aria-labelledby="tab-plan-findings">
+      <section id="section-implementation-plan">
+  $implementationPlanPaneHtml
+      </section>
+      <section id="section-findings-roadmap">
 $findingsRoadmapPaneHtml
+      </section>
     </div>
     <div class="tab-pane fade" id="pane-user-journeys" role="tabpanel" aria-labelledby="tab-user-journeys">
 $userJourneysPaneHtml
@@ -1428,17 +1529,23 @@ $readingGuidePaneHtml
 <!doctype html>
 <html lang="en" data-bs-theme="light">
 <script>
-  /* Set the Bootstrap theme before first paint, so a dark-mode reader never sees a white
-     flash. Deliberately follows the OS setting only: this report is a deliverable that gets
-     opened once and handed on, so a manual toggle would be state nobody asked to manage.
-     Printing always forces light, because these get exported to PDF. */
+  /* Resolve the saved theme before first paint; otherwise follow the OS preference. */
   (function () {
+    var root = document.documentElement;
+    var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     try {
-      var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
-      window.addEventListener('beforeprint', function () { document.documentElement.setAttribute('data-bs-theme', 'light'); });
-      window.addEventListener('afterprint', function () { document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light'); });
-    } catch (e) { /* leave the light default in place */ }
+      var savedTheme = window.localStorage.getItem('saw-dashboard-theme');
+      if (savedTheme === 'dark') { dark = true; }
+      else if (savedTheme === 'light') { dark = false; }
+    } catch (e) { /* use the OS preference */ }
+    window.sawDashboardDark = dark;
+    function setTheme(isDark) {
+      root.setAttribute('data-saw-theme', isDark ? 'dark' : 'light');
+      root.setAttribute('data-bs-theme', isDark ? 'dark' : 'light');
+    }
+    setTheme(dark);
+    window.addEventListener('beforeprint', function () { setTheme(false); });
+    window.addEventListener('afterprint', function () { setTheme(window.sawDashboardDark); });
   })();
 </script>
 <head>
@@ -1448,51 +1555,56 @@ $readingGuidePaneHtml
 <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css">
 <style>
   /*
-    Secure At Work brand palette, sourced from secureatwork.nl's own computed styles
-    (WordPress theme --wp--preset--color--primary-* custom properties): primary blue
-    #0064da, dark variant #2b57a7, very light tint #eff5fe/#f9fbff. Neue Haas Grotesk
-    (the site's licensed display/text font) isn't embeddable here without a license and
+    Secure At Work's licensed display/text font isn't embeddable here without a license, so
     this toolkit avoids CDN font dependencies on principle (same reason Bootstrap/Chart.js
-    are vendored locally, not pulled from a CDN) - the system sans-serif stack below leans
-    on Helvetica Neue/Segoe UI ahead of the generic fallback for a similar grotesque feel.
+    are vendored locally, not pulled from a CDN). The report uses an accessible teal/navy
+    accent with traffic-light status colors reserved for assessment meaning.
 
     Traffic-light status colors (green/yellow/red/grey - Bootstrap's success/warning/
     danger/secondary) are deliberately left as Bootstrap defaults, not rebranded: they're
     functional semantics the reader relies on, not a place for brand color.
   */
   :root {
-    --saw-primary: #0064da;
-    --saw-primary-dark: #2b57a7;
-    --saw-primary-light: #eff5fe;
-    --saw-bg: #f9fbff;
-    --saw-ink: #191919;
-    --saw-heading: #0d1b2a;
-    --saw-muted: #5c6b7f;
-    --saw-border: rgba(16, 24, 40, 0.09);
-    --saw-card-header: #fbfcfe;
-    --saw-hero-from: #2b57a7;
-    --saw-hero-mid: #0064da;
-    --saw-hero-to: #2f8ae8;
-
-    /* Status colours. Kept as traffic-light semantics rather than brand colour, but
-       split into an accent (borders, tile rules) and a bg/ink pair for tinted badges,
-       because solid amber on white fails contrast at badge size. Ink values are
-       darkened until they pass WCAG AA against their own tint. */
+    --saw-primary: #087e9a;
+    --saw-primary-dark: #075a70;
+    --saw-primary-light: #e4f2f5;
+    --saw-bg: #ffffff;
+    --saw-ink: #18252f;
+    --saw-heading: #18252f;
+    --saw-muted: #5d6c77;
+    --saw-border: #d9e0e4;
+    --saw-card-header: #f7f9fa;
     --saw-green: #198754;  --saw-green-bg: #e7f4ed;  --saw-green-ink: #10633d;
     --saw-yellow: #e0a800; --saw-yellow-bg: #fdf4dd; --saw-yellow-ink: #7a5600;
     --saw-red: #dc3545;    --saw-red-bg: #fdebed;    --saw-red-ink: #a71d2a;
     --saw-grey: #6c757d;   --saw-grey-bg: #eef1f5;   --saw-grey-ink: #4a5462;
-
     --bs-primary: var(--saw-primary);
-    --bs-primary-rgb: 0, 100, 218;
+    --bs-primary-rgb: 8, 126, 154;
     --bs-link-color: var(--saw-primary);
-    --bs-link-color-rgb: 0, 100, 218;
+    --bs-link-color-rgb: 8, 126, 154;
     --bs-link-hover-color: var(--saw-primary-dark);
-    --bs-link-hover-color-rgb: 43, 87, 167;
+    --bs-link-hover-color-rgb: 7, 90, 112;
     --bs-body-font-family: -apple-system, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
-    --bs-border-radius: 0.6rem;
-    --bs-border-radius-sm: 0.4rem;
-    --bs-border-radius-lg: 0.75rem;
+    --bs-border-radius: 0.25rem;
+    --bs-border-radius-sm: 0.2rem;
+    --bs-border-radius-lg: 0.35rem;
+  }
+  .saw-metro-card { background: linear-gradient(135deg, var(--saw-primary-light), #ffffff 62%); }
+  .saw-metro-line { display: flex; align-items: flex-start; gap: 0; overflow-x: auto; padding: 0.25rem 0 0.5rem; }
+  .saw-metro-stop { position: relative; flex: 1 1 0; min-width: 150px; text-align: center; }
+  .saw-metro-stop:not(:last-child)::after { content: ''; position: absolute; top: 1rem; left: 50%; width: 100%; height: 0.25rem; background: var(--saw-grey); z-index: 0; }
+  .saw-metro-marker { position: relative; z-index: 1; display: grid; place-items: center; width: 2rem; height: 2rem; margin: 0 auto 0.5rem; border: 0.25rem solid #fff; border-radius: 50%; background: var(--saw-grey); color: #fff; font-weight: 700; box-shadow: 0 0 0 2px var(--saw-grey); }
+  .saw-metro-label { display: grid; gap: 0.15rem; color: var(--saw-heading); font-size: 0.85rem; }
+  .saw-metro-label span { color: var(--saw-muted); font-size: 0.75rem; }
+  .saw-metro-stop.complete .saw-metro-marker { background: var(--saw-green); box-shadow: 0 0 0 2px var(--saw-green); }
+  .saw-metro-stop.complete:not(:last-child)::after { background: var(--saw-green); }
+  .saw-metro-stop.current .saw-metro-marker { background: var(--saw-primary); box-shadow: 0 0 0 2px var(--saw-primary); }
+  .saw-metro-stop.current .saw-metro-label strong { color: var(--saw-primary-dark); }
+  @media (max-width: 575.98px) {
+    .saw-metro-line { display: grid; gap: 0.75rem; overflow-x: visible; }
+    .saw-metro-stop { display: grid; grid-template-columns: 2rem 1fr; min-width: 0; text-align: left; align-items: center; column-gap: 0.75rem; }
+    .saw-metro-stop:not(:last-child)::after { top: 2rem; left: 0.875rem; width: 0.25rem; height: calc(100% + 0.75rem); }
+    .saw-metro-marker { margin: 0; }
   }
   body {
     padding-bottom: 4rem;
@@ -1505,52 +1617,15 @@ $readingGuidePaneHtml
 
   /* Type scale. Headings are tightened and slightly darker than body text so section
      boundaries read at a glance when scrolling a long report. */
-  h1, h2, h3, h4, h5, h6 { letter-spacing: -0.018em; color: var(--saw-heading); }
+  h1, h2, h3, h4, h5, h6 { letter-spacing: 0; color: var(--saw-heading); }
   h2.h4 { font-weight: 650; }
   .lead-sm { font-size: 0.9375rem; line-height: 1.6; }
-
-  /* --- Hero -------------------------------------------------------------------
-     Replaces a flat navbar strip. The tenant name is the thing a consultant running
-     several assessments needs to identify a file by, so it is the largest element. */
-  .saw-hero {
-    /* Deliberately its own colour pair rather than reusing --saw-primary: dark mode lightens
-       the primary blue for text contrast, which would wash the hero out to near-white. */
-    background: linear-gradient(135deg, var(--saw-hero-from) 0%, var(--saw-hero-mid) 55%, var(--saw-hero-to) 100%);
-    color: #fff;
-    padding: 1.75rem 0 1.5rem;
-    margin-bottom: 1.75rem;
-    box-shadow: 0 8px 28px rgba(0, 60, 130, 0.18);
-  }
-  .saw-hero a { color: #fff; }
-  .saw-hero-brand {
-    /* White backing plate: the logo's own navy-blue ink is close enough in hue/lightness to the
-       hero's blue gradient (in both light and dark mode - the hero never goes light) that placing
-       the transparent PNG directly on it would be nearly illegible. A small opaque card keeps the
-       actual brand colours intact rather than fighting the hero background for contrast. */
-    display: inline-flex; align-items: center;
-    background: #fff; border-radius: 8px;
-    padding: 0.4rem 0.75rem;
-    margin-bottom: 0.75rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  }
-  .saw-hero-logo { display: block; height: 22px; width: auto; }
-  .saw-hero-title { font-weight: 700; font-size: clamp(1.35rem, 2.4vw, 1.9rem); margin: 0; color: #fff; }
-  .saw-hero-sub { opacity: 0.85; font-size: 0.875rem; margin: 0.35rem 0 0; }
-  .saw-hero-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
-  .saw-chip {
-    display: inline-flex; align-items: center; gap: 0.35rem;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    border-radius: 999px; padding: 0.2rem 0.7rem;
-    font-size: 0.78rem; white-space: nowrap;
-  }
-  .saw-chip strong { font-weight: 600; }
 
   /* --- Cards ------------------------------------------------------------------ */
   .card {
     border-color: var(--saw-border);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 6px 20px rgba(16, 24, 40, 0.05);
-    transition: box-shadow 0.16s ease, transform 0.16s ease;
+    box-shadow: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease;
   }
   .card-header { font-weight: 600; background-color: var(--saw-card-header); border-bottom-color: var(--saw-border); }
   details.card > summary.card-header:hover { background-color: var(--saw-primary-light); }
@@ -1559,14 +1634,14 @@ $readingGuidePaneHtml
      Previously a 4px left border. Now a top accent plus a tinted, tabular-figure
      numeral, so the four tiles scan as a set and the numbers line up. */
   .stat-card { position: relative; overflow: hidden; border-top: 3px solid transparent; }
-  .stat-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(16,24,40,0.05), 0 12px 28px rgba(16,24,40,0.10); }
+  .stat-card:hover { border-color: var(--saw-primary); }
   .stat-card .stat-label {
     text-transform: uppercase; letter-spacing: 0.06em;
     font-size: 0.7rem; font-weight: 650; color: var(--saw-muted);
   }
   .stat-card .stat-value {
     font-size: 2.35rem; font-weight: 700; line-height: 1.1;
-    font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums; letter-spacing: 0;
   }
   .stat-card.green  { border-top-color: var(--saw-green); }
   .stat-card.yellow { border-top-color: var(--saw-yellow); }
@@ -1587,9 +1662,11 @@ $readingGuidePaneHtml
     box-shadow: 0 6px 12px -10px rgba(16, 24, 40, 0.5);
   }
   .nav-tabs { border-bottom-color: var(--saw-border); }
-  .nav-tabs .nav-link { color: var(--saw-muted); font-weight: 550; border: none; border-bottom: 2px solid transparent; }
+  .nav-tabs .nav-link { color: var(--saw-muted); font-weight: 550; border: none; border-bottom: 2px solid transparent; padding-left: 0; padding-right: 1.25rem; }
   .nav-tabs .nav-link:hover { color: var(--saw-primary); border-bottom-color: var(--saw-border); }
   .nav-tabs .nav-link.active { color: var(--saw-primary); background: transparent; border-bottom: 2px solid var(--saw-primary); }
+  .nav-tabs .tab-index { color: var(--saw-muted); font-size: 0.68rem; letter-spacing: 0.08em; margin-right: 0.35rem; }
+  .nav-tabs .nav-link.active .tab-index { color: var(--saw-primary); }
   .nav-pills .nav-link { color: var(--saw-muted); font-weight: 550; }
   .nav-pills .nav-link.active, .nav-pills .show > .nav-link { background-color: var(--saw-primary); color: #fff; }
 
@@ -1624,6 +1701,14 @@ $readingGuidePaneHtml
   .alert-danger { border-left-color: var(--saw-red); }
   .alert-secondary { border-left-color: var(--saw-primary); background-color: var(--saw-primary-light); }
 
+  /* --- Implementation plan ---------------------------------------------------- */
+  .saw-plan { border-left: 1px solid var(--saw-border); border-radius: 0; }
+  .saw-plan .list-group-item { border: 0; border-bottom: 1px solid var(--saw-border); border-radius: 0; background: transparent; padding: 1.35rem 1rem 1.35rem 1.5rem; }
+  .saw-plan .list-group-item:last-child { border-bottom: 0; }
+  .saw-plan .badge { display: inline-grid; place-items: center; min-width: 2rem; height: 2rem; border-radius: 0.2rem; font-variant-numeric: tabular-nums; background: linear-gradient(135deg, var(--saw-primary), var(--saw-primary-dark)) !important; color: #fff !important; }
+  .saw-plan h3 { font-size: 1rem; font-weight: 700; }
+  .saw-plan p { color: var(--saw-ink); max-width: 70rem; }
+
   code { color: var(--saw-primary-dark); background-color: var(--saw-primary-light); padding: 0.1em 0.35em; border-radius: 0.3rem; }
 
   .reading-guide-content { max-width: 900px; }
@@ -1633,32 +1718,23 @@ $readingGuidePaneHtml
   .reading-guide-content table { margin: 1rem 0; }
 
   /* --- Dark mode ---------------------------------------------------------------
-     Follows the reader's OS setting. Bootstrap 5.3 already themes its own components
-     from data-bs-theme, which the inline script below flips; these variables cover
-     the custom surfaces above. */
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --saw-bg: #0f1520;
-      --saw-ink: #e6e9ef;
-      --saw-heading: #f4f6fa;
-      --saw-muted: #98a3b5;
-      --saw-border: rgba(255, 255, 255, 0.10);
-      --saw-card-header: rgba(255, 255, 255, 0.03);
-      --saw-primary: #5aa4ff;
-      --saw-primary-dark: #8dc0ff;
-      --saw-primary-light: rgba(90, 164, 255, 0.13);
-      /* Hero stays deep in dark mode; only slightly desaturated so it doesn't glow. */
-      --saw-hero-from: #16305e;
-      --saw-hero-mid: #10457f;
-      --saw-hero-to: #1b5c9e;
-      --saw-green-bg: rgba(45, 190, 120, 0.16); --saw-green-ink: #63d9a0;
-      --saw-yellow-bg: rgba(240, 180, 40, 0.16); --saw-yellow-ink: #f0c257;
-      --saw-red-bg: rgba(240, 90, 100, 0.16);   --saw-red-ink: #ff8b93;
-      --saw-grey-bg: rgba(160, 170, 185, 0.16); --saw-grey-ink: #aab3c2;
-    }
-    .card { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.30); }
-    .saw-hero { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); }
+     The toggle selects explicit color themes; the OS preference supplies the initial state. */
+  html[data-saw-theme="dark"] {
+    --saw-bg: #0f1520;
+    --saw-ink: #e6e9ef;
+    --saw-heading: #f4f6fa;
+    --saw-muted: #98a3b5;
+    --saw-border: rgba(255, 255, 255, 0.10);
+    --saw-card-header: rgba(255, 255, 255, 0.03);
+    --saw-primary: #5aa4ff;
+    --saw-primary-dark: #8dc0ff;
+    --saw-primary-light: rgba(90, 164, 255, 0.13);
+    --saw-green-bg: rgba(45, 190, 120, 0.16); --saw-green-ink: #63d9a0;
+    --saw-yellow-bg: rgba(240, 180, 40, 0.16); --saw-yellow-ink: #f0c257;
+    --saw-red-bg: rgba(240, 90, 100, 0.16);   --saw-red-ink: #ff8b93;
+    --saw-grey-bg: rgba(160, 170, 185, 0.16); --saw-grey-ink: #aab3c2;
   }
+  html[data-saw-theme="dark"] .card { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 8px 24px rgba(0,0,0,0.30); }
 
   /* --- Print -------------------------------------------------------------------
      Consultants hand these over as PDFs. Show every tab pane rather than only the
@@ -1666,38 +1742,189 @@ $readingGuidePaneHtml
      across pages. */
   @media print {
     body { background: #fff; padding-bottom: 0; }
-    .saw-hero { background: var(--saw-primary-dark) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; box-shadow: none; }
     .saw-tabs-sticky, .nav-tabs, .nav-pills { display: none !important; }
     .tab-pane { display: block !important; opacity: 1 !important; }
     .card { box-shadow: none; break-inside: avoid; }
     .table-responsive { overflow: visible !important; }
     a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.7em; word-break: break-all; }
   }
+
+  /* --- Assessment report shell ----------------------------------------------- */
+  body { padding-bottom: 0; background: var(--saw-bg); }
+  .saw-appbar { position: sticky; top: 0; z-index: 1030; background: var(--saw-bg); border-bottom: 1px solid var(--saw-border); }
+  .saw-appbar-inner { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; width: min(100%, 1480px); min-height: 58px; margin: 0 auto; padding: 0 1.75rem; }
+  .saw-brand-lockup, .saw-appbar-actions { display: flex; align-items: center; gap: 0.8rem; }
+  .saw-brand-lockup { min-width: 0; color: var(--saw-ink); font-size: 0.82rem; font-weight: 650; }
+  .saw-brand-lockup img { display: block; width: 98px; height: auto; }
+  .saw-brand-divider { height: 1.4rem; border-left: 1px solid var(--saw-border); }
+  .saw-readonly-label { color: var(--saw-muted); font-size: 0.72rem; }
+  .saw-mode-toggle { min-height: 2rem; border: 1px solid var(--saw-border); border-radius: 4px; padding: 0.25rem 0.65rem; background: var(--saw-bg); color: var(--saw-ink); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+  .saw-mode-toggle:hover { border-color: var(--saw-primary); color: var(--saw-primary-dark); }
+  .saw-report-page { width: min(100%, 1480px); margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+  .saw-report-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.25rem; margin-bottom: 1.2rem; }
+  .saw-report-heading h1 { max-width: 45rem; margin: 0; color: var(--saw-heading); font-size: 1.8rem; line-height: 1.2; font-weight: 700; }
+  .saw-report-eyebrow { margin: 0 0 0.25rem; color: var(--saw-primary-dark); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
+  .saw-report-heading-meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.6rem 1.4rem; }
+  .saw-report-context { display: flex; flex-wrap: wrap; gap: 0.55rem 1.1rem; }
+  .saw-context-item { display: grid; gap: 0.08rem; min-width: 7rem; }
+  .saw-context-item > span { color: var(--saw-muted); font-size: 0.65rem; font-weight: 650; text-transform: uppercase; }
+  .saw-context-item strong { color: var(--saw-ink); font-size: 0.78rem; font-weight: 650; }
+  .saw-context-item small { color: var(--saw-muted); font-size: 0.65rem; }
+  .saw-report-page .saw-tabs-sticky { top: 58px; z-index: 1020; margin-bottom: 1.25rem !important; padding-top: 0; background: var(--saw-bg); box-shadow: 0 2px 3px rgba(24, 37, 47, 0.04); }
+  .saw-main-tabs { display: flex; gap: 0.2rem; border-bottom: 1px solid var(--saw-border); }
+  .saw-main-tabs .nav-link { min-height: 2.8rem; padding: 0.75rem 1rem; color: var(--saw-muted); font-size: 0.82rem; font-weight: 600; white-space: nowrap; }
+  .saw-main-tabs .nav-link.active { color: var(--saw-primary-dark); border-bottom: 2px solid var(--saw-primary); }
+  .saw-main-tabs .nav-link:focus-visible, .saw-mode-toggle:focus-visible { outline: 2px solid var(--saw-primary); outline-offset: 2px; }
+  .saw-report-page .tab-content { min-width: 0; }
+  .saw-baseline-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; margin-bottom: 1.1rem; padding: 0.7rem 0.9rem; border-left: 3px solid var(--saw-primary); background: var(--saw-primary-light); color: var(--saw-ink); font-size: 0.78rem; }
+  .saw-baseline-strip strong { font-weight: 700; }
+  .saw-baseline-explainer { color: var(--saw-muted); }
+  .saw-summary-band { display: grid; grid-template-columns: minmax(150px, 0.75fr) minmax(0, 2fr) minmax(150px, 1.25fr); align-items: center; margin-bottom: 1.25rem; padding: 0.8rem 0; border-top: 1px solid var(--saw-border); border-bottom: 1px solid var(--saw-border); }
+  .saw-open-count { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 0.7rem; padding: 0 1rem 0 0; border-right: 1px solid var(--saw-border); }
+  .saw-open-count span { color: var(--saw-muted); font-size: 0.74rem; font-weight: 650; }
+  .saw-open-count strong { grid-column: 2; grid-row: 1 / span 2; color: var(--saw-red); font-size: 1.85rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .saw-open-count small { color: var(--saw-muted); font-size: 0.65rem; }
+  .saw-summary-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 0 1.2rem; }
+  .saw-summary-metric { display: flex; align-items: baseline; justify-content: center; gap: 0.45rem; border-right: 1px solid var(--saw-border); }
+  .saw-summary-metric:last-child { border-right: 0; }
+  .saw-summary-metric span { color: var(--saw-muted); font-size: 0.7rem; font-weight: 600; }
+  .saw-summary-metric strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
+  .saw-summary-red strong { color: var(--saw-red); }
+  .saw-summary-amber strong { color: var(--saw-yellow-ink); }
+  .saw-summary-green strong { color: var(--saw-green); }
+  .saw-summary-gray strong { color: var(--saw-grey); }
+  .saw-status-distribution { display: flex; height: 0.55rem; gap: 2px; overflow: hidden; border-radius: 2px; background: var(--saw-grey-bg); }
+  .saw-status-distribution span { min-width: 0; }
+  .saw-distribution-red { background: var(--saw-red); }
+  .saw-distribution-amber { background: var(--saw-yellow); }
+  .saw-distribution-green { background: var(--saw-green); }
+  .saw-distribution-gray { background: var(--saw-grey); }
+  .saw-overview-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.9fr); gap: 1.3rem; align-items: start; }
+  .saw-overview-charts, .saw-priority-panel { min-width: 0; }
+  .saw-section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 0.7rem; }
+  .saw-section-heading h2 { margin: 0; color: var(--saw-heading); font-size: 1rem; font-weight: 700; }
+  .saw-section-heading p, .saw-section-note { margin: 0; color: var(--saw-muted); font-size: 0.7rem; }
+  .saw-chart-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 1rem; }
+  .saw-chart-panel { min-width: 0; padding-top: 0.65rem; border-top: 1px solid var(--saw-border); }
+  .saw-chart-panel h3 { margin: 0 0 0.3rem; color: var(--saw-muted); font-size: 0.72rem; font-weight: 650; }
+  .saw-priority-panel { padding: 0.1rem 0 0 1.15rem; border-left: 1px solid var(--saw-border); }
+  .saw-priority-list { margin: 0; padding: 0; list-style: none; }
+  .saw-priority-row { display: grid; grid-template-columns: 3.3rem minmax(0, 1fr) auto; min-width: 0; align-items: start; gap: 0.6rem; padding: 0.65rem 0; border-top: 1px solid var(--saw-border); }
+  .saw-priority-row > div { min-width: 0; }
+  .saw-priority-row > span:first-child { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; }
+  .saw-status-red { color: var(--saw-red-ink); }
+  .saw-status-amber { color: var(--saw-yellow-ink); }
+  .saw-priority-row strong { display: block; color: var(--saw-ink); font-size: 0.78rem; line-height: 1.35; }
+  .saw-priority-row p { margin: 0.2rem 0 0; color: var(--saw-muted); font-size: 0.68rem; line-height: 1.45; overflow-wrap: anywhere; }
+  .saw-rule-id { color: var(--saw-primary-dark); font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
+  .saw-empty-state { padding: 0.8rem 0; color: var(--saw-muted); font-size: 0.78rem; }
+  .saw-inline-link { display: inline-block; margin-top: 0.65rem; color: var(--saw-primary-dark); font-size: 0.72rem; font-weight: 650; }
+  .saw-section { margin-top: 1.7rem; }
+  .saw-deadlines { padding-top: 0.15rem; }
+  .saw-deadline-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--saw-border); }
+  .saw-deadline-row { display: grid; grid-template-columns: 8.2rem minmax(0, 1fr) minmax(11rem, 0.55fr); gap: 1rem; align-items: start; padding: 0.8rem 0.3rem; border-bottom: 1px solid var(--saw-border); }
+  .saw-deadline-date { color: var(--saw-ink); font-size: 0.75rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .saw-deadline-date span { display: block; margin-top: 0.15rem; color: var(--saw-muted); font-size: 0.65rem; font-weight: 500; }
+  .saw-deadline-main strong { color: var(--saw-ink); font-size: 0.78rem; font-weight: 650; }
+  .saw-deadline-main p { margin: 0.2rem 0 0.35rem; color: var(--saw-muted); font-size: 0.69rem; line-height: 1.45; }
+  .saw-deadline-rules .badge { margin-right: 0.2rem; font-size: 0.6rem; }
+  .saw-deadline-impact { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.45rem; color: var(--saw-muted); font-size: 0.68rem; text-align: right; }
+  .saw-deadline-critical .saw-deadline-date, .saw-deadline-soon .saw-deadline-date { color: var(--saw-red-ink); }
+  .saw-deadline-near .saw-deadline-date { color: var(--saw-yellow-ink); }
+  .saw-trend-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(340px, 1fr); gap: 1rem; align-items: stretch; }
+  .saw-trend-chart-panel, .saw-trend-history-panel { min-width: 0; height: 25rem; border: 1px solid var(--saw-border); border-radius: 4px; background: var(--saw-bg); }
+  .saw-trend-chart-panel { position: relative; padding: 0.8rem; }
+  .saw-trend-chart-panel canvas { width: 100% !important; height: 100% !important; }
+  .saw-trend-history-panel { overflow: auto; }
+  .saw-trend-table { width: 100%; table-layout: fixed; }
+  .saw-trend-table th:first-child, .saw-trend-table td:first-child { width: 62%; }
+  .saw-trend-table th:last-child, .saw-trend-table td:last-child { width: 38%; }
+  .saw-trend-table th { position: sticky; top: 0; z-index: 1; background: var(--saw-bg); }
+  .saw-trend-run { display: block; color: var(--saw-ink); font-size: 0.7rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .saw-trend-baseline { display: block; margin-top: 0.15rem; color: var(--saw-muted); font-size: 0.64rem; line-height: 1.35; overflow-wrap: anywhere; }
+  .saw-trend-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.2rem; }
+  .saw-trend-counts .badge { display: block; min-width: 0; padding: 0.32em 0.1em; text-align: center; font-size: 0.65rem; }
+  .saw-report-page .card { border-radius: 4px; box-shadow: none; }
+  .saw-report-page .list-group-item { border-color: var(--saw-border); background: var(--saw-bg); }
+  .saw-plan, .saw-plan .list-group-item { min-width: 0; }
+  .saw-plan p, .saw-plan code { overflow-wrap: anywhere; }
+  .saw-report-footer { width: min(100%, 1480px); margin: 1rem auto 0; padding: 1.4rem 2rem 0; border-top: 1px solid var(--saw-border); }
+  html[data-saw-theme="dark"] .saw-appbar { background: var(--saw-bg); }
+  @media (max-width: 900px) {
+    .saw-report-page { padding-right: 1.25rem; padding-left: 1.25rem; }
+    .saw-overview-grid { grid-template-columns: 1fr; }
+    .saw-trend-grid { grid-template-columns: 1fr; }
+    .saw-trend-chart-panel { height: 22rem; }
+    .saw-trend-history-panel { height: 20rem; }
+    .saw-priority-panel { padding: 1rem 0 0; border-top: 1px solid var(--saw-border); border-left: 0; }
+    .saw-report-heading-meta { justify-content: flex-start; }
+  }
+  @media (max-width: 620px) {
+    .saw-appbar-inner { min-height: 50px; padding: 0 0.8rem; }
+    .saw-brand-lockup img { width: 82px; }
+    .saw-brand-lockup { font-size: 0; }
+    .saw-brand-divider, .saw-readonly-label { display: none; }
+    .saw-appbar-actions { gap: 0.4rem; }
+    .saw-mode-toggle { font-size: 0.67rem; padding: 0.2rem 0.45rem; }
+    .saw-report-page { padding: 1.1rem 0.85rem 2rem; }
+    .saw-report-heading { display: block; margin-bottom: 0.8rem; }
+    .saw-report-heading h1 { font-size: 1.45rem; }
+    .saw-report-heading-meta { justify-content: flex-start; gap: 0.4rem 0.8rem; margin-top: 0.7rem; }
+    .saw-context-item { min-width: 0; }
+    .saw-report-context { gap: 0.4rem 0.8rem; }
+    .saw-tabs-sticky { top: 50px; }
+    .saw-main-tabs { overflow-x: auto; flex-wrap: nowrap; }
+    .saw-main-tabs .nav-link { min-height: 2.55rem; padding: 0.65rem 0.7rem; font-size: 0.7rem; }
+    .saw-summary-band { grid-template-columns: minmax(0, 1fr) minmax(7rem, 0.8fr); row-gap: 0.65rem; padding: 0.65rem 0; }
+    .saw-open-count { grid-row: span 2; }
+    .saw-summary-metrics { grid-template-columns: repeat(2, 1fr); gap: 0.35rem 0.2rem; padding: 0; }
+    .saw-summary-metric { justify-content: flex-start; border: 0; }
+    .saw-status-distribution { grid-column: 2; grid-row: 2; }
+    .saw-chart-grid { grid-template-columns: 1fr; }
+    .saw-chart-panel canvas { max-height: 190px; }
+    .saw-trend-chart-panel { height: 18rem; }
+    .saw-trend-history-panel { height: 16rem; }
+    .saw-deadline-row { grid-template-columns: 5.7rem minmax(0, 1fr); gap: 0.6rem; }
+    .saw-deadline-impact { grid-column: 2; justify-content: flex-start; text-align: left; }
+    .saw-section-heading { align-items: flex-start; }
+    .saw-section-note { display: none; }
+    .saw-report-footer { padding: 1rem 0.85rem 0; }
+  }
+  @media print {
+    body { background: #fff; }
+    .saw-appbar { position: static; }
+    .saw-appbar-actions, .saw-tabs-sticky { display: none !important; }
+    .saw-report-page { width: 100%; padding: 0.5rem; }
+    .saw-priority-panel { border-left: 1px solid #d9e0e4; }
+    .saw-report-footer { padding-right: 0.5rem; padding-left: 0.5rem; }
+  }
 </style>
 </head>
 <body>
-<header class="saw-hero">
-  <div class="container-fluid">
-    <div class="saw-hero-brand">
-      <img class="saw-hero-logo" src="branding/secure-at-work-logo.png" alt="Secure At Work" width="2869" height="918">
+<header class="saw-appbar">
+  <div class="saw-appbar-inner">
+    <div class="saw-brand-lockup">
+      <img src="branding/secure-at-work-logo.png" alt="Secure At Work" width="2869" height="918">
+      <span class="saw-brand-divider" aria-hidden="true"></span>
+      <span>Authentication assessment</span>
     </div>
-    <h1 class="saw-hero-title">$heroTitle</h1>
-    <p class="saw-hero-sub">Entra ID Authentication Assessment &middot; IST versus SOLL</p>
-    <div class="saw-hero-meta">
-      <span class="saw-chip">Generated <strong>$generated</strong></span>
-      <span class="saw-chip"><strong>$totalRules</strong> checks</span>
-$heroScoreChipHtml
-      <span class="saw-chip" title="This toolkit only ever issues HTTP GET requests.">Read-only &middot; no tenant changes made</span>
+    <div class="saw-appbar-actions">
+      <span class="saw-readonly-label">Read-only assessment</span>
+      <button class="saw-mode-toggle" id="saw-theme-toggle" type="button" aria-pressed="false">Dark mode</button>
     </div>
   </div>
 </header>
-<div class="container-fluid">
-
+<main class="saw-report-page">
+  <header class="saw-report-heading">
+    <div><p class="saw-report-eyebrow">Microsoft Entra ID · Assessment report</p><h1>$heroTitle</h1></div>
+    <div class="saw-report-heading-meta">
 $envBannerHtml
+      <div class="saw-context-item"><span>SOLL baseline</span><strong>$(ConvertTo-SAWHtmlEncoded $BaselineName)</strong></div>
+    </div>
+  </header>
 $mainContentHtml
-</div>
 
-<footer class="container-fluid mt-5 pt-4 border-top">
+<footer class="saw-report-footer">
   <p class="text-body-secondary small mb-2"><strong>Sources.</strong> Every behavioral claim in this
   report traces to a published source rather than to this toolkit's own opinion. Primary sources are
   Microsoft Learn and the Microsoft Graph API reference; changes announced but not yet documented
@@ -1721,10 +1948,41 @@ $mainContentHtml
   was last verified against the live page, travels with this report in
   <code>docs/references.md</code>$(if ($ReadingGuideHtml) { ' and is summarised on the <strong>Reading This Report</strong> tab' }).</p>
 </footer>
+</main>
 
 <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
 <script src="vendor/chartjs/chart.umd.min.js"></script>
 <script>
+  (function () {
+    var root = document.documentElement;
+    var toggle = document.getElementById('saw-theme-toggle');
+    var dark = root.getAttribute('data-saw-theme') === 'dark';
+    function applyTheme() {
+      root.setAttribute('data-saw-theme', dark ? 'dark' : 'light');
+      root.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+      window.sawDashboardDark = dark;
+      toggle.setAttribute('aria-pressed', dark ? 'true' : 'false');
+      toggle.textContent = dark ? 'Normal mode' : 'Dark mode';
+      if (window.Chart) {
+        var chartColor = getComputedStyle(document.body).getPropertyValue('color') || '#191919';
+        var chartBorderColor = getComputedStyle(root).getPropertyValue('--saw-border').trim() || 'rgba(16,24,40,0.09)';
+        Chart.defaults.color = chartColor;
+        Chart.defaults.borderColor = chartBorderColor;
+        Object.keys(Chart.instances).forEach(function (id) {
+          Chart.instances[id].options.color = chartColor;
+          Chart.instances[id].options.borderColor = chartBorderColor;
+          Chart.instances[id].update();
+        });
+      }
+    }
+    toggle.addEventListener('click', function () {
+      dark = !dark;
+      try { window.localStorage.setItem('saw-dashboard-theme', dark ? 'dark' : 'light'); } catch (e) { /* optional preference */ }
+      applyTheme();
+    });
+    applyTheme();
+  }());
+
   /* Chart.js draws legends and axis ticks in a fixed dark grey, which disappears against the
      dark theme. Read the resolved body colour instead so both themes stay legible. */
   Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('color') || '#191919';

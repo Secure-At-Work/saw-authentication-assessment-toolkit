@@ -34,6 +34,38 @@ Describe 'Export-SAWDashboard' {
         $script:DashboardContent | Should -Not -Match 'https://cdn\.'
     }
 
+    It 'supports explicit light and dark color themes and preserves the selected theme after printing' {
+        $script:DashboardContent | Should -Match "root\.setAttribute\('data-bs-theme', dark \? 'dark' : 'light'\)"
+        $script:DashboardContent | Should -Match "toggle\.textContent = dark \? 'Normal mode' : 'Dark mode'"
+        $script:DashboardContent | Should -Match "window\.addEventListener\('afterprint', function \(\) \{ setTheme\(window\.sawDashboardDark\); \}\)"
+        $script:DashboardContent | Should -Not -Match 'data-saw-theme="mono"|grayscale\(1\)|Black &amp; white mode'
+    }
+
+    It 'renders profile-specific AAGUID inventory with provider type and managed-campaign qualification' {
+        $path = Join-Path $TestDrive 'profileinventory\index.html'
+        $inventory = @{
+            IsEnforced = $true
+            EnforcementSummary = 'Per-profile restrictions: 1 of 1 profiles enforce an AAGUID allow/block list.'
+            ProfileTypeGuidance = 'Google Password Manager requires Synced.'
+            AllowedKeys = @(@{
+                ProfileName = 'Synced users'
+                Aaguid = 'ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4'
+                KnownName = 'Google Password Manager (synced passkey)'
+                Recognized = $true
+                PasskeyType = 'Synced'
+                IsManagedCampaignQualifyingProvider = $true
+            })
+        }
+
+        Export-SAWDashboard -RuleResults $script:MixedResults -Fido2KeyInventory $inventory -OutputPath $path | Out-Null
+
+        $content = Get-Content -Path $path -Raw
+        $content | Should -Match '<th>Passkey profile</th><th>AAGUID</th><th>Key / Provider</th><th>Profile type</th><th>Reference</th>'
+        $content | Should -Match 'Synced users'
+        $content | Should -Match 'Google Password Manager \(synced passkey\)'
+        $content | Should -Match 'Qualifying provider'
+    }
+
     It 'computes the status chart data to match the actual status counts' {
         # 1 Green, 2 Yellow, 1 Red, 1 Grey
         $script:DashboardContent | Should -Match '\[1,2,1,1\]'
@@ -378,6 +410,11 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '1/2 complete'
         $content | Should -Match 'Blocked - waiting on B'
         $content | Should -Match 'All rules in this phase are already Green or not applicable\.'
+        $content | Should -Match 'IST &rarr; SOLL journey'
+        $content | Should -Match '1 of 3 phases complete\. Current focus: 1\. Foundation'
+        $content | Should -Match 'saw-metro-stop current'
+        $content | Should -Match 'saw-metro-stop complete'
+        $content | Should -Match 'saw-metro-stop waiting'
     }
 
     It 'omits the Domain Services note by default' {
@@ -424,10 +461,13 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '20260101-000000'
         $content | Should -Match '20260201-000000'
         $content | Should -Match '2 runs for this tenant'
+        $content | Should -Match 'class="saw-trend-grid"'
+        $content | Should -Match '<th>Run and baseline</th><th>G / Y / R / Grey</th>'
+        $content | Should -Match 'maxTicksLimit: 8'
     }
 
-    It 'omits the Upcoming Microsoft Deadlines section when no -TimelineMilestones are supplied' {
-        $script:DashboardContent | Should -Not -Match 'Upcoming Microsoft Deadlines'
+    It 'omits the Microsoft timeline section when no -TimelineMilestones are supplied' {
+        $script:DashboardContent | Should -Not -Match 'Microsoft timeline'
     }
 
     It 'renders a milestone with correct urgency class and days-left/days-ago labels' {
@@ -440,13 +480,13 @@ Describe 'Export-SAWDashboard' {
         Export-SAWDashboard -RuleResults $script:MixedResults -TimelineMilestones $milestones -OutputPath $path | Out-Null
 
         $content = Get-Content -Path $path -Raw
-        $content | Should -Match 'Upcoming Microsoft Deadlines'
+        $content | Should -Match 'Microsoft timeline'
         $content | Should -Match 'Imminent Thing'
         $content | Should -Match '2 day\(s\) left'
-        $content | Should -Match 'border-danger'
+        $content | Should -Match 'saw-deadline-soon'
         $content | Should -Match 'Past Thing'
         $content | Should -Match '215 day\(s\) ago'
-        $content | Should -Match 'border-secondary'
+        $content | Should -Match 'saw-deadline-past'
         $content | Should -Match '>SSPR001<'
         $content | Should -Match 'href="https://example.com/a"'
     }
@@ -518,7 +558,7 @@ Describe 'Export-SAWDashboard' {
         $content | Should -Match '0 user\(s\) impacted'
     }
 
-    It 'always splits the dashboard into Overview / Findings & Roadmap / User Journeys / Policy Inventory tabs' {
+    It 'splits the dashboard into Overview / Plan & Findings / User Journeys / Policy Inventory tabs' {
         # $script:DashboardContent was generated in BeforeAll with no -ReadingGuideHtml, so this
         # asserts on the shared fixture rather than generating a new dashboard. Unlike the old
         # two-tab (Assessment/Reading This Report) layout, these four top-level tabs are always
@@ -527,14 +567,26 @@ Describe 'Export-SAWDashboard' {
         $script:DashboardContent | Should -Not -Match 'Reading This Report'
         $script:DashboardContent | Should -Match 'nav-tabs'
         $script:DashboardContent | Should -Match 'id="pane-overview"'
-        $script:DashboardContent | Should -Match 'id="pane-findings-roadmap"'
+        $script:DashboardContent | Should -Match 'id="pane-plan-findings"'
+        $script:DashboardContent | Should -Match 'Plan &amp; Findings'
+        $script:DashboardContent | Should -Match 'Step-by-Step Implementation Plan'
+        $script:DashboardContent | Should -Match 'id="section-findings-roadmap"'
         $script:DashboardContent | Should -Match 'id="pane-user-journeys"'
         $script:DashboardContent | Should -Match 'id="pane-policy-inventory"'
     }
 
+    It 'renders the compact report shell and derives overview priorities from live findings' {
+        $script:DashboardContent | Should -Match '<header class="saw-appbar">'
+        $script:DashboardContent | Should -Match 'class="saw-summary-band"'
+        $script:DashboardContent | Should -Match 'class="saw-priority-panel"'
+        $script:DashboardContent | Should -Match 'saw-rule-id">C1</span>'
+        $script:DashboardContent | Should -Match 'saw-rule-id">A2</span>'
+        $script:DashboardContent | Should -Match 'saw-deadline-list'
+    }
+
     It 'omits the environment banner and title suffix when no tenant/timestamp info is supplied' {
         # $script:DashboardContent was generated in BeforeAll with none of these params set.
-        $script:DashboardContent | Should -Not -Match 'alert-dark'
+        $script:DashboardContent | Should -Not -Match 'saw-report-context'
         $script:DashboardContent | Should -Match '<title>Secure At Work - Authentication Assessment Dashboard</title>'
     }
 
@@ -544,9 +596,8 @@ Describe 'Export-SAWDashboard' {
         Export-SAWDashboard -RuleResults $script:MixedResults -TenantDisplayName 'Contoso Ltd' -TenantId 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee' -RunTimestamp '20260805-073551' -OutputPath $path | Out-Null
 
         $content = Get-Content -Path $path -Raw
-        $content | Should -Match 'alert-dark'
-        $content | Should -Match 'Tenant:</strong> Contoso Ltd <span class="text-white-50">\(aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\)</span>'
-        $content | Should -Match 'Assessed:</strong> 2026-08-05 07:35:51'
+        $content | Should -Match 'class="saw-context-item"><span>Tenant</span><strong>Contoso Ltd</strong><small>aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee</small>'
+        $content | Should -Match 'class="saw-context-item"><span>Assessed</span><strong>2026-08-05 07:35:51</strong>'
         $content | Should -Match '<title>Secure At Work - Authentication Assessment Dashboard - Contoso Ltd - 2026-08-05 07:35:51</title>'
     }
 
@@ -556,7 +607,7 @@ Describe 'Export-SAWDashboard' {
         Export-SAWDashboard -RuleResults $script:MixedResults -RunTimestamp 'not-a-real-timestamp' -OutputPath $path | Out-Null
 
         $content = Get-Content -Path $path -Raw
-        $content | Should -Match 'Assessed:</strong> not-a-real-timestamp'
+        $content | Should -Match 'not-a-real-timestamp'
     }
 
     It 'shows only the tenant line when TenantId/TenantDisplayName are supplied without a RunTimestamp' {
@@ -565,8 +616,8 @@ Describe 'Export-SAWDashboard' {
         Export-SAWDashboard -RuleResults $script:MixedResults -TenantDisplayName 'Contoso Ltd' -OutputPath $path | Out-Null
 
         $content = Get-Content -Path $path -Raw
-        $content | Should -Match 'Tenant:</strong> Contoso Ltd'
-        $content | Should -Not -Match 'Assessed:</strong>'
+        $content | Should -Match 'class="saw-context-item"><span>Tenant</span><strong>Contoso Ltd</strong>'
+        $content | Should -Not -Match '<span>Assessed</span>'
     }
 
     It 'adds a Reading This Report tab alongside the four assessment tabs when -ReadingGuideHtml is supplied' {
@@ -577,7 +628,8 @@ Describe 'Export-SAWDashboard' {
         $content = Get-Content -Path $path -Raw
         $content | Should -Match 'Reading This Report'
         $content | Should -Match 'id="pane-overview"'
-        $content | Should -Match 'id="pane-findings-roadmap"'
+        $content | Should -Match 'id="pane-plan-findings"'
+        $content | Should -Match 'id="section-findings-roadmap"'
         $content | Should -Match 'id="pane-user-journeys"'
         $content | Should -Match 'id="pane-policy-inventory"'
         $content | Should -Match 'id="pane-reading-guide"'
@@ -593,20 +645,24 @@ Describe 'Export-SAWDashboard' {
         # marker string should fall after its own pane's opening id and before the next pane's.
         $c = $script:DashboardContent
         $iOverview = $c.IndexOf('id="pane-overview"')
-        $iFindings = $c.IndexOf('id="pane-findings-roadmap"')
+        $iPlanFindings = $c.IndexOf('id="pane-plan-findings"')
+        $iImplementation = $c.IndexOf('id="section-implementation-plan"')
+        $iFindings = $c.IndexOf('id="section-findings-roadmap"')
         $iJourneys = $c.IndexOf('id="pane-user-journeys"')
         $iInventory = $c.IndexOf('id="pane-policy-inventory"')
 
         $iOverview | Should -BeGreaterThan -1
-        $iFindings | Should -BeGreaterThan $iOverview
+        $iPlanFindings | Should -BeGreaterThan $iOverview
+        $iImplementation | Should -BeGreaterThan $iPlanFindings
+        $iFindings | Should -BeGreaterThan $iImplementation
         $iJourneys | Should -BeGreaterThan $iFindings
         $iInventory | Should -BeGreaterThan $iJourneys
 
-        # Charts and the SOLL banner belong to Overview: between pane-overview and pane-findings-roadmap.
+        # Charts and the SOLL banner belong to Overview: before the combined Plan & Findings pane.
         $c.IndexOf('statusChart') | Should -BeGreaterThan $iOverview
-        $c.IndexOf('statusChart') | Should -BeLessThan $iFindings
+        $c.IndexOf('statusChart') | Should -BeLessThan $iPlanFindings
         $c.IndexOf('SOLL baseline') | Should -BeGreaterThan $iOverview
-        $c.IndexOf('SOLL baseline') | Should -BeLessThan $iFindings
+        $c.IndexOf('SOLL baseline') | Should -BeLessThan $iPlanFindings
 
         # Risk Findings & Recommendations belongs to the findings/roadmap pane.
         $c.IndexOf('Risk Findings &amp; Recommendations') | Should -BeGreaterThan $iFindings

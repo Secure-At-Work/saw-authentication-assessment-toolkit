@@ -327,6 +327,21 @@ Source: [how-to-mfa-registration-campaign](https://learn.microsoft.com/entra/ide
 (ms.date 2026-09-02, updated 2026-09-04) + [MC1469555](https://mc.merill.net/message/MC1469555).
 Verified 2026-09-09; AAGUID source verified 2026-09-11.
 
+**IMPLEMENTED 2026-09-27 - campaign state and profile assignments are evaluated per user.** The
+forecast now applies this eligibility table only when `state = default` and the campaign targets
+passkeys. For `state = enabled`, an assigned profile is sufficient; the Microsoft-managed AAGUID
+eligibility test is skipped. Live assessments expand the FIDO2 policy's `passkeyProfiles` and
+`includeTargets.allowedPasskeyProfiles`, resolve group targets through read-only Graph membership,
+and evaluate each user's assigned profiles independently. If a target or user ID cannot be
+resolved, that user's eligibility is reported as unknown rather than assumed. The FIDO2 inventory
+also labels each enforced AAGUID with its profile, passkey type (Synced / Device bound), and
+whether it is one of Microsoft's qualifying providers. Tests cover mixed per-user profiles,
+nonqualifying allow-lists, attestation, block-lists, and the Enabled-state bypass.
+
+Source for profile assignment shape: [FIDO2 target resource](https://learn.microsoft.com/graph/api/resources/passkeyauthenticationmethodtarget?view=graph-rest-1.0)
+and [registration campaign guidance](https://learn.microsoft.com/entra/identity/authentication/how-to-mfa-registration-campaign).
+Verified 2026-09-27.
+
 On the broken admin experience the forecast flags separately:
 
 > "If SSPR registration is enabled and administrators are included in the password reset policy for

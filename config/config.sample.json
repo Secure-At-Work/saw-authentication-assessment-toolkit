@@ -3,6 +3,10 @@
   "ClientId": "<app-registration-client-id>",
   "AuthMethod": "DeviceCode",
   "BreakGlassGroupId": "<group-guid>",
+  "SMSFreezePilot": {
+    "GroupName": "SAW-SMS-CurrentUsers-Allowed",
+    "ExceptionGroupName": "SAW-SMS-Exceptions"
+  },
   "ConditionalAccessBaselineRepo": "<path-or-url-to-CA-baseline>",
   "OutputPaths": {
     "Raw": "sampledata/raw",

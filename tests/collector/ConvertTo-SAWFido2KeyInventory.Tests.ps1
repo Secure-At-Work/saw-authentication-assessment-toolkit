@@ -194,6 +194,25 @@ Describe 'ConvertTo-SAWFido2KeyInventory' {
         $result.EnforcementSummary | Should -Match '1 below'
     }
 
+    It 'keeps per-profile AAGUID lists distinct and maps their passkey types and campaign eligibility' {
+        $raw = @{
+            state = 'enabled'
+            passkeyProfiles = @(
+                @{ id = 'sync-profile'; name = 'Synced providers'; passkeyTypes = 'synced'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4') } }
+                @{ id = 'key-profile'; name = 'Hardware keys'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('cb69481e-8ff7-4039-93ec-0a2729a154a8') } }
+            )
+        }
+
+        $result = $raw | ConvertTo-SAWFido2KeyInventory
+
+        $result.AllowedKeys.Count | Should -Be 2
+        ($result.AllowedKeys | Where-Object { $_.ProfileName -eq 'Synced providers' }).PasskeyType | Should -Be 'Synced'
+        ($result.AllowedKeys | Where-Object { $_.ProfileName -eq 'Hardware keys' }).PasskeyType | Should -Be 'Device bound'
+        ($result.AllowedKeys | Where-Object { $_.ProfileName -eq 'Synced providers' }).IsManagedCampaignQualifyingProvider | Should -BeTrue
+        ($result.AllowedKeys | Where-Object { $_.ProfileName -eq 'Hardware keys' }).IsManagedCampaignQualifyingProvider | Should -BeFalse
+        $result.ProfileTypeGuidance | Should -Match 'Microsoft Authenticator'
+    }
+
     It 'does not expose the allowed-keys array under the name "Keys" (collides with Hashtable''s own intrinsic member)' {
         $raw = @{
             state           = 'enabled'

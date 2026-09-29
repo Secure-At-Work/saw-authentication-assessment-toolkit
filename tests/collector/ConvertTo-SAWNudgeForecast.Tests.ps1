@@ -3,10 +3,10 @@ BeforeAll {
     . "$PSScriptRoot/../../src/collector/ConvertTo-SAWNudgeForecast.ps1"
 
     $script:Roster = @(
-        @{ UserPrincipalName = 'alice@c.com'; DisplayName = 'Alice'; IsAdmin = $true;  IsGuest = $false; MethodsRegistered = 'fido2, microsoftAuthenticatorPush' }
-        @{ UserPrincipalName = 'bob@c.com';   DisplayName = 'Bob';   IsAdmin = $false; IsGuest = $false; MethodsRegistered = 'sms' }
-        @{ UserPrincipalName = 'carol@c.com'; DisplayName = 'Carol'; IsAdmin = $false; IsGuest = $false; MethodsRegistered = 'microsoftAuthenticatorPush' }
-        @{ UserPrincipalName = 'dan@c.com';   DisplayName = 'Dan';   IsAdmin = $false; IsGuest = $true;  MethodsRegistered = 'sms' }
+        @{ UserId = 'user-1'; UserPrincipalName = 'alice@c.com'; DisplayName = 'Alice'; IsAdmin = $true;  IsGuest = $false; MethodsRegistered = 'fido2, microsoftAuthenticatorPush' }
+        @{ UserId = 'user-2'; UserPrincipalName = 'bob@c.com';   DisplayName = 'Bob';   IsAdmin = $false; IsGuest = $false; MethodsRegistered = 'sms' }
+        @{ UserId = 'user-3'; UserPrincipalName = 'carol@c.com'; DisplayName = 'Carol'; IsAdmin = $false; IsGuest = $false; MethodsRegistered = 'microsoftAuthenticatorPush' }
+        @{ UserId = 'user-4'; UserPrincipalName = 'dan@c.com';   DisplayName = 'Dan';   IsAdmin = $false; IsGuest = $true;  MethodsRegistered = 'sms' }
     )
 
     $script:RegistrationRaw = @{ value = @(
@@ -41,6 +41,19 @@ BeforeAll {
                     keyRestrictions                  = @{ isEnforced = $KeyRestrictionsEnforced; aaGuids = @($KeyRestrictionAaGuids) }
                 }
             )
+        }
+    }
+
+    function New-SAWTestProfileAssignments {
+        param([bool]$IsKnown = $true)
+        @{
+            IsKnown  = $IsKnown
+            ByUserId = @{
+                'user-1' = @('profile-1')
+                'user-2' = @('profile-1')
+                'user-3' = @('profile-1')
+                'user-4' = @('profile-1')
+            }
         }
     }
 }
@@ -90,7 +103,7 @@ Describe 'ConvertTo-SAWNudgeForecast' {
                 }
                 authenticationMethodConfigurations = @()
             }
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments (New-SAWTestProfileAssignments)
 
             $result.Summary.CampaignScopeUncertain | Should -BeTrue
             $result.Summary.CampaignScopeUncertainReason | Should -Be 'msft-managed-rollout'
@@ -113,33 +126,60 @@ Describe 'ConvertTo-SAWNudgeForecast' {
         # alongside it, still suppresses. See ConvertTo-SAWNudgeForecast.ps1's corrected block.
 
         It 'does NOT suppress the passkey campaign when attestation is enforced (now an eligible profile per MC1469555)' {
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -AttestationEnforced $true)
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -State 'default' -AttestationEnforced $true)
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
         It 'does NOT suppress the passkey campaign when attestation is enforced together with AAGUID key restrictions (attestation bypasses the key-restriction check)' {
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -AttestationEnforced $true -KeyRestrictionsEnforced $true)
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -State 'default' -AttestationEnforced $true -KeyRestrictionsEnforced $true)
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
         It 'suppresses the passkey campaign when AAGUID key restrictions are enforced with no qualifying provider AAGUID on the allow-list' {
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('11111111-1111-1111-1111-111111111111'))
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -State 'default' -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('11111111-1111-1111-1111-111111111111'))
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
             $result.Summary.PasskeyCampaignCount | Should -Be 0
             @($result.Summary.Suppressors | Where-Object { $_ -match 'qualifying passkey provider' }).Count | Should -BeGreaterThan 0
         }
 
+        It 'does not apply Microsoft-managed profile eligibility checks to an explicitly enabled campaign' {
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -State 'enabled' -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('11111111-1111-1111-1111-111111111111'))
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+            $result.Summary.PasskeyCampaignCount | Should -Be 2
+        }
+
+        It 'suppresses passkey nudges when FIDO2 is disabled' {
+            $policy = New-SAWTestNudgePolicy -State 'default'
+            $policy.authenticationMethodConfigurations[0].state = 'disabled'
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments (New-SAWTestProfileAssignments)
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
+            $result.Summary.PasskeyCampaignCount | Should -Be 0
+        }
+
+        It 'does not treat disabled FIDO2 as suppressing an Authenticator campaign' {
+            $policy = New-SAWTestNudgePolicy -Target 'microsoftAuthenticator'
+            $policy.authenticationMethodConfigurations[0].state = 'disabled'
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+            $result.Summary.AuthenticatorCampaignCount | Should -Be 1
+        }
+
         It 'does NOT suppress the passkey campaign when AAGUID key restrictions are enforced and the allow-list includes a qualifying provider AAGUID' {
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('de1e552d-db1d-4423-a619-566b625cdc84'))
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -State 'default' -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('de1e552d-db1d-4423-a619-566b625cdc84'))
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
         It 'does NOT suppress the passkey campaign when the allow-list includes a Windows Hello passkey AAGUID (Microsoft Entra passkey on Windows, the fourth qualifying provider)' {
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('08987058-cadc-4b81-b6e1-30de50dcbe96'))
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy (New-SAWTestNudgePolicy -State 'default' -KeyRestrictionsEnforced $true -KeyRestrictionAaGuids @('08987058-cadc-4b81-b6e1-30de50dcbe96'))
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
@@ -171,7 +211,7 @@ Describe 'ConvertTo-SAWNudgeForecast' {
                 }
             )
 
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments (New-SAWTestProfileAssignments)
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
@@ -189,25 +229,25 @@ Describe 'ConvertTo-SAWNudgeForecast' {
                 }
             )
 
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments (New-SAWTestProfileAssignments)
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
         }
 
         It 'suppresses the passkey campaign when a passkey profile enforces AAGUID key restrictions with no qualifying provider AAGUID and no attestation' {
-            $policy = New-SAWTestNudgePolicy
+            $policy = New-SAWTestNudgePolicy -State 'default'
             $policy.authenticationMethodConfigurations = @(
                 @{
                     id             = 'Fido2'
                     isSelfServiceRegistrationAllowed = $true
                     defaultPasskeyProfile = 'profile-1'
                     passkeyProfiles = @(
-                        @{ id = 'profile-1'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; aaGuids = @('11111111-1111-1111-1111-111111111111') } }
+                        @{ id = 'profile-1'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('11111111-1111-1111-1111-111111111111') } }
                     )
                 }
             )
 
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments (New-SAWTestProfileAssignments)
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeTrue
         }
@@ -228,9 +268,66 @@ Describe 'ConvertTo-SAWNudgeForecast' {
                 }
             )
 
-            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments (New-SAWTestProfileAssignments)
 
             $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+        }
+
+        It 'does not suppress a profile with a block-list containing only nonqualifying AAGUIDs' {
+            $policy = New-SAWTestNudgePolicy -State 'default'
+            $policy.authenticationMethodConfigurations = @(
+                @{
+                    id = 'Fido2'
+                    isSelfServiceRegistrationAllowed = $true
+                    passkeyProfiles = @(
+                        @{ id = 'profile-1'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; enforcementType = 'block'; aaGuids = @('11111111-1111-1111-1111-111111111111') } }
+                    )
+                }
+            )
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments (New-SAWTestProfileAssignments)
+
+            $result.Summary.PasskeyNudgeSuppressed | Should -BeFalse
+            $result.Summary.PasskeyCampaignCount | Should -Be 2
+        }
+
+        It 'evaluates the assigned profiles per user when a tenant has both eligible and ineligible profiles' {
+            $policy = New-SAWTestNudgePolicy -State 'default'
+            $policy.authenticationMethodConfigurations = @(
+                @{
+                    id = 'Fido2'
+                    isSelfServiceRegistrationAllowed = $true
+                    passkeyProfiles = @(
+                        @{ id = 'hardware-only'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('11111111-1111-1111-1111-111111111111') } }
+                        @{ id = 'synced-provider'; passkeyTypes = 'synced'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $true; enforcementType = 'allow'; aaGuids = @('ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4') } }
+                    )
+                }
+            )
+            $assignments = @{ IsKnown = $true; ByUserId = @{ 'user-1' = @('hardware-only'); 'user-2' = @('hardware-only'); 'user-3' = @('synced-provider'); 'user-4' = @('hardware-only') } }
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments $assignments
+
+            ($result.Users | Where-Object { $_.UserId -eq 'user-2' }).NudgePasskeyCampaign | Should -BeFalse
+            ($result.Users | Where-Object { $_.UserId -eq 'user-3' }).NudgePasskeyCampaign | Should -BeTrue
+            $result.Summary.PasskeyCampaignCount | Should -Be 1
+        }
+
+        It 'marks users uncertain when profile membership could not be resolved' {
+            $policy = New-SAWTestNudgePolicy -State 'default'
+            $policy.authenticationMethodConfigurations = @(
+                @{
+                    id = 'Fido2'
+                    isSelfServiceRegistrationAllowed = $true
+                    passkeyProfiles = @(
+                        @{ id = 'profile-1'; passkeyTypes = 'deviceBound'; attestationEnforcement = 'disabled'; keyRestrictions = @{ isEnforced = $false } }
+                    )
+                }
+            )
+
+            $result = ConvertTo-SAWNudgeForecast -Roster $script:Roster -RegistrationRaw $script:RegistrationRaw -AuthenticationMethodsPolicy $policy -PasskeyProfileAssignments @{ IsKnown = $false; ByUserId = @{} }
+
+            ($result.Users | Where-Object { $_.UserId -eq 'user-2' }).NudgePasskeyCampaignUncertain | Should -BeTrue
+            $result.Summary.PasskeyProfileEligibilityUnknownCount | Should -Be 2
         }
     }
 

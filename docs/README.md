@@ -7,6 +7,7 @@ For repository-level release notes, see [../CHANGELOG.md](../CHANGELOG.md).
 - [reading-the-report.md](reading-the-report.md) — what the assessment is, how to read the report/dashboard, and how to work from IST to SOLL. Written to also be handed to a customer alongside a report.
 - [passkey-platform-compatibility.md](passkey-platform-compatibility.md) — which OS/browser/app combinations actually support passkeys, and which don't. Useful for rollout planning independent of any specific tenant.
 - [ist-to-soll-summary.md](ist-to-soll-summary.md) — one-page IST-to-SOLL roadmap summary (the five phases + the workflow), condensed for standalone handoff to a customer without the rest of the report.
+- [sms-freeze-pilot-runbook.md](sms-freeze-pilot-runbook.md) — step-by-step implementation, approval, verification, monitoring, and rollback runbook for the SMS/Voice freeze pilot.
 - [powershell-coding-notes.md](powershell-coding-notes.md) — PowerShell/ConstrainedLanguage-mode gotchas specific to this codebase.
 - [blog-ist-to-soll-authentication.md](blog-ist-to-soll-authentication.md) — long-form public-facing post: how to inventory IST, how the pieces (registration campaign, TAP, CA, SSPR, admin two-gate) actually interact, the five-phase path to SOLL, and the SMS/Voice retirement worked through the whole framework as a concrete example. Published at [vansurksum.com](https://www.vansurksum.com/2026/08/14/from-ist-to-soll-a-field-guide-to-modernizing-entra-id-authentication/).
 

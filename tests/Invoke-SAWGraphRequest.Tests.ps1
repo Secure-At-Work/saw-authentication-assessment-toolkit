@@ -115,6 +115,22 @@ Describe 'Invoke-SAWGraphRequest' {
         }
     }
 
+    It 'passes a request body through for PATCH operations' {
+        $captured = $null
+        function Invoke-MgGraphRequest {
+            param($Method, $Uri, $Body, $Headers)
+            $script:captured = @{ Method = $Method; Uri = $Uri; Body = $Body; Headers = $Headers }
+            return @{ ok = $true }
+        }
+
+        $payload = @{ state = 'enabled'; includeTargets = @(@{ id = 'abc'; targetType = 'group' }) }
+        $result = Invoke-SAWGraphRequest -Method PATCH -Uri 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/VoiceAndPhone' -Body $payload
+
+        $result.ok | Should -Be $true
+        $script:captured.Method | Should -Be 'PATCH'
+        $script:captured.Body.state | Should -Be 'enabled'
+    }
+
     It 'does not add authorization guidance for an unrelated error (e.g. 404)' {
         function Invoke-MgGraphRequest {
             param($Method, $Uri)

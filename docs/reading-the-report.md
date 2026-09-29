@@ -46,13 +46,14 @@ The rest of this document walks through the dashboard, tab by tab.
 
 ## Reading the dashboard
 
-The dashboard is organized into five tabs across the top. Nothing is hidden - every tab is just a
-grouping of the same run's results, split so no single page becomes an unreadable scroll:
+The dashboard is organized into four primary tabs, plus **Reading This Report** when the guide is
+embedded. The implementation plan and risk findings share one destination, so the action sequence
+and the evidence behind it stay together:
 
 | Tab | What's on it | Use it when |
 |---|---|---|
 | **Overview** | Baseline banner, Microsoft deadlines, the Green/Yellow/Red/Grey headline numbers, charts, trend over time | You want the summary, or you're presenting to someone who won't read further |
-| **Findings & Roadmap** | The prioritized work plan, and every individual finding with its recommendation | You're deciding what to actually do, and in what order |
+| **Plan & Findings** | The implementation checklist, prioritized roadmap, and every open finding with its recommendation | You're deciding what to do, and in what order |
 | **User Journeys** | The four end-to-end user flows, and the per-user registration triage list | You're working out what real people will experience, or who to contact |
 | **Policy Inventory** | Authentication methods policy, FIDO2 key restrictions, Conditional Access policies, per-category detail | You're checking *why* something passed or failed, or doing a config review |
 | **Reading This Report** | This document, embedded in the dashboard itself | You're handing the file to someone who hasn't seen one before |
@@ -68,7 +69,7 @@ Right at the top: which SOLL baseline this run was measured against (e.g. *"hybr
 required"*), and whether it was auto-detected from the tenant's own configuration or set
 explicitly. If the tenant profile looks off, this is the first thing to check.
 
-### Upcoming Microsoft Deadlines
+### Microsoft timeline
 
 Microsoft is retiring/changing several authentication behaviors on fixed dates (e.g. SMS/Voice
 retirement, SSPR no longer accepting directory-sourced contact info). This section is not a
@@ -115,7 +116,12 @@ If this tenant has been assessed more than once, a chart plots Green/Yellow/Red/
 across every past run. This is the "are we actually making progress" view - useful for check-ins
 during a remediation project, not just the point-in-time snapshot.
 
-## Findings & Roadmap tab
+## Plan & Findings tab
+
+### Step-by-Step Implementation Plan
+
+The report's controlled-change checklist, including preparation, dry run, approval, verification,
+monitoring, and rollback/expansion gates. It is guidance only; the assessment remains read-only.
 
 ### Remediation Roadmap - the IST-to-SOLL work plan
 
@@ -157,13 +163,32 @@ populations, and different escape hatches:
 Each card expands to the **named users** behind the count, so the list can go straight into a
 comms tool rather than being re-derived by hand.
 
-**If a warning appears saying the campaign "currently reaches nobody,"** take it seriously: it
-means the tenant has attestation enforced, AAGUID key restrictions, the default passkey profile
-restricted to device-bound-only or synced-only, blocked self-service registration, or a blocking
-Conditional Access policy - all of which Microsoft documents as suppressing the nudge. The
-campaign will look correctly configured in the admin center and quietly prompt no one. Note this
-does *not* stop the 2026-09-01 automatic enablement, which Microsoft drives independently of your
-campaign.
+**Microsoft-managed and Enabled campaigns use different passkey eligibility rules.** In the
+Microsoft-managed state (`default`), eligibility is evaluated against each user's assigned
+passkey profiles. A user needs at least one eligible profile: unrestricted, Synced-only,
+Device-bound-only, a qualifying AAGUID allow-list, or Device bound with attestation enforced.
+Allow-lists need an AAGUID for iCloud Keychain or Google Password Manager in a Synced profile, or
+Microsoft Authenticator / Microsoft Entra passkey on Windows in a Device bound profile. An
+AAGUID-only list of other providers is not eligible unless attestation is enforced. AAGUID block
+lists don't disqualify a profile for this check. In the **Enabled** state, this Microsoft-managed
+profile eligibility check does not apply; any assigned passkey profile can qualify.
+
+If the report says the campaign "currently reaches nobody," check the reason shown: it can mean
+FIDO2 or self-service passkey registration is disabled, a blocking Conditional Access policy
+applies, or no assessed user has an eligible profile for a Microsoft-managed campaign. This does
+*not* stop Microsoft's separate automatic passkey enablement, which has its own population and
+timeline.
+
+If the passkey card says some profile assignments are unknown, the report could not resolve one or
+more FIDO2 target groups from Graph. The list includes confirmed eligible users; the count also
+shows a potential upper bound that includes users whose assigned profile could not be verified.
+Campaign include/exclude groups are a separate scope check and may still make the campaign's
+overall user count uncertain.
+
+The **FIDO2 Key Restrictions** inventory identifies the source profile for each enforced AAGUID,
+maps recognized providers to **Synced** or **Device bound**, and marks providers Microsoft lists
+as eligible for the managed-campaign nudge. For mixed provider allow-lists, configure profile types
+that support each included provider family.
 
 **Treat the counts as a planning estimate, not a guarantee.** Two limits are stated on the section
 itself and are worth repeating: the passkey nudge is evaluated per *device and browser*, not per
@@ -347,7 +372,7 @@ self-corrects, because Entra keeps nudging them toward a second method. After th
 self-correcting, while the underlying exposure (no way to complete MFA from any device that doesn't
 carry the credential) stays exactly the same. The mitigation is to get these users a *portable*
 backup method deliberately - a synced passkey, or a passkey in Microsoft Authenticator - rather
-than assuming the prompts will handle it. The Upcoming Microsoft Deadlines section carries this
+than assuming the prompts will handle it. The Microsoft timeline section carries this
 date along with the affected count for this tenant.
 
 A user may also carry a **"SMS/Voice-Only MFA"** badge - always inside the Hunt bucket, since
@@ -565,7 +590,7 @@ to work on right now.
    even if the blocked item itself looks technically easy to just switch on.
 3. Use the **Security Info Registration Triage** list to drive the actual user-facing work in
    phases 2-4: who to nudge, who to clean up.
-4. Check **Upcoming Microsoft Deadlines** against your own timeline - some of Microsoft's own
+4. Check **Microsoft timeline** against your own timeline - some of Microsoft's own
    changes will do part of phase 3/4's job automatically (e.g. the automatic passkey enablement
    for SMS/Voice users), which can shift what's worth prioritizing manually versus what's coming
    either way.

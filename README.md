@@ -6,9 +6,13 @@ For a user-facing summary of repository updates, see [CHANGELOG.md](CHANGELOG.md
 
 See [specs/AI_Development_Specification_v1.0.md](specs/AI_Development_Specification_v1.0.md) for the full specification, or [docs/reading-the-report.md](docs/reading-the-report.md) for a plain-language walkthrough of what the assessment is and how to read its output (suitable to hand to a customer alongside a report). [docs/passkey-platform-compatibility.md](docs/passkey-platform-compatibility.md) is a standalone reference on which OS/browser/app combinations actually support passkeys, useful when planning a rollout regardless of whether you're using this toolkit. [docs/references.md](docs/references.md) is the source register: every rule and every substantive claim mapped to the Microsoft (or vendor) documentation backing it, with last-verified dates - the thing to reach for when a customer asks "says who?" For the full narrative version of why this toolkit checks what it checks, see the published blog post: ["From IST to SOLL: A Field Guide to Modernizing Entra ID Authentication"](https://www.vansurksum.com/2026/08/14/from-ist-to-soll-a-field-guide-to-modernizing-entra-id-authentication/) (also in this repo as [docs/blog-ist-to-soll-authentication.md](docs/blog-ist-to-soll-authentication.md)).
 
-## Hard constraint
+## Assessment safety boundary
 
-This toolkit is **read-only**. It must never create, modify, enable/disable, or delete any tenant object, policy, or authentication method registration.
+The assessment and reporting workflow is **read-only**. It must never create, modify,
+enable/disable, or delete any tenant object, policy, or authentication method registration.
+The separately documented SMS/Voice freeze pilot is an explicit exception: its `-DryRun`
+mode is safe by default, while `-Apply` requires deliberate operator selection and changes
+only the pilot security group and VoiceAndPhone policy described in its runbook.
 
 ## Repository structure
 
@@ -50,7 +54,7 @@ This repository follows [Semantic Versioning](https://semver.org/) - the current
 format. Since this toolkit ships by cloning the repo rather than a package feed, "release" means:
 entries accumulate under `## [Unreleased]` in the changelog as changes land, and get moved into a
 new dated `## [x.y.z] - YYYY-MM-DD` section (with `VERSION` bumped and a matching tag pushed) at a
-deliberate checkpoint - not on every commit. Bump the **major** version for a change that alters
+deliberate checkpoint. Bump the **major** version for a change that alters
 existing rule behavior or report output in a way a past customer engagement would read
 differently (e.g. a rule's Red/Yellow/Green logic changes), **minor** for new rules, collectors, or
 dashboard features, and **patch** for corrections, documentation fixes, and caveat updates that
@@ -66,8 +70,8 @@ the live-Graph path has been run successfully against a real tenant. There are c
 families), every one mapped to the Microsoft Learn article backing it in
 [docs/references.md](docs/references.md). Beyond the rules themselves, the dashboard has:
 
-- **Four top-level assessment tabs** (Overview, Findings & Roadmap, User Journeys, Policy
-  Inventory) plus a fifth "Reading This Report" tab, and Secure At Work branding (dark mode,
+- **Four top-level assessment tabs** (Overview, Plan & Findings, User Journeys, Policy
+  Inventory) plus a fifth "Reading This Report" tab, and Secure At Work branding (normal/dark color modes,
   print styles, WCAG AA-checked status colors)
 - A full **Conditional Access** and **Authentication Methods** policy inventory (every policy's
   name, state, targets, and grant controls in plain language)
@@ -207,6 +211,41 @@ already:
 pwsh -File src/Invoke-SAWAssessment.ps1 -Verbose
 # or, to have it install the one required module for you if missing:
 pwsh -File src/Invoke-SAWAssessment.ps1 -InstallMissingModules -Verbose
+```
+
+Pilot-safe SMS freeze (staged rollout of current-state restriction): build the allowlist from
+users who currently have SMS/voice MFA registered, review the dry-run plan, and only then
+apply the tenant policy to an Entra security group. This is intentionally conservative and is
+intended for a pilot before a wider tenant move away from SMS. Follow the complete [SMS/Voice
+freeze pilot runbook](docs/sms-freeze-pilot-runbook.md) for prerequisites, approval gates,
+verification, monitoring, and rollback:
+
+You can override the default names with a local config file or by passing explicit parameters:
+
+```json
+{
+  "SMSFreezePilot": {
+    "GroupName": "SAW-SMS-CurrentUsers-Allowed",
+    "ExceptionGroupName": "SAW-SMS-Exceptions"
+  }
+}
+```
+
+Then:
+
+```powershell
+pwsh -File src/Invoke-SAWSmsFreezePilot.ps1 -ConfigPath ./config/config.json -DryRun -Verbose
+
+# Or override on the command line explicitly
+pwsh -File src/Invoke-SAWSmsFreezePilot.ps1 -DryRun -GroupName "Pilot-CurrentUsers-Allowed" -ExceptionGroupName "Pilot-Exceptions" -Verbose
+```
+
+```powershell
+# Preview only (safe default)
+pwsh -File src/Invoke-SAWSmsFreezePilot.ps1 -DryRun -Verbose
+
+# Real pilot apply (creates or reuses a security group and patches the VoiceAndPhone method)
+pwsh -File src/Invoke-SAWSmsFreezePilot.ps1 -Apply -CreateGroupIfMissing -GroupName "SAW-SMS-CurrentUsers-Allowed" -ExceptionGroupName "SAW-SMS-Exceptions" -Verbose
 ```
 
 `Connect-MgGraph` opens its normal interactive/device-code sign-in - that part is yours to

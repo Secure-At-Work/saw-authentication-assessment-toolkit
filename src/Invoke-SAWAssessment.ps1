@@ -196,6 +196,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedTemporaryAccessPass.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeys.ps1')
+. (Join-Path $PSScriptRoot 'collector' 'Get-SAWPasskeyProfileAssignments.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWPasskeyPolicyEffective.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWNormalizedPasskeys.ps1')
 . (Join-Path $PSScriptRoot 'collector' 'ConvertTo-SAWFido2KeyInventory.ps1')
@@ -469,7 +470,8 @@ $securityInfoRegistrationBlocked = @($normalized | Where-Object {
 # method-usage pull is the wider of the two when it's enabled, so prefer it.
 $nudgeSignInLogs = if ($MethodUsageDaysBack -gt 0) { $methodUsageSignInsRaw } else { $signInsRaw }
 $nudgeSignInWindow = if ($MethodUsageDaysBack -gt 0) { $MethodUsageDaysBack } else { 7 }
-$nudgeForecast = ConvertTo-SAWNudgeForecast -Roster $userRoster -RegistrationRaw $registrationRaw -AuthenticationMethodsPolicy $authRaw -AdminSsprEnabled ([bool]$authorizationPolicyRaw.allowedToUseSSPR) -SecurityInfoRegistrationBlockedByCa $securityInfoRegistrationBlocked -SignInLogs $nudgeSignInLogs -SignInWindowDays $nudgeSignInWindow -Verbose:$VerbosePreference
+$passkeyProfileAssignments = Get-SAWPasskeyProfileAssignments -Fido2Configuration $passkeysRaw -Roster $userRoster -UseSampleData:$UseSampleData -Verbose:$VerbosePreference
+$nudgeForecast = ConvertTo-SAWNudgeForecast -Roster $userRoster -RegistrationRaw $registrationRaw -AuthenticationMethodsPolicy $authRaw -PasskeyProfileAssignments $passkeyProfileAssignments -AdminSsprEnabled ([bool]$authorizationPolicyRaw.allowedToUseSSPR) -SecurityInfoRegistrationBlockedByCa $securityInfoRegistrationBlocked -SignInLogs $nudgeSignInLogs -SignInWindowDays $nudgeSignInWindow -Verbose:$VerbosePreference
 
 Write-Verbose 'Invoke-SAWAssessment: generating dashboard'
 # Embeds docs/reading-the-report.md as a "Reading This Report" tab so the explainer travels

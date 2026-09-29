@@ -185,6 +185,7 @@ function ConvertTo-SAWUserRegistrationRoster {
             }
 
             $roster += @{
+                UserId                     = [string]$user.id
                 UserPrincipalName          = $user.userPrincipalName
                 DisplayName                = $user.userDisplayName
                 IsAdmin                    = [bool]$user.isAdmin

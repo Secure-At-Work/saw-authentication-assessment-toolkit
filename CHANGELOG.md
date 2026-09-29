@@ -6,6 +6,21 @@ All notable changes to this repository are documented in this file. The format i
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-29
+
+### Added
+- Added the [SMS/Voice freeze pilot runbook](docs/sms-freeze-pilot-runbook.md), covering prerequisites, naming, baseline review, dry-run approval, pilot apply, verification, monitoring, rollback, and staged expansion.
+- Added per-user passkey-profile assignment resolution for campaign forecasting and profile-specific AAGUID inventory, including Synced/Device bound guidance and Microsoft-managed qualifying-provider labels.
+- Added a standalone [dashboard layout mockup](docs/dashboard-mockup.html) to preview the compact report hierarchy before production rollout.
+
+### Changed
+- Reorganized the generated dashboard into a compact masthead, tenant/run/baseline context, live status band, top-priority findings, tabular Microsoft timeline, and four task-focused tabs. The implementation checklist now shares Plan & Findings; existing charts, findings, journeys, policy inventories, and the optional reading guide remain available.
+- Rebalanced the Trend Over Time chart and run history into equal-height, responsive panels, combined each run and baseline into one readable table column, and capped x-axis labels for long tenant histories.
+
+### Fixed
+- Applied MC1469555's AAGUID eligibility check only to Microsoft-managed passkey campaigns; explicitly Enabled campaigns now use their documented any-assigned-profile rule. The managed-state forecast now evaluates each user's assigned profiles, honors attestation and profile type, ignores AAGUID block-lists for nudge eligibility, and marks unresolved group assignments as uncertain instead of guessing.
+- Replaced the unintended black-and-white dashboard option with the requested normal/dark color-theme toggle; both modes retain the report's color palette and chart colors adapt when switched.
+
 ## [1.0.1] - 2026-09-11
 
 ### Fixed

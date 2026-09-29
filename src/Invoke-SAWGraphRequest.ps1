@@ -60,12 +60,20 @@ function Invoke-SAWGraphRequest {
         [Parameter(Mandatory)]
         [string]$Uri,
 
-        [hashtable]$Headers
+        [hashtable]$Headers,
+
+        [object]$Body
     )
 
     try {
         if ($Headers -and $Headers.Count -gt 0) {
+            if ($null -ne $Body) {
+                return Invoke-MgGraphRequest -Method $Method -Uri $Uri -Headers $Headers -Body $Body
+            }
             return Invoke-MgGraphRequest -Method $Method -Uri $Uri -Headers $Headers
+        }
+        if ($null -ne $Body) {
+            return Invoke-MgGraphRequest -Method $Method -Uri $Uri -Body $Body
         }
         return Invoke-MgGraphRequest -Method $Method -Uri $Uri
     }

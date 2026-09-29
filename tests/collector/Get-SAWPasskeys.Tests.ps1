@@ -34,7 +34,7 @@ Describe 'Get-SAWPasskeys' {
             Get-SAWPasskeys | Out-Null
 
             Should -Invoke Invoke-MgGraphRequest -Times 1 -ParameterFilter {
-                $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/Fido2'
+                $Method -eq 'GET' -and $Uri -eq 'https://graph.microsoft.com/v1.0/policies/authenticationMethodsPolicy/authenticationMethodConfigurations/Fido2?$expand=passkeyProfiles,includeTargets'
             }
         }
     }

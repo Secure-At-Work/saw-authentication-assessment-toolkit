@@ -40,10 +40,10 @@ function ConvertTo-SAWNudgeForecast {
           passkey can still be nudged on a different machine. This forecast therefore predicts
           *eligibility*, and deliberately does not claim a user with a passkey will never see a
           prompt.
-        - Campaign include/exclude targets are group object IDs. Resolving them would need a
-          group-membership call per group, which this toolkit avoids. When the campaign is scoped
-          to specific groups rather than all users, per-user predictions are marked
-          scope-uncertain rather than silently assumed to apply to everyone.
+                - Registration-campaign include/exclude targets are group object IDs. Their membership is
+                    not resolved here, so campaign scope remains uncertain when the campaign itself is
+                    scoped to groups. FIDO2 passkey-profile targets are resolved separately by
+                    Get-SAWPasskeyProfileAssignments because per-user profile eligibility depends on them.
         - Several documented suppressors are invisible to Graph (terms-of-use screens, Conditional
           Access custom controls, SSO sessions, Linux clients, Authenticator campaigns on mobile).
           These make the forecast an over-estimate, which is the safer direction for planning a
@@ -108,6 +108,10 @@ function ConvertTo-SAWNudgeForecast {
     .PARAMETER SignInWindowDays
         The window the supplied sign-in logs were collected over, used only for labelling the
         result honestly. Capped for display purposes at Entra's own 30-day maximum retention.
+    .PARAMETER PasskeyProfileAssignments
+        Optional result from Get-SAWPasskeyProfileAssignments. When supplied, profile eligibility
+        is evaluated against each user's assigned passkey profiles rather than a tenant-wide
+        aggregate.
     .OUTPUTS
         Hashtable with Users (the enriched roster) and Summary (tenant-level counts, suppressors,
         and caveats).
@@ -130,7 +134,9 @@ function ConvertTo-SAWNudgeForecast {
 
         [object]$SignInLogs = $null,
 
-        [int]$SignInWindowDays = 0
+        [int]$SignInWindowDays = 0,
+
+        [object]$PasskeyProfileAssignments = $null
     )
 
     # Build the set of users who did at least one interactive sign-in inside the collected window.
@@ -198,7 +204,7 @@ function ConvertTo-SAWNudgeForecast {
     }
     $scopeUncertain = $null -ne $scopeUncertainReason
 
-    # Documented tenant-wide suppressors of the campaign nudge.
+    # Documented suppressors that apply campaign-wide, independent of a user's profile assignment.
     # Resolved rather than read directly: isAttestationEnforced/keyRestrictions are deprecated in
     # favour of passkeyProfiles (removal October 2027). Note the asymmetry with PASS001/PASS002 -
     # there, an unknown value must not become "not enforced" because that invents a finding. Here,
@@ -230,11 +236,47 @@ function ConvertTo-SAWNudgeForecast {
         '9ddd1817-af5a-4672-a2b9-3e3dd95000a9'  # Windows Hello VBS Hardware Authenticator (Microsoft Entra passkey on Windows)
         '6028b017-b1d4-4c02-b4b3-afcdafc96bb2'  # Windows Hello Software Authenticator (Microsoft Entra passkey on Windows)
     )
+    $syncedQualifyingAaguids = @(
+        'ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4'
+        'dd4ec289-e01d-41c9-bb89-70fa845d4bf2'
+        'fbfc3007-154e-4ecc-8c0b-6e020557d7bd'
+    )
+    $deviceBoundQualifyingAaguids = @($knownQualifyingPasskeyProviderAaguids | Where-Object { $_ -notin $syncedQualifyingAaguids })
+    $passkeyProfiles = @(@($fido2.passkeyProfiles) | Where-Object { $_ })
+    $profileById = @{}
+    foreach ($profile in $passkeyProfiles) {
+        if ($profile.id) { $profileById[[string]$profile.id] = $profile }
+    }
+
+    $getManagedProfileEligibility = {
+        param([object]$Profile)
+
+        $profileTypes = (@($Profile.passkeyTypes) -join ',').ToLowerInvariant()
+        $supportsDeviceBound = $profileTypes -match 'devicebound'
+        $supportsSynced = $profileTypes -match 'synced'
+        if (-not $supportsDeviceBound -and -not $supportsSynced) { return $null }
+
+        $attestationEnforced = $Profile.attestationEnforcement -eq 'registrationOnly'
+        if ($attestationEnforced) { return $supportsDeviceBound }
+
+        if ($Profile.keyRestrictions.isEnforced -ne $true) { return $true }
+        if ($Profile.keyRestrictions.enforcementType -eq 'block') { return $true }
+        if ($Profile.keyRestrictions.enforcementType -ne 'allow') { return $null }
+
+        $allowedAaguids = @($Profile.keyRestrictions.aaGuids) | ForEach-Object { $_.ToString().ToLowerInvariant() }
+        return [bool](
+            ($supportsDeviceBound -and @($allowedAaguids | Where-Object { $_ -in $deviceBoundQualifyingAaguids }).Count -gt 0) -or
+            ($supportsSynced -and @($allowedAaguids | Where-Object { $_ -in $syncedQualifyingAaguids }).Count -gt 0)
+        )
+    }
 
     $suppressors = @()
-    if ($fido2Effective.IsKnown -and
+    $legacyManagedProfileSuppressed = $false
+    if ($campaignState -eq 'default' -and $campaignTargetsPasskey -and $passkeyProfiles.Count -eq 0 -and
+        $fido2Effective.IsKnown -and
         $fido2Effective.KeyRestrictionsEnforced -eq $true -and
-        $fido2Effective.AttestationEnforced -ne $true) {
+        $fido2Effective.AttestationEnforced -ne $true -and
+        $fido2Effective.KeyRestrictions.enforcementType -eq 'allow') {
 
         $configuredAaGuids = @($fido2Effective.KeyRestrictions.aaGuids) | Where-Object { $_ }
         $hasQualifyingAaguid = @($configuredAaGuids | Where-Object {
@@ -242,20 +284,22 @@ function ConvertTo-SAWNudgeForecast {
         }).Count -gt 0
 
         if (-not $hasQualifyingAaguid) {
+            $legacyManagedProfileSuppressed = $true
             $suppressors += 'FIDO2 AAGUID key restrictions are enforced (PASS002) without attestation, and the configured allow-list doesn''t contain an AAGUID for any of Microsoft''s four qualifying passkey providers (iCloud Keychain, Google Password Manager, Microsoft Authenticator, Microsoft Entra passkey on Windows) - NOT eligible for the Microsoft managed campaign nudge per MC1469555.'
         }
     }
-    if ($fido2 -and -not $fido2Effective.IsKnown) {
-        $suppressors += "FIDO2 attestation and key-restriction state couldn't be read, so eligibility for the Microsoft managed campaign nudge is unknown rather than ruled out"
-    }
-    if ($fido2 -and $fido2.isSelfServiceRegistrationAllowed -eq $false) {
+    if ($campaignTargetsPasskey -and $fido2 -and $fido2.isSelfServiceRegistrationAllowed -eq $false) {
         $suppressors += 'FIDO2 self-service registration is off, which is a prerequisite for a passkey campaign'
     }
     if ($SecurityInfoRegistrationBlockedByCa) {
         $suppressors += 'A Conditional Access policy gates security info registration, and Microsoft documents that a nudge does not appear for users it blocks'
     }
 
-    $passkeyNudgeSuppressed = $suppressors.Count -gt 0
+    $globalNudgeSuppressed = $suppressors.Count -gt 0
+    if ($campaignTargetsPasskey -and $fido2 -and $fido2.state -eq 'disabled') {
+        $suppressors += 'Passkey (FIDO2) is disabled in the authentication methods policy, so users cannot complete a passkey registration campaign'
+        $globalNudgeSuppressed = $true
+    }
 
     # isSsprEnabled / isSsprRegistered live on the raw registration data, not the roster.
     $ssprByUpn = @{}
@@ -284,12 +328,53 @@ function ConvertTo-SAWNudgeForecast {
 
         $reasons = @()
 
+        $passkeyProfileEligibility = $true
+        if ($campaignActive -and $campaignTargetsPasskey -and $passkeyProfiles.Count -gt 0) {
+            if (-not $PasskeyProfileAssignments -or -not $PasskeyProfileAssignments.ByUserId) {
+                $passkeyProfileEligibility = $null
+            }
+            else {
+                $assignedProfileIds = @($PasskeyProfileAssignments.ByUserId[[string]$user.UserId])
+                $assignedStatuses = foreach ($profileId in $assignedProfileIds) {
+                    if ($profileById.ContainsKey([string]$profileId)) {
+                        if ($campaignState -eq 'default') { & $getManagedProfileEligibility $profileById[[string]$profileId] }
+                        else { $true }
+                    }
+                    else { $null }
+                }
+
+                if (@($assignedStatuses | Where-Object { $_ -eq $true }).Count -gt 0) {
+                    $passkeyProfileEligibility = $true
+                }
+                elseif (@($assignedStatuses | Where-Object { $null -eq $_ }).Count -gt 0 -or -not $PasskeyProfileAssignments.IsKnown) {
+                    $passkeyProfileEligibility = $null
+                }
+                else {
+                    $passkeyProfileEligibility = $false
+                }
+            }
+        }
+        elseif ($legacyManagedProfileSuppressed) {
+            $passkeyProfileEligibility = $false
+        }
+
         # 1 + 2: registration campaign. Guests are never nudged for passkeys (documented), but are
         # nudged for Authenticator.
         $nudgePasskey = $false
-        if ($campaignActive -and $campaignTargetsPasskey -and -not $passkeyNudgeSuppressed -and -not $user.IsGuest -and -not $hasPasskey) {
-            $nudgePasskey = $true
+        $nudgePasskeyUncertain = $false
+        if ($campaignActive -and $campaignTargetsPasskey -and -not $globalNudgeSuppressed -and -not $user.IsGuest -and -not $hasPasskey) {
+            if ($passkeyProfileEligibility -eq $true) {
+                $nudgePasskey = $true
+            }
+            elseif ($null -eq $passkeyProfileEligibility) {
+                $nudgePasskeyUncertain = $true
+            }
+        }
+        if ($nudgePasskey) {
             $reasons += 'Registration campaign targeting passkey, and no passkey registered'
+        }
+        elseif ($nudgePasskeyUncertain) {
+            $reasons += 'Passkey campaign may apply, but assigned passkey profile eligibility could not be determined'
         }
 
         $nudgeAuthenticator = $false
@@ -325,6 +410,8 @@ function ConvertTo-SAWNudgeForecast {
         $copy = @{}
         foreach ($key in $user.Keys) { $copy[$key] = $user[$key] }
         $copy['NudgePasskeyCampaign'] = $nudgePasskey
+        $copy['NudgePasskeyCampaignUncertain'] = $nudgePasskeyUncertain
+        $copy['PasskeyProfileEligibility'] = if ($null -eq $passkeyProfileEligibility) { 'Unknown' } elseif ($passkeyProfileEligibility) { 'Eligible' } else { 'Not eligible' }
         $copy['NudgeAuthenticatorCampaign'] = $nudgeAuthenticator
         $copy['NudgeSsprRegistration'] = $nudgeSspr
         $copy['NudgeAutoPasskeySept2026'] = $nudgeAutoSept2026
@@ -351,11 +438,24 @@ function ConvertTo-SAWNudgeForecast {
 
     $enriched = @($enriched)
 
+    $profileIneligibleCount = @($enriched | Where-Object { $_.PasskeyProfileEligibility -eq 'Not eligible' }).Count
+    $profileEligibilityUnknownCount = @($enriched | Where-Object { $_.NudgePasskeyCampaignUncertain }).Count
+    if ($passkeyProfiles.Count -gt 0 -and $PasskeyProfileAssignments -and $PasskeyProfileAssignments.IsKnown -and $campaignActive -and $campaignTargetsPasskey -and
+        $profileIneligibleCount -gt 0 -and @($enriched | Where-Object { $_.PasskeyProfileEligibility -eq 'Eligible' }).Count -eq 0 -and
+        $profileEligibilityUnknownCount -eq 0) {
+        $suppressors += 'None of the assessed users is assigned a passkey profile that qualifies for the Microsoft managed campaign nudge'
+    }
+    $passkeyNudgeSuppressed = $suppressors.Count -gt 0
+    $passkeyCampaignPotentialCount = @($enriched | Where-Object { $_.NudgePasskeyCampaign -or $_.NudgePasskeyCampaignUncertain }).Count
+
     $caveats = @(
         'The passkey nudge is evaluated per device-and-browser combination, not per account - a user who already has a passkey can still be nudged on a device where they do not. These counts are therefore a floor for passkey nudges, not a ceiling.'
         'Several documented suppressors are not visible through Graph (terms-of-use screens, Conditional Access custom controls, existing SSO sessions, Linux clients, Authenticator campaigns on mobile). The forecast over-estimates rather than under-estimates, which is the safer direction when planning a communication.'
         'This forecasts WHO is eligible, not WHEN they will see it. A nudge is UI shown during an interactive sign-in that completes MFA, and Microsoft defines non-interactive sign-ins as requiring no authentication factor and never interrupting the session - so token refreshes, SSO on a joined device, and opening a second Office app on an already-signed-in device cannot show one. A user who rarely does an interactive browser sign-in may stay eligible for weeks without ever being prompted, which is why slow-moving registration coverage is often a reach problem rather than a user-compliance problem.'
     )
+    if ($passkeyProfiles.Count -gt 0 -and (-not $PasskeyProfileAssignments -or -not $PasskeyProfileAssignments.IsKnown)) {
+        $caveats += 'Passkey profile assignments could not be resolved for every user. The passkey campaign list includes only users with a confirmed eligible assigned profile; unknown assignments are counted separately as potential nudges.'
+    }
     if ($scopeUncertainReason -eq 'msft-managed-rollout') {
         $caveats += "The registration campaign is Microsoft managed (state: default) with no custom include/exclude targets - same rollout uncertainty as the 'Rollout timing not confirmed' badge on the Registration Campaign row in the Policy Inventory tab: this tenant may still be on the prior default, mid-transition, or already on Microsoft's current recommended settings (targeting all MFA-capable users), and timing is Microsoft's batch schedule, not something this toolkit can observe. Campaign-driven predictions below assume the broader population (all MFA-capable users) as the safer upper bound."
     }
@@ -389,6 +489,9 @@ function ConvertTo-SAWNudgeForecast {
             CampaignScopeUncertain       = $scopeUncertain
             CampaignScopeUncertainReason = $scopeUncertainReason
             PasskeyNudgeSuppressed       = $passkeyNudgeSuppressed
+            PasskeyProfileIneligibleCount = $profileIneligibleCount
+            PasskeyProfileEligibilityUnknownCount = $profileEligibilityUnknownCount
+            PasskeyCampaignPotentialCount = $passkeyCampaignPotentialCount
             Suppressors                  = @($suppressors)
             Caveats                      = @($caveats)
             TotalUsers                   = $enriched.Count

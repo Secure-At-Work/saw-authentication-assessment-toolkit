@@ -6,6 +6,7 @@ Pester 5.x unit tests, mirroring `src/`:
 tests/
   Test-SAWPowerShellVersion.Tests.ps1
   Invoke-SAWGraphRequest.Tests.ps1
+  Invoke-SAWSmsFreezePilot.Tests.ps1
   Connect-SAWGraph.Tests.ps1
   collector/
     Get-SAWAuthenticationMethods.Tests.ps1
@@ -14,6 +15,7 @@ tests/
     Get-SAWRegistration.Tests.ps1
     Get-SAWTemporaryAccessPass.Tests.ps1
     Get-SAWPasskeys.Tests.ps1
+    Get-SAWPasskeyProfileAssignments.Tests.ps1
     Get-SAWSignInLogs.Tests.ps1
     Get-SAWAuditLogs.Tests.ps1
     Get-SAWTenantProfile.Tests.ps1
